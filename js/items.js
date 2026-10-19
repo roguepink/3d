@@ -51,7 +51,7 @@ export const CATALOG = {
     build(it) { const g = new THREE.Group(), w = it.w, h = it.h, down = it.opts.down ?? .8; g.add(box(w + 0.06, 0.07, 0.07, std(WHITE, .5), 0, h / 2 - 0.035, 0.045));
       const sh = Math.max(0.05, h * down); const s = new THREE.Mesh(new THREE.PlaneGeometry(w, sh), fabric(it, w, sh)); s.position.set(0, h / 2 - 0.07 - sh / 2, 0.075); s.castShadow = true; s.receiveShadow = true; g.add(s);
       g.add(box(w, 0.03, 0.02, std(WHITE, .5), 0, h / 2 - 0.07 - sh, 0.075)); return g; } },
-  shade: { name: 'シェード(布を たたみ上げる)', emoji: '🪭', cat: '窓まわり', kind: 'wall', size: [1.7, 1.9, 0.1], color: '#d8cdb9', fabric: 'linen', opts: { down: 0.7 }, words: ['シェード', 'ローマンシェード', 'プレーンシェード'], params: [['down', '下ろし具合', 0, 1]],
+  shade: { name: 'シェード', emoji: '🪭', cat: '窓まわり', kind: 'wall', size: [1.7, 1.9, 0.1], color: '#d8cdb9', fabric: 'linen', opts: { down: 0.7 }, words: ['シェード', 'ローマンシェード', 'プレーンシェード'], params: [['down', '下ろし具合', 0, 1]],
     build(it) { const g = new THREE.Group(), w = it.w, h = it.h, down = it.opts.down ?? .7; g.add(box(w + 0.06, 0.06, 0.08, std(WHITE, .5), 0, h / 2 - 0.03, 0.05));
       const mat = fabric(it, w, h); const sh = Math.max(0.08, h * down), flat = Math.max(0, sh - 0.25); if (flat > 0.02) { const p = new THREE.Mesh(new THREE.PlaneGeometry(w, flat), mat); p.position.set(0, h / 2 - 0.06 - flat / 2, 0.09); p.castShadow = true; p.receiveShadow = true; g.add(p); }
       const folds = 3 + Math.round((1 - down) * 4); const fh = (sh - flat) / folds; for (let i = 0; i < folds; i++) { const f = box(w, fh * 0.95, 0.03 + i * 0.012, mat, 0, h / 2 - 0.06 - flat - fh * (i + 0.5), 0.09 + (0.03 + i * 0.012) / 2); g.add(f); } return g; } },

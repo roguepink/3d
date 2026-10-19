@@ -13,7 +13,7 @@ export class Scene3D {
     const s = this.scene = new THREE.Scene();
     this.camera = new THREE.PerspectiveCamera(70, 1, 0.05, 200); this.camera.position.set(0, 1.5, 0);
     this.orbitCam = new THREE.PerspectiveCamera(50, 1, 0.1, 500);
-    this.orbit = new OrbitControls(this.orbitCam, canvas); this.orbit.enabled = false; this.orbit.enableDamping = true; this.orbit.maxPolarAngle = Math.PI / 2 - 0.02;
+    this.orbit = new OrbitControls(this.orbitCam, canvas); this.orbit.enabled = false; this.orbit.enableDamping = true; this.orbit.maxPolarAngle = Math.PI / 2 - 0.02; this.orbit.minDistance = 1.5; this.orbit.maxDistance = 80;
     // 環境(反射用)
     const pmrem = new THREE.PMREMGenerator(r); this.envTex = pmrem.fromScene(new RoomEnvironment(), 0.04).texture; s.environment = this.envTex; s.environmentIntensity = 0.55;
     // 空・地面

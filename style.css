@@ -107,3 +107,4 @@ body:not(.ready) .start-grid { opacity:.45; pointer-events:none; }
 body.ready #loadingNote { display:none; }
 .tb.on { background:var(--accent); color:#1a1a1a; } .tb.on small { color:#1a1a1a; }
 @media (max-height:700px) { .tb { width:50px; height:50px; font-size:19px; } #tools { gap:6px; } }
+@media (max-width:380px) { #top { gap:4px; padding-left:6px; padding-right:6px; } #modes { padding:3px; gap:2px; } #modes .mode { font-size:13px; padding:7px 6px; } .ib { width:40px; height:40px; font-size:19px; } }

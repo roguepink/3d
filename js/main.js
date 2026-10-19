@@ -63,7 +63,7 @@ class App {
     $('#mInstall').onclick = async () => { if (!this._install) return; this._install.prompt(); const r = await this._install.userChoice; if (r.outcome === 'accepted') { $('#mInstall').classList.add('hidden'); this.toast('ホーム画面に入れました'); } this._install = null; };
     $('#mShare').onclick = async () => { const url = location.origin + location.pathname; if (navigator.share) { try { await navigator.share({ title: 'おへや3D', text: '写真から部屋を3Dにして歩き回れるアプリ', url }); } catch {} } else { await navigator.clipboard.writeText(url); this.toast('アドレスをコピーしました'); } };
     $('#sDemo').onclick = () => { this.load(demoProject()); $('#start').classList.add('hidden'); this.firstHelp(); };
-    $('#sNew').onclick = () => { $('#start').classList.add('hidden'); this.openNewRoom(); };
+    $('#sNew').onclick = async () => { if (this.project && this.project.rooms.length) { const r = await this.dialog('<p>いまの家に部屋を足しますか? それとも新しく始めますか?</p>', [{ label: 'やめる', value: null }, { label: '新しく始める', value: 'new' }, { label: 'いまの家に足す', value: 'add', primary: true }]); if (!r) return; if (r === 'new') { this.load(this.blankProject()); } } $('#start').classList.add('hidden'); this.openNewRoom(); };
     $('#sPhoto').onclick = () => { $('#start').classList.add('hidden'); if (!this.project) this.load(this.blankProject()); openPhotoWizard(this); };
     $('#sContinue').onclick = async () => { const p = await loadProject('current'); if (p) { this.load(p); $('#start').classList.add('hidden'); } else this.toast('保存はまだありません'); };
     $('#nrMake').onclick = () => this.makeNewRoom();
