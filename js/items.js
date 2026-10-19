@@ -24,21 +24,21 @@ function pleatedPanel(pw, h, pitch, amp, mat) {
 
 function light(group, color, intensity, x, y, z, opts = {}) {
   const l = new THREE.PointLight(color, intensity, opts.distance || 0, 2); l.position.set(x, y, z); l.castShadow = false;
-  l.shadow.mapSize.set(512, 512); l.shadow.bias = -0.002; l.shadow.radius = 4; group.add(l); group.userData.lights = (group.userData.lights || []).concat(l); return l;
+  l.shadow.mapSize.set(256, 256); l.shadow.bias = -0.002; l.shadow.radius = 4; group.add(l); group.userData.lights = (group.userData.lights || []).concat(l); return l;
 }
 const WARM = '#ffe2b8', DAYLIGHT = '#fff6e8';
 
 // ---- 各アイテム ----
 export const CATALOG = {
-  curtain: { name: 'カーテン', emoji: '🪟', cat: '窓まわり', kind: 'wall', size: [1.8, 2.0, 0.15], color: '#d9cdb8', fabric: 'plain', opts: { open: 0.3, lace: true },
-    words: ['カーテン', 'ドレープ', 'かーてん'], params: [['open', '開き具合', 0, 1], ['lace', 'レースも', 'bool']],
+  curtain: { name: 'カーテン', emoji: '🪟', cat: '窓まわり', kind: 'wall', size: [1.8, 2.0, 0.15], color: '#d9cdb8', fabric: 'plain', opts: { open: 0.3, lace: true, pleat: 1.5 },
+    words: ['カーテン', 'ドレープ', 'かーてん'], params: [['open', '開き具合', 0, 1], ['pleat', 'ヒダの多さ', 1, 2.5], ['lace', 'レースも', 'bool']],
     build(it) {
       const g = new THREE.Group(), w = it.w, h = it.h, open = it.opts.open ?? .3;
       const rail = box(w + 0.1, 0.03, 0.03, std(METAL, .35, .7), 0, h / 2 + 0.02, 0.1); g.add(rail);
       const br1 = box(0.02, 0.02, 0.1, std(METAL, .35, .7), -w / 2, h / 2 + 0.02, 0.05); g.add(br1); const br2 = br1.clone(); br2.position.x = w / 2; g.add(br2);
-      const pw = Math.max(0.12, (w / 2) * (1 - open * 0.88)), pitch = 0.12 * (1 - open * 0.55), mat = fabric(it, pw, h);
-      const L = pleatedPanel(pw, h - 0.03, pitch, 0.045, mat); L.position.set(-w / 2 + pw / 2, -0.015, 0.1); g.add(L);
-      const R = pleatedPanel(pw, h - 0.03, pitch, 0.045, mat); R.position.set(w / 2 - pw / 2, -0.015, 0.1); g.add(R);
+      const pleat = it.opts.pleat ?? 1.5; const pw = Math.max(0.12, (w / 2) * (1 - open * 0.88)), pitch = (0.18 / pleat) * (1 - open * 0.55), mat = fabric(it, pw, h);
+      const amp = 0.03 + 0.012 * pleat; const L = pleatedPanel(pw, h - 0.03, pitch, amp, mat); L.position.set(-w / 2 + pw / 2, -0.015, 0.1); g.add(L);
+      const R = pleatedPanel(pw, h - 0.03, pitch, amp, mat); R.position.set(w / 2 - pw / 2, -0.015, 0.1); g.add(R);
       if (it.opts.lace) { const lm = surfaceMaterial('fabric', { lib: 'lace' }, { w, h }); const lace = pleatedPanel(w - 0.04, h - 0.04, 0.1, 0.02, lm); lace.position.set(0, -0.02, 0.05); lace.castShadow = false; g.add(lace); const rail2 = rail.clone(); rail2.position.z = 0.05; g.add(rail2); }
       return g;
     } },
@@ -59,10 +59,10 @@ export const CATALOG = {
       const pitch = 0.08, n = Math.max(1, Math.floor(w / pitch)); const im = new THREE.InstancedMesh(new THREE.BoxGeometry(0.089, h - 0.07, 0.002), fabric(it, 0.09, h), n); im.castShadow = true; im.receiveShadow = true;
       const o = new THREE.Object3D(); for (let i = 0; i < n; i++) { o.position.set(-w / 2 + pitch / 2 + i * pitch, -0.035, 0.05); o.rotation.set(0, tilt, 0); o.updateMatrix(); im.setMatrixAt(i, o.matrix); } g.add(im); return g; } },
 
-  ceilingLight: { name: 'シーリングライト', emoji: '💡', cat: '照明', kind: 'ceiling', size: [0.55, 0.1, 0.55], color: '#ffffff', opts: { on: true, power: 1 }, words: ['シーリングライト', 'シーリング', '天井の電気', '天井の照明', '天井灯', '電気', 'ライト', '照明'], params: [['power', '明るさ', 0.2, 2], ['on', '点ける', 'bool']],
+  ceilingLight: { name: 'シーリングライト', emoji: '💡', cat: '照明', kind: 'ceiling', size: [0.55, 0.1, 0.55], color: '#ffffff', opts: { on: true, power: 1 }, words: ['シーリングライト', 'シーリング', '天井の電気', '天井の照明', '天井灯', '電気', 'ライト', '照明'], params: [['power', '明るさ', 0.2, 2], ['warm', '電球色(オレンジ)', 'bool'], ['on', '点ける', 'bool']],
     build(it) { const g = new THREE.Group(), r = it.w / 2, on = it.opts.on !== false; g.add(cyl(r * .3, r * .3, 0.03, std(WHITE, .5), 0, -0.015, 0));
-      const shade = new THREE.Mesh(new THREE.CylinderGeometry(r * .92, r, 0.09, 40), on ? emissive('#fff8ea', 1.6) : std('#e9e9e6', .6)); shade.position.y = -0.075; g.add(shade);
-      const rim = cyl(r, r, 0.02, std(WHITE, .4), 0, -0.11, 0, 40); g.add(rim); if (on) { const l = light(g, DAYLIGHT, 9 * (it.opts.power ?? 1), 0, -0.4, 0); l.castShadow = true; } return g; } },
+      const shade = new THREE.Mesh(new THREE.CylinderGeometry(r * .92, r, 0.09, 40), on ? emissive(it.opts.warm ? '#ffe9c4' : '#fff8ea', 1.1) : std('#e9e9e6', .6)); shade.position.y = -0.075; g.add(shade);
+      const rim = cyl(r, r, 0.02, std(WHITE, .4), 0, -0.11, 0, 40); g.add(rim); if (on) { const l = light(g, it.opts.warm ? WARM : DAYLIGHT, 8 * (it.opts.power ?? 1), 0, -0.55, 0); l.castShadow = true; } return g; } },
   pendant: { name: 'ペンダントライト', emoji: '🔆', cat: '照明', kind: 'ceiling', size: [0.35, 0.8, 0.35], color: '#3b3b3f', opts: { on: true, drop: 0.7, power: 1 }, words: ['ペンダント', 'ペンダントライト', '吊り下げ', 'つりさげ'], params: [['drop', '下げる長さ', 0.3, 1.5], ['power', '明るさ', 0.2, 2], ['on', '点ける', 'bool']],
     build(it) { const g = new THREE.Group(), r = it.w / 2, drop = it.opts.drop ?? .7, on = it.opts.on !== false; g.add(cyl(0.05, 0.05, 0.02, std(it.color, .5, .3), 0, -0.01, 0)); g.add(cyl(0.003, 0.003, drop, std(BLACK, .6), 0, -drop / 2, 0, 8));
       const shade = new THREE.Mesh(new THREE.CylinderGeometry(r * .45, r, r * 0.9, 32, 1, true), std(it.color, .45, .2, { side: THREE.DoubleSide })); shade.position.y = -drop - r * .45; g.add(shade);

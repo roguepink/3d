@@ -55,6 +55,7 @@ export function parseCommand(raw, app) {
 
   // 使い方・モード・撮影
   if (/使い方|ヘルプ|どうやって|何ができる/.test(t)) return { action: 'help' };
+  if (/^(もどして|戻して|取り消し|とりけし|やっぱりやめ|アンドゥ|さっきのをやめ|元に戻)/.test(t)) return { action: 'undo' };
   if (/間取り/.test(t)) return { action: 'mode', mode: 'plan' };
   if (/全体を見|上から見|俯瞰|ドールハウス/.test(t)) return { action: 'mode', mode: 'orbit' };
   if (/歩き(たい|回|まわ)|歩く|中に入/.test(t)) return { action: 'mode', mode: 'walk' };
@@ -103,7 +104,7 @@ export function parseCommand(raw, app) {
     if (/(上げ|あげ|巻き上|巻いて)/.test(t) && ['roller', 'blind'].includes(type)) adj.down = /全部|すべて/.test(t) ? 0 : 0.3; if (/(下ろ|おろ|下げ|さげ)/.test(t) && ['roller', 'blind'].includes(type)) adj.down = 1;
     if (/(つけ|点け|点灯|オン)/.test(t) && c.cat === '照明' && app && app.project.items.some(i => i.type === type)) adj.on = true;
     let scale = null; if (/もっと大き|大きく|おおきく|広げ/.test(t)) scale = 1.25; if (/もっと小さ|小さく|ちいさく|縮め/.test(t)) scale = 0.8;
-    if (/明るく|あかるく/.test(t) && c.cat === '照明') adj.power = 1.6; if (/暗く|くらく/.test(t) && c.cat === '照明') adj.power = 0.5;
+    if (/電球色|オレンジの光|あたたかい光|暖かい光/.test(t) && c.cat === '照明') adj.warm = true; if (/昼白色|白い光|白っぽい光/.test(t) && c.cat === '照明') adj.warm = false; if (/明るく|あかるく/.test(t) && c.cat === '照明') adj.power = 1.6; if (/暗く|くらく/.test(t) && c.cat === '照明') adj.power = 0.5;
     const typePos = Math.max(...c.words.filter(w => t.includes(w)).map(w => t.indexOf(w) + w.length));
     const colorAfter = color && t.indexOf(color.name) >= typePos; const fabricAfter = fabric && t.indexOf(fabric === 'lace' ? 'レース' : '') >= typePos;
     const changeVerb = /(にして|に変え|にかえ|変更|直し|なおし|したい|色を|色に|にする)/.test(t);

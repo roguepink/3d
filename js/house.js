@@ -81,6 +81,8 @@ export function buildRoom(room, project, group) {
     // 外側の壁(厚みの外の面。外から見たときだけ見える)
     const outer = new THREE.Mesh(wallGeometry(L, H, holes), new THREE.MeshStandardMaterial({ color: '#e8e4dc', roughness: .9, side: THREE.BackSide }));
     outer.position.copy(wallPoint(room, side, 0, 0, -WALL_T)); outer.rotation.y = f.rotY; outer.receiveShadow = true; roomGroup.add(outer);
+    // 廻り縁(天井との境の細い縁)
+    const crown = box(L, 0.035, 0.02, matWood); crown.castShadow = false; crown.position.copy(wallPoint(room, side, L / 2, H - 0.0175, 0.01)); crown.rotation.y = f.rotY; roomGroup.add(crown);
     // 巾木(ドアのところは切る)
     const doors = holes.filter(h => h.op.type !== 'window').sort((a, b) => a.u - b.u);
     let u0 = 0; const segs = [];
@@ -98,6 +100,9 @@ export function buildRoom(room, project, group) {
         const jt = box(h.w + 0.06, 0.03, jd, matFrame); jt.position.set(0, h.sill + h.h + 0.015, -WALL_T / 2 + 0.01); og.add(jt);
         if (isWin) { const js = box(h.w + 0.06, 0.03, jd + 0.03, matFrame); js.position.set(0, h.sill - 0.015, -WALL_T / 2 + 0.02); og.add(js); }
       }
+      // 部屋側の枠(ケーシング)
+      { const cw = 0.055, cd = 0.014; const cl = box(cw, h.h + (isWin ? cw * 2 : cw), cd, matFrame); cl.position.set(-h.w / 2 - cw / 2, h.sill + h.h / 2 + (isWin ? 0 : cw / 2), cd / 2); og.add(cl); const cr = cl.clone(); cr.position.x = h.w / 2 + cw / 2; og.add(cr);
+        const ct = box(h.w + cw * 2, cw, cd, matFrame); ct.position.set(0, h.sill + h.h + cw / 2, cd / 2); og.add(ct); if (isWin) { const cb = box(h.w + cw * 2, cw, cd * 2.2, matFrame); cb.position.set(0, h.sill - cw / 2, cd); og.add(cb); } }
       if (isWin) {
         const glass = new THREE.Mesh(new THREE.PlaneGeometry(h.w, h.h), matGlass); glass.position.set(0, h.sill + h.h / 2, -WALL_T / 2); og.add(glass);
         glass.userData = { kind: 'window', roomId: room.id, side, openingId: o.id }; pick.push(glass);

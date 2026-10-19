@@ -208,7 +208,7 @@ export function surfaceMaterial(kind, spec, dims = {}, assets = {}) {
   let mat;
   if (spec.photo && assets[spec.photo]) {
     const t = textureFromDataUrl(spec.photo, assets[spec.photo].dataUrl); t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping; t.repeat.set(1, 1);
-    mat = new THREE.MeshStandardMaterial({ map: t, roughness: .85, metalness: 0 });
+    mat = new THREE.MeshStandardMaterial({ map: t, roughness: .85, metalness: 0, emissive: '#ffffff', emissiveMap: t, emissiveIntensity: .35 });
   } else if (spec.user && assets[spec.user]) {
     const t = textureFromDataUrl(spec.user, assets[spec.user].dataUrl); const s = spec.size || assets[spec.user].size || .5;
     t.repeat.set((dims.w || 1) / s, (dims.h || 1) / s);
