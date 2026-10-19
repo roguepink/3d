@@ -61,6 +61,9 @@ export function parseCommand(raw, app) {
   if (/^(もどして|戻して|取り消し|とりけし|やっぱりやめ|アンドゥ|さっきのをやめ|元に戻|ひとつ前)/.test(t)) return { action: 'undo' };
   if (/一覧|リスト|寸法を(出|教え|見せ)|サイズを(出|教え|見せ)/.test(t)) return { action: 'list' };
   if (/ぐるっと|一周|ぐるり|見回して|まわして見/.test(t)) return { action: 'spin' };
+  if (/(標準|ふつう|普通)の(見え方|画角|視点)|見え方を(もどし|戻し)/.test(t)) return { action: 'zoom', reset: true };
+  if (/(もっと)?(広く|ひろく|ワイド|引いて|広角|遠く)(見|に|して|した)?/.test(t) && !/床|壁|部屋を広|カーテン|窓/.test(t)) return { action: 'zoom', k: 1 / 1.3 };
+  if (/(アップ|寄って|よって|ズーム|拡大|近く)(に|して|で)?/.test(t) && !/シャンデリア|ライト|電気/.test(t)) return { action: 'zoom', k: 1.3 };
   if (/間取り/.test(t)) return { action: 'mode', mode: 'plan' };
   if (/全体を見|上から見|俯瞰|ドールハウス/.test(t)) return { action: 'mode', mode: 'orbit' };
   if (/歩き(たい|回|まわ)|歩く|中に入/.test(t)) return { action: 'mode', mode: 'walk' };

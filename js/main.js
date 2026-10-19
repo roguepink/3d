@@ -21,7 +21,8 @@ class App {
     this.canvas = $('#gl'); this.s3 = new Scene3D(this.canvas);
     this.project = null; this.selectedId = null; this.pin = null; this.mode = 'walk'; this.dirty = false; this.itemGroups = new Map(); this.currentRoomId = null;
     this.walk = new WalkControls(this.s3.camera, this.canvas, { canWalk: p => this.project ? walkable(p, this.project.rooms) : true, onTap: (x, y, e) => this.onTap(x, y, e), joyEl: $('#joy'), knobEl: $('#joyKnob'),
-      hitTest: (x, y) => { const h = this.hitAt(x, y); return h && h.itemId ? { itemId: h.itemId, selected: h.itemId === this.selectedId } : null; }, onDragItem: (ph, e, h) => this.dragItem(ph, e, h) });
+      hitTest: (x, y) => { const h = this.hitAt(x, y); return h && h.itemId ? { itemId: h.itemId, selected: h.itemId === this.selectedId } : null; }, onDragItem: (ph, e, h) => this.dragItem(ph, e, h),
+      onZoom: (k, step, pinch) => { if (step) { this.setZoom(this.s3.zoom * k); return; } if (pinch) { if (!pinch.z0) pinch.z0 = this.s3.zoom; this.setZoom(pinch.z0 * k, true); } else this.zoomLabel(true); } });
     this.plan = new PlanEditor(this, $('#planCanvas'));
     this.selHelper = new THREE.Box3Helper(new THREE.Box3(), 0xffcf4d); this.selHelper.visible = false; this.s3.helperGroup.add(this.selHelper);
     this.pinMesh = new THREE.Mesh(new THREE.RingGeometry(0.06, 0.09, 24), new THREE.MeshBasicMaterial({ color: 0xffcf4d, side: THREE.DoubleSide, depthTest: false })); this.pinMesh.visible = false; this.pinMesh.renderOrder = 10; this.s3.helperGroup.add(this.pinMesh);
@@ -44,6 +45,7 @@ class App {
     $('#btnMaterial').onclick = () => this.openSurfaces();
     $('#btnDayNight').onclick = () => this.setDaytime({ day: 'evening', evening: 'night', night: 'day' }[this.project.settings.daytime || (this.project.settings.night ? 'night' : 'day')]);
     $('#btnShot').onclick = () => this.shot();
+    $('#zoomIn').onclick = () => this.setZoom(this.s3.zoom * 1.25); $('#zoomOut').onclick = () => this.setZoom(this.s3.zoom / 1.25); $('#zoomReset').onclick = () => this.setZoom(1); this.zoomLabel();
     $('#btnSend').onclick = () => this.runCommand($('#cmd').value);
     $('#cmd').addEventListener('keydown', e => { if (e.key === 'Enter') { this.runCommand($('#cmd').value); $('#cmd').blur(); } });
     $('#btnMic').onclick = () => this.mic();
@@ -132,6 +134,8 @@ class App {
   }
   fitOrbit() { const b = houseBounds(this.project ? this.project.rooms : []); const cx = (b.minX + b.maxX) / 2, cz = (b.minZ + b.maxZ) / 2, size = Math.max(b.maxX - b.minX, b.maxZ - b.minZ, 3); this.s3.orbitCam.position.set(cx + size * 0.25, size * 1.15 + 2, cz + size * 1.0); this.s3.orbit.target.set(cx, 0.5, cz); this.s3.orbit.update(); }
   setNight(on, silent) { this.setDaytime(on ? 'night' : 'day', silent); }
+  setZoom(z, quiet) { const v = this.s3.setZoom(z); this.zoomLabel(); if (!quiet) { clearTimeout(this._zt); } return v; }
+  zoomLabel(fade) { const z = this.s3.zoom; const txt = Math.abs(z - 1) < 0.03 ? '標準' : z > 1 ? `アップ ×${z.toFixed(1)}` : `広く ×${z.toFixed(2)}`; $('#zoomReset').textContent = txt; $('#zoomReset').classList.toggle('on', Math.abs(z - 1) >= 0.03); }
   setDaytime(mode, silent) { this.project.settings.daytime = mode; this.project.settings.night = mode === 'night'; this.s3.setDaytime(mode); $('#btnDayNight').innerHTML = { day: '☀️<small>昼</small>', evening: '🌇<small>夕方</small>', night: '🌙<small>夜</small>' }[mode]; if (!silent) { this.toast({ day: '昼にしました', evening: '夕方にしました。西日が入ります', night: '夜にしました。照明の雰囲気が分かります' }[mode]); this.touched(); } }
 
   // ---------- 毎フレーム ----------
@@ -330,6 +334,7 @@ class App {
       case 'roomSize': { const room = this.currentRoom(); if (!room) return; this.snapshot(); const g = MODULES[this.module()].half; const conv = v => { if (!v) return v; const k = v / g; const onGrid = Math.abs(k - Math.round(k)) * g < 0.006; return onGrid ? innerOf(v) : v; }; cmd = { ...cmd, w: conv(cmd.w), d: conv(cmd.d) }; if (cmd.w || cmd.d) { if (!isRect(room)) { this.toast('この部屋は四角ではないので、間取りで角を動かして広さを変えてください', 4000); return; } resizeRect(room, cmd.w || room.w, cmd.d || room.d); } if (cmd.h) room.h = cmd.h; this.plan.clampOpenings(room); for (const it of this.project.items) if (it.roomId === room.id) { it.x = Math.min(room.x + room.w - 0.1, it.x); it.z = Math.min(room.z + room.d - 0.1, it.z); if (catalogEntry(it.type).kind === 'ceiling') it.y = room.h; } this.plan.fixTwins(); this.reload(); this.toast(`${room.name}:内法 ${mm(room.w)}×${mm(room.d)}mm(芯々 ${mm(shinShin(room.w))}×${mm(shinShin(room.d))})・天井 ${mm(room.h)}mm`, 4000); return; }
       case 'shot': this.shot(); return;
       case 'undo': this.undo(); return;
+      case 'zoom': { if (cmd.reset) this.setZoom(1); else this.setZoom(this.s3.zoom * (cmd.k || 1)); this.toast(cmd.reset ? '標準の見え方にしました' : cmd.k > 1 ? '寄りました(アップ)' : '広く見えるようにしました'); return; }
       case 'redo': this.redo(); return;
       case 'spin': this.setMode('walk'); this.spin = 14; this.toast('ゆっくり一周します(14秒)'); return;
       case 'list': this.listItems(); return;

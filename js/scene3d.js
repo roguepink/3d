@@ -11,7 +11,7 @@ export class Scene3D {
     r.shadowMap.enabled = true; r.shadowMap.type = THREE.PCFSoftShadowMap;
     this.quality = 'normal'; this.applyQuality();
     const s = this.scene = new THREE.Scene();
-    this.camera = new THREE.PerspectiveCamera(70, 1, 0.05, 200); this.camera.position.set(0, 1.5, 0);
+    this.camera = new THREE.PerspectiveCamera(70, 1, 0.05, 200); this.camera.position.set(0, 1.5, 0); this.zoom = parseFloat(localStorage.getItem('oheya-zoom') || '1') || 1;
     this.orbitCam = new THREE.PerspectiveCamera(50, 1, 0.1, 500);
     this.orbit = new OrbitControls(this.orbitCam, canvas); this.orbit.enabled = false; this.orbit.enableDamping = true; this.orbit.maxPolarAngle = Math.PI / 2 - 0.02; this.orbit.minDistance = 1.5; this.orbit.maxDistance = 80;
     // 環境(反射用)
@@ -45,7 +45,10 @@ export class Scene3D {
     this.renderer.setPixelRatio(scale); this.renderer.shadowMap.enabled = this.quality !== 'low';
     this.scene && this.scene.traverse(o => { if (o.material) o.material.needsUpdate = true; });
   }
-  resize() { const w = this.canvas.clientWidth || window.innerWidth, h = this.canvas.clientHeight || window.innerHeight; this.renderer.setSize(w, h, false); for (const c of [this.camera, this.orbitCam]) { c.aspect = w / h; c.updateProjectionMatrix(); } }
+  resize() { const w = this.canvas.clientWidth || window.innerWidth, h = this.canvas.clientHeight || window.innerHeight; this.renderer.setSize(w, h, false); for (const c of [this.camera, this.orbitCam]) { c.aspect = w / h; c.updateProjectionMatrix(); } this.applyFov(); }
+  // 基準の画角:縦画面は横62°(人の目で部屋を見渡した感じ)、横画面は縦70°。zoom 1 が標準、2 でアップ、0.6 で広く
+  applyFov() { const a = this.camera.aspect || 1; let v0; if (a < 1) { const h0 = 62 * Math.PI / 180; v0 = 2 * Math.atan(Math.tan(h0 / 2) / a); } else v0 = 70 * Math.PI / 180; const v = 2 * Math.atan(Math.tan(v0 / 2) / this.zoom); this.camera.fov = Math.min(118, Math.max(12, v * 180 / Math.PI)); this.camera.updateProjectionMatrix(); }
+  setZoom(z) { this.zoom = Math.min(3, Math.max(0.55, z)); try { localStorage.setItem('oheya-zoom', String(Math.round(this.zoom * 100) / 100)); } catch {} this.applyFov(); return this.zoom; }
   setDaytime(mode) {
     const u = this.sky.material.uniforms; this.daytime = mode;
     if (mode === 'evening') { u.top.value.set('#4a5f9a'); u.bottom.value.set('#f0a060'); this.sun.color.set('#ffb070'); this.sun.intensity = 1.8; this.hemi.intensity = 0.45; this.hemi.color.set('#f6c9a0'); this.ambient.intensity = 0.1; this.scene.environmentIntensity = 0.35; this.ground.material.color.set('#6f8a55'); this.renderer.toneMappingExposure = 1.0; this.scene.fog.color.set('#f0b080'); this.sunLow = true; this.updateSunPos(); return; }
