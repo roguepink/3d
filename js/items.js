@@ -12,7 +12,7 @@ function box(w, h, d, mat, x = 0, y = 0, z = 0) { const m = new THREE.Mesh(new T
 function cyl(rt, rb, h, mat, x = 0, y = 0, z = 0, seg = 24) { const m = new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, h, seg), mat); m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true; return m; }
 function sph(r, mat, x = 0, y = 0, z = 0) { const m = new THREE.Mesh(new THREE.SphereGeometry(r, 16, 12), mat); m.position.set(x, y, z); m.castShadow = true; return m; }
 function emissive(color, intensity = 2) { return new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: intensity, roughness: .4 }); }
-function fabric(item, w, h) { return surfaceMaterial('fabric', { lib: item.fabric || 'plain', color: item.color || '#e8e2d6' }, { w, h }, item._assets || {}); }
+function fabric(item, w, h) { if (item.userTex && item._assets && item._assets[item.userTex]) return surfaceMaterial('fabric', { user: item.userTex, size: item.texSize || 0.5 }, { w, h }, item._assets); return surfaceMaterial('fabric', { lib: item.fabric || 'plain', color: item.color || '#e8e2d6' }, { w, h }, item._assets || {}); }
 
 // ひだのあるカーテンの布
 function pleatedPanel(pw, h, pitch, amp, mat) {
