@@ -287,3 +287,32 @@ function fixOpeningsAfterEdit(room, at, delta) {
 export function translateRoom(room, dx, dz) { for (const p of room.poly) { p[0] += dx; p[1] += dz; } for (const part of room.parts || []) { if (part.type === 'wall') { part.x1 += dx; part.x2 += dx; part.z1 += dz; part.z2 += dz; } else { part.x += dx; part.z += dz; } } syncBounds(room); }
 // 四角い部屋の広さを変える(左上の角は固定)
 export function resizeRect(room, w, d) { room.poly = rectPoly(room.x, room.z, w, d); syncBounds(room); room.openings = room.openings.filter(o => { const L = edgeFrame(room, o.edge).L; if (o.u + o.w > L - 0.05) o.u = Math.max(0.05, L - o.w - 0.05); return o.u >= 0 && o.w < L; }); }
+
+// ---------- モジュール(尺 910 / メーター 1000)と寸法の表示 ----------
+// 部屋の多角形は「内法(うちのり)」。壁の中心(芯)は内法から WALL_T/2 外側。芯々 = 内法 + WALL_T。
+export const MODULES = {
+  shaku: { name: '尺モジュール', grid: 0.91, half: 0.455, note: '910mm(3尺)の芯々グリッド。1間=1,820mm' },
+  meter: { name: 'メーターモジュール', grid: 1.0, half: 0.5, note: '1,000mmの芯々グリッド。廊下や階段がゆったり' },
+};
+// 部屋のひな型(芯々 mm)。帖数は 不動産表示の基準(1畳=1.62㎡)で内法面積から
+export const ROOM_PRESETS = {
+  shaku: [ ['4.5畳', 2730, 2730], ['6畳', 2730, 3640], ['8畳', 3640, 3640], ['10畳', 3640, 4550], ['12畳', 3640, 5460], ['16畳', 4550, 5460], ['20畳', 5460, 5460], ['廊下', 910, 3640], ['トイレ', 910, 1820], ['洗面', 1820, 1820] ],
+  meter: [ ['3,000×3,000', 3000, 3000], ['3,000×3,500', 3000, 3500], ['3,000×4,000', 3000, 4000], ['3,500×4,000', 3500, 4000], ['4,000×4,000', 4000, 4000], ['4,000×5,000', 4000, 5000], ['4,500×5,000', 4500, 5000], ['5,000×6,000', 5000, 6000], ['廊下', 1000, 4000], ['トイレ', 1000, 2000] ],
+};
+export const JO_M2 = 1.62; // 1畳(帖)あたりの面積(不動産の表示規約の基準)
+export function mm(v) { return Math.round(v * 1000).toLocaleString('ja-JP'); }
+export function mmRaw(v) { return Math.round(v * 1000); }
+export function joOf(areaM2) { return (areaM2 / JO_M2).toFixed(1); }
+// 帖数は 壁芯(へきしん)面積 ≒ 内法面積 + 周囲の長さ×壁厚/2 で出す(不動産の表示と同じ考え方)
+export function wallCenterArea(room) { let per = 0; const p = room.poly; for (let i = 0; i < p.length; i++) { const a = p[i], b = p[(i + 1) % p.length]; per += Math.hypot(b[0] - a[0], b[1] - a[1]); } return Math.abs(polyArea(p)) + per * WALL_T / 2 + 4 * (WALL_T / 2) ** 2; }
+export function roomJo(room) { return joOf(wallCenterArea(room)); }
+export function shinShin(inner) { return inner + WALL_T; }
+export function innerOf(shin) { return shin - WALL_T; }
+// 吸いつき:候補のどれかに近ければそこへ(近くなければそのまま)
+export function snapTo(v, candidates, tol) { let best = v, bd = tol; for (const c of candidates) { const d = Math.abs(c - v); if (d < bd) { bd = d; best = c; } } return best; }
+// 内法の座標が乗るべき線:芯グリッド(k*g − 0.06) の両側 → k*g と k*g − WALL_T
+export function gridCandidates(v, grid, span = 2) { const k = Math.round(v / grid); const out = []; for (let i = -span; i <= span; i++) { out.push((k + i) * grid, (k + i) * grid - WALL_T); } return out; }
+// 部屋の壁の内側の面(縦の壁→x、横の壁→z)
+export function wallFaces(room) { const xs = [], zs = []; for (let e = 0; e < room.poly.length; e++) { const f = edgeFrame(room, e); if (Math.abs(f.along.x) < 0.05) xs.push(f.A[0]); if (Math.abs(f.along.z) < 0.05) zs.push(f.A[1]); } return { xs, zs }; }
+// 角度の吸いつき(壁の向きに対して 0/90/180/270°)
+export function snapAngle(a, base, tolDeg = 6) { const t = tolDeg * Math.PI / 180; for (let k = -4; k <= 4; k++) { const c = base + k * Math.PI / 2; let d = a - c; d = Math.atan2(Math.sin(d), Math.cos(d)); if (Math.abs(d) < t) return c; } return a; }

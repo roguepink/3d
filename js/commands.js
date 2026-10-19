@@ -57,7 +57,8 @@ export function parseCommand(raw, app) {
 
   // 使い方・モード・撮影
   if (/使い方|ヘルプ|どうやって|何ができる/.test(t)) return { action: 'help' };
-  if (/^(もどして|戻して|取り消し|とりけし|やっぱりやめ|アンドゥ|さっきのをやめ|元に戻)/.test(t)) return { action: 'undo' };
+  if (/^(進めて|すすめて|やり直し|やりなおし|リドゥ|進む|もどすのをやめ|戻すのをやめ)/.test(t)) return { action: 'redo' };
+  if (/^(もどして|戻して|取り消し|とりけし|やっぱりやめ|アンドゥ|さっきのをやめ|元に戻|ひとつ前)/.test(t)) return { action: 'undo' };
   if (/一覧|リスト|寸法を(出|教え|見せ)|サイズを(出|教え|見せ)/.test(t)) return { action: 'list' };
   if (/ぐるっと|一周|ぐるり|見回して|まわして見/.test(t)) return { action: 'spin' };
   if (/間取り/.test(t)) return { action: 'mode', mode: 'plan' };
@@ -73,14 +74,14 @@ export function parseCommand(raw, app) {
   // 部屋・窓・ドア
   if (/(部屋|へや|ルーム|リビング|寝室|和室|子供部屋|キッチン|廊下|玄関|トイレ)を?(作|つく|足|たし|増や|ふや|追加)/.test(t)) {
     const m = t.match(/(\d+(?:\.\d+)?)\s*(畳|帖|じょう)/); const jo = m ? parseFloat(m[1]) : null; const name = (t.match(/(リビング|寝室|和室|子供部屋|キッチン|廊下|玄関|トイレ|ダイニング|書斎)/) || [])[1];
-    const sz = jo ? (jo <= 4.5 ? { w: 2.7, d: 2.7 } : jo <= 6 ? { w: 2.7, d: 3.6 } : jo <= 8 ? { w: 3.6, d: 3.6 } : jo <= 10 ? { w: 3.6, d: 4.5 } : jo <= 12 ? { w: 3.6, d: 5.4 } : { w: 4.5, d: 6.3 }) : null;
+    const sz = jo ? (jo <= 4.5 ? { w: 2.61, d: 2.61 } : jo <= 6 ? { w: 2.61, d: 3.52 } : jo <= 8 ? { w: 3.52, d: 3.52 } : jo <= 10 ? { w: 3.52, d: 4.43 } : jo <= 12 ? { w: 3.52, d: 5.34 } : jo <= 16 ? { w: 4.43, d: 5.34 } : { w: 5.34, d: 5.34 }) : null;
     const shape = /L字|エル字|えるじ/.test(t) ? 'L' : /斜め|ななめ/.test(t) ? 'chamfer' : /出窓/.test(t) ? 'bay' : /柱/.test(t) ? 'column' : null;
     return { action: 'room', size: sz, name, shape };
   }
   // 部屋の広さを変える(「部屋の横を4mに」「天井を2.6mに」「奥行きを3.6メートルに」)
   const rs = t.match(/(横幅|横|幅|奥行き|奥行|天井の高さ|天井|高さ)を?\s*(\d+(?:\.\d+)?)\s*(m|メートル|cm|センチ)/);
   if (rs && (/部屋|へや|広さ|天井/.test(t) || !typeByWord(t))) { let v = parseFloat(rs[2]); if (/cm|センチ/.test(rs[3])) v /= 100; const key = /奥行/.test(rs[1]) ? 'd' : /天井|高さ/.test(rs[1]) ? 'h' : 'w'; if (v > 0.5 && v < 30) return { action: 'roomSize', [key]: v }; }
-  const jo = t.match(/(\d+(?:\.\d+)?)\s*(畳|帖|じょう)に(して|変え|かえ|広げ|せま)/); if (jo) { const n = parseFloat(jo[1]); const sz = n <= 4.5 ? { w: 2.7, d: 2.7 } : n <= 6 ? { w: 2.7, d: 3.6 } : n <= 8 ? { w: 3.6, d: 3.6 } : n <= 10 ? { w: 3.6, d: 4.5 } : n <= 12 ? { w: 3.6, d: 5.4 } : { w: 4.5, d: 6.3 }; return { action: 'roomSize', ...sz }; }
+  const jo = t.match(/(\d+(?:\.\d+)?)\s*(畳|帖|じょう)に(して|変え|かえ|広げ|せま)/); if (jo) { const n = parseFloat(jo[1]); const sz = n <= 4.5 ? { w: 2.61, d: 2.61 } : n <= 6 ? { w: 2.61, d: 3.52 } : n <= 8 ? { w: 3.52, d: 3.52 } : n <= 10 ? { w: 3.52, d: 4.43 } : n <= 12 ? { w: 3.52, d: 5.34 } : n <= 16 ? { w: 4.43, d: 5.34 } : { w: 5.34, d: 5.34 }; return { action: 'roomSize', ...sz }; }
   // 柱型・袖壁・梁・角を斜めに
   if (/(柱型|柱|はしら)を?(つけ|付け|作|つく|足|たし|追加|入れ|いれ|立て)/.test(t)) return { action: 'part', part: 'column', size: size ? { w: size } : null };
   if (/(袖壁|そで壁|そでかべ|腰壁|こしかべ|間仕切り|仕切り)を?(つけ|付け|作|つく|足|たし|追加|入れ|いれ|立て)/.test(t)) return { action: 'part', part: 'wall', size: size ? { w: size, h: /腰壁|こしかべ/.test(t) ? 1.1 : null } : (/腰壁|こしかべ/.test(t) ? { h: 1.1 } : null) };

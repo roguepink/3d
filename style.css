@@ -108,3 +108,17 @@ body.ready #loadingNote { display:none; }
 .tb.on { background:var(--accent); color:#1a1a1a; } .tb.on small { color:#1a1a1a; }
 @media (max-height:700px) { .tb { width:50px; height:50px; font-size:19px; } #tools { gap:6px; } }
 @media (max-width:380px) { #top { gap:4px; padding-left:6px; padding-right:6px; } #modes { padding:3px; gap:2px; } #modes .mode { font-size:13px; padding:7px 6px; } .ib { width:40px; height:40px; font-size:19px; } }
+#hist { display:flex; gap:2px; background:var(--panel); border-radius:14px; padding:3px; backdrop-filter:blur(8px); flex:none; }
+#hist button { width:36px; height:38px; padding:0; border:none; background:transparent; font-size:20px; border-radius:10px; }
+#hist button:disabled { opacity:.35; }
+.plan-hist { display:inline-flex; gap:4px; }
+.plan-hist button { padding:7px 10px; font-size:16px; }
+.plan-module { font-size:12px; color:var(--muted); margin-left:auto; }
+.chip.text small { display:block; font-size:11px; color:var(--muted); line-height:1.1; }
+.chip.text { height:auto; min-height:38px; padding:5px 12px; line-height:1.2; }
+.dims { display:grid; grid-template-columns:repeat(auto-fill, minmax(110px,1fr)); gap:6px; margin:6px 0; }
+.dims label { display:flex; flex-direction:column; font-size:12px; color:var(--muted); gap:2px; }
+.dims input { width:100%; height:38px; border-radius:8px; border:1px solid var(--line); background:#111318; color:#fff; padding:0 8px; font-size:16px; }
+.plan-info { max-height:46vh; overflow:auto; }
+@media (max-width:380px) { #hist button { width:30px; height:34px; font-size:17px; } }
+@media (max-width:430px) { #modes .mode span { display:none; } #modes .mode { font-size:18px; padding:6px 10px; } }

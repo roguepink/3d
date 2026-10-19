@@ -36,11 +36,11 @@
 <header id="top">
   <button id="btnHome" class="ib" title="はじめに">🏠</button>
   <div id="modes" role="tablist">
-    <button class="mode on" data-mode="walk">👣 歩く</button>
-    <button class="mode" data-mode="orbit">🧊 全体</button>
-    <button class="mode" data-mode="plan">📐 間取り</button>
+    <button class="mode on" data-mode="walk">👣<span> 歩く</span></button>
+    <button class="mode" data-mode="orbit">🧊<span> 全体</span></button>
+    <button class="mode" data-mode="plan">📐<span> 間取り</span></button>
   </div>
-  <button id="btnUndo" class="ib" title="もどす" disabled>↶</button>
+  <div id="hist"><button id="btnUndo" title="もどす" disabled>↶</button><button id="btnRedo" title="進む" disabled>↷</button></div>
   <button id="btnMenu" class="ib" title="メニュー">☰</button>
 </header>
 
@@ -129,6 +129,7 @@
     <label class="filebtn">⬆ ファイルを読み込む<input type="file" id="mImport" accept=".json,application/json"></label>
     <button id="mGyro">📱 スマホを動かして見回す</button>
     <button id="mQuality">🎚 画質:ふつう</button>
+    <button id="mModule">📏 尺モジュール(910mm)</button>
     <button id="mAI">🤖 AIの設定</button>
     <button id="mList">📋 置いたものの寸法一覧</button>
     <button id="mEye">👀 目の高さ:立っている(押すと座る)</button>
@@ -158,14 +159,16 @@
 <!-- 新しい部屋 -->
 <section id="newroom" class="sheet hidden">
   <div class="sheet-head"><b>新しい部屋</b><button class="ib close" data-close="newroom">✕</button></div>
+  <div class="row chips" id="roomModules"></div>
   <div class="row chips" id="roomPresets"></div>
   <p class="hint" style="margin:4px 0 0">形(あとで間取りで角を動かして自由に変えられます)</p>
   <div class="row chips" id="roomShapes"></div>
   <div class="row grid3">
-    <label>横(m)<input id="nrW" type="number" step="0.1" value="3.6"></label>
-    <label>奥行(m)<input id="nrD" type="number" step="0.1" value="2.7"></label>
-    <label>天井の高さ(m)<input id="nrH" type="number" step="0.1" value="2.4"></label>
+    <label>横 芯々(mm)<input id="nrW" type="number" step="5" value="3640"></label>
+    <label>奥行 芯々(mm)<input id="nrD" type="number" step="5" value="2730"></label>
+    <label>天井高(mm)<input id="nrH" type="number" step="10" value="2400"></label>
   </div>
+  <p class="hint" id="nrNote" style="margin:0"></p>
   <div class="row"><label>名前<input id="nrName" type="text" value="リビング"></label></div>
   <div class="row"><label><input id="nrWin" type="checkbox" checked> 窓をひとつ付ける</label></div>
   <div class="row"><button id="nrMake" class="primary">この部屋を作る</button></div>
@@ -183,6 +186,8 @@
     <button id="plWing">▬袖壁</button>
     <button id="plBeam">⌒梁</button>
     <button id="plDel" class="danger">🗑</button>
+    <span class="plan-hist"><button id="plUndo" disabled>↶</button><button id="plRedo" disabled>↷</button></span>
+    <span id="plModule" class="plan-module"></span>
   </div>
   <canvas id="planCanvas"></canvas>
   <div id="planInfo" class="plan-info"></div>
