@@ -1,0 +1,161 @@
+// 置けるもの(カーテン・照明・家具など)のカタログと3Dの作り方
+import * as THREE from 'three';
+import { surfaceMaterial } from './textures.js';
+
+const stdCache = new Map();
+export function std(color, rough = .6, metal = 0, extra = {}) {
+  const k = color + '|' + rough + '|' + metal + '|' + JSON.stringify(extra); if (stdCache.has(k)) return stdCache.get(k);
+  const m = new THREE.MeshStandardMaterial({ color, roughness: rough, metalness: metal, ...extra }); stdCache.set(k, m); return m;
+}
+const WOOD = '#b98a5a', DARKWOOD = '#6b4a33', METAL = '#c8ccd2', BLACK = '#2a2a2e', GOLD = '#d4b065', WHITE = '#f4f4f2';
+function box(w, h, d, mat, x = 0, y = 0, z = 0) { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true; return m; }
+function cyl(rt, rb, h, mat, x = 0, y = 0, z = 0, seg = 24) { const m = new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, h, seg), mat); m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true; return m; }
+function sph(r, mat, x = 0, y = 0, z = 0) { const m = new THREE.Mesh(new THREE.SphereGeometry(r, 16, 12), mat); m.position.set(x, y, z); m.castShadow = true; return m; }
+function emissive(color, intensity = 2) { return new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: intensity, roughness: .4 }); }
+function fabric(item, w, h) { return surfaceMaterial('fabric', { lib: item.fabric || 'plain', color: item.color || '#e8e2d6' }, { w, h }, item._assets || {}); }
+
+// ひだのあるカーテンの布
+function pleatedPanel(pw, h, pitch, amp, mat) {
+  const segX = Math.max(8, Math.round(pw / pitch * 6)), g = new THREE.PlaneGeometry(pw, h, segX, 6);
+  const pos = g.attributes.position;
+  for (let i = 0; i < pos.count; i++) { const x = pos.getX(i), y = pos.getY(i); const t = (y + h / 2) / h; const a = amp * (0.6 + 0.4 * t); pos.setZ(i, a * Math.sin(x / pitch * Math.PI * 2) + a * 0.3 * Math.sin(x / pitch * Math.PI * 6 + 1)); }
+  g.computeVertexNormals(); const m = new THREE.Mesh(g, mat); m.castShadow = true; m.receiveShadow = true; return m;
+}
+
+function light(group, color, intensity, x, y, z, opts = {}) {
+  const l = new THREE.PointLight(color, intensity, opts.distance || 0, 2); l.position.set(x, y, z); l.castShadow = false;
+  l.shadow.mapSize.set(512, 512); l.shadow.bias = -0.002; l.shadow.radius = 4; group.add(l); group.userData.lights = (group.userData.lights || []).concat(l); return l;
+}
+const WARM = '#ffe2b8', DAYLIGHT = '#fff6e8';
+
+// ---- 各アイテム ----
+export const CATALOG = {
+  curtain: { name: 'カーテン', emoji: '🪟', cat: '窓まわり', kind: 'wall', size: [1.8, 2.0, 0.15], color: '#d9cdb8', fabric: 'plain', opts: { open: 0.3, lace: true },
+    words: ['カーテン', 'ドレープ', 'かーてん'], params: [['open', '開き具合', 0, 1], ['lace', 'レースも', 'bool']],
+    build(it) {
+      const g = new THREE.Group(), w = it.w, h = it.h, open = it.opts.open ?? .3;
+      const rail = box(w + 0.1, 0.03, 0.03, std(METAL, .35, .7), 0, h / 2 + 0.02, 0.1); g.add(rail);
+      const br1 = box(0.02, 0.02, 0.1, std(METAL, .35, .7), -w / 2, h / 2 + 0.02, 0.05); g.add(br1); const br2 = br1.clone(); br2.position.x = w / 2; g.add(br2);
+      const pw = Math.max(0.12, (w / 2) * (1 - open * 0.88)), pitch = 0.12 * (1 - open * 0.55), mat = fabric(it, pw, h);
+      const L = pleatedPanel(pw, h - 0.03, pitch, 0.045, mat); L.position.set(-w / 2 + pw / 2, -0.015, 0.1); g.add(L);
+      const R = pleatedPanel(pw, h - 0.03, pitch, 0.045, mat); R.position.set(w / 2 - pw / 2, -0.015, 0.1); g.add(R);
+      if (it.opts.lace) { const lm = surfaceMaterial('fabric', { lib: 'lace' }, { w, h }); const lace = pleatedPanel(w - 0.04, h - 0.04, 0.1, 0.02, lm); lace.position.set(0, -0.02, 0.05); lace.castShadow = false; g.add(lace); const rail2 = rail.clone(); rail2.position.z = 0.05; g.add(rail2); }
+      return g;
+    } },
+  lace: { name: 'レースカーテン', emoji: '🤍', cat: '窓まわり', kind: 'wall', size: [1.8, 2.0, 0.08], color: '#ffffff', fabric: 'lace', opts: {}, words: ['レース', 'れーす'],
+    build(it) { const g = new THREE.Group(), w = it.w, h = it.h; g.add(box(w + 0.1, 0.03, 0.03, std(METAL, .35, .7), 0, h / 2 + 0.02, 0.05)); const m = surfaceMaterial('fabric', { lib: 'lace' }, { w, h }); const p = pleatedPanel(w - 0.04, h - 0.04, 0.1, 0.02, m); p.position.set(0, -0.02, 0.05); p.castShadow = false; g.add(p); return g; } },
+  roller: { name: 'ロールスクリーン', emoji: '📜', cat: '窓まわり', kind: 'wall', size: [1.7, 1.9, 0.08], color: '#efe9dc', fabric: 'plain', opts: { down: 0.8 }, words: ['ロールスクリーン', 'ロール', 'スクリーン'], params: [['down', '下ろし具合', 0, 1]],
+    build(it) { const g = new THREE.Group(), w = it.w, h = it.h, down = it.opts.down ?? .8; g.add(box(w + 0.06, 0.07, 0.07, std(WHITE, .5), 0, h / 2 - 0.035, 0.045));
+      const sh = Math.max(0.05, h * down); const s = new THREE.Mesh(new THREE.PlaneGeometry(w, sh), fabric(it, w, sh)); s.position.set(0, h / 2 - 0.07 - sh / 2, 0.075); s.castShadow = true; s.receiveShadow = true; g.add(s);
+      g.add(box(w, 0.03, 0.02, std(WHITE, .5), 0, h / 2 - 0.07 - sh, 0.075)); return g; } },
+  blind: { name: 'ブラインド(横型)', emoji: '🎚️', cat: '窓まわり', kind: 'wall', size: [1.7, 1.9, 0.06], color: '#f2f2f0', opts: { down: 0.9, tilt: 0.35 }, words: ['ブラインド', '横型ブラインド', 'アルミブラインド', 'よこがた'], params: [['down', '下ろし具合', 0, 1], ['tilt', '羽の角度', 0, 1]],
+    build(it) { const g = new THREE.Group(), w = it.w, h = it.h, down = it.opts.down ?? .9, tilt = (it.opts.tilt ?? .35) * 1.3;
+      g.add(box(w + 0.04, 0.05, 0.05, std(it.color, .5), 0, h / 2 - 0.025, 0.04));
+      const pitch = 0.025, n = Math.max(1, Math.floor(h * down / pitch)); const im = new THREE.InstancedMesh(new THREE.BoxGeometry(w, 0.0015, 0.025), std(it.color, .4, .3), n); im.castShadow = true; im.receiveShadow = true;
+      const o = new THREE.Object3D(); for (let i = 0; i < n; i++) { o.position.set(0, h / 2 - 0.06 - i * pitch, 0.04); o.rotation.set(tilt, 0, 0); o.updateMatrix(); im.setMatrixAt(i, o.matrix); } g.add(im);
+      g.add(box(w, 0.02, 0.025, std(it.color, .5), 0, h / 2 - 0.06 - n * pitch, 0.04)); return g; } },
+  vblind: { name: 'ブラインド(縦型)', emoji: '🏛️', cat: '窓まわり', kind: 'wall', size: [1.8, 2.0, 0.1], color: '#ece7dc', fabric: 'plain', opts: { tilt: 0.3 }, words: ['縦型ブラインド', 'バーチカル', 'たて型', '縦型'], params: [['tilt', '羽の角度', 0, 1]],
+    build(it) { const g = new THREE.Group(), w = it.w, h = it.h, tilt = (it.opts.tilt ?? .3) * 1.4; g.add(box(w + 0.04, 0.05, 0.06, std(WHITE, .5), 0, h / 2 - 0.025, 0.05));
+      const pitch = 0.08, n = Math.max(1, Math.floor(w / pitch)); const im = new THREE.InstancedMesh(new THREE.BoxGeometry(0.089, h - 0.07, 0.002), fabric(it, 0.09, h), n); im.castShadow = true; im.receiveShadow = true;
+      const o = new THREE.Object3D(); for (let i = 0; i < n; i++) { o.position.set(-w / 2 + pitch / 2 + i * pitch, -0.035, 0.05); o.rotation.set(0, tilt, 0); o.updateMatrix(); im.setMatrixAt(i, o.matrix); } g.add(im); return g; } },
+
+  ceilingLight: { name: 'シーリングライト', emoji: '💡', cat: '照明', kind: 'ceiling', size: [0.55, 0.1, 0.55], color: '#ffffff', opts: { on: true, power: 1 }, words: ['シーリングライト', 'シーリング', '天井の電気', '天井の照明', '天井灯', '電気', 'ライト', '照明'], params: [['power', '明るさ', 0.2, 2], ['on', '点ける', 'bool']],
+    build(it) { const g = new THREE.Group(), r = it.w / 2, on = it.opts.on !== false; g.add(cyl(r * .3, r * .3, 0.03, std(WHITE, .5), 0, -0.015, 0));
+      const shade = new THREE.Mesh(new THREE.CylinderGeometry(r * .92, r, 0.09, 40), on ? emissive('#fff8ea', 1.6) : std('#e9e9e6', .6)); shade.position.y = -0.075; g.add(shade);
+      const rim = cyl(r, r, 0.02, std(WHITE, .4), 0, -0.11, 0, 40); g.add(rim); if (on) { const l = light(g, DAYLIGHT, 9 * (it.opts.power ?? 1), 0, -0.4, 0); l.castShadow = true; } return g; } },
+  pendant: { name: 'ペンダントライト', emoji: '🔆', cat: '照明', kind: 'ceiling', size: [0.35, 0.8, 0.35], color: '#3b3b3f', opts: { on: true, drop: 0.7, power: 1 }, words: ['ペンダント', 'ペンダントライト', '吊り下げ', 'つりさげ'], params: [['drop', '下げる長さ', 0.3, 1.5], ['power', '明るさ', 0.2, 2], ['on', '点ける', 'bool']],
+    build(it) { const g = new THREE.Group(), r = it.w / 2, drop = it.opts.drop ?? .7, on = it.opts.on !== false; g.add(cyl(0.05, 0.05, 0.02, std(it.color, .5, .3), 0, -0.01, 0)); g.add(cyl(0.003, 0.003, drop, std(BLACK, .6), 0, -drop / 2, 0, 8));
+      const shade = new THREE.Mesh(new THREE.CylinderGeometry(r * .45, r, r * 0.9, 32, 1, true), std(it.color, .45, .2, { side: THREE.DoubleSide })); shade.position.y = -drop - r * .45; g.add(shade);
+      const bulb = sph(0.03, on ? emissive('#fff2d6', 3) : std('#eee', .3), 0, -drop - r * .5, 0); g.add(bulb); if (on) { const l = light(g, WARM, 6 * (it.opts.power ?? 1), 0, -drop - r * .6, 0); l.castShadow = true; } return g; } },
+  chandelier: { name: 'シャンデリア', emoji: '✨', cat: '照明', kind: 'ceiling', size: [0.7, 0.8, 0.7], color: GOLD, opts: { on: true, arms: 6, power: 1 }, words: ['シャンデリア', 'しゃんでりあ'], params: [['arms', '灯の数', 3, 12], ['power', '明るさ', 0.2, 2], ['on', '点ける', 'bool']],
+    build(it) { const g = new THREE.Group(), r = it.w / 2, on = it.opts.on !== false, n = Math.round(it.opts.arms ?? 6), gold = std(it.color, .25, .9), crystal = new THREE.MeshPhysicalMaterial({ color: '#ffffff', roughness: 0, metalness: 0, transmission: .9, thickness: .02, transparent: true, opacity: .7 });
+      g.add(cyl(0.04, 0.04, 0.02, gold, 0, -0.01, 0)); g.add(cyl(0.008, 0.008, 0.45, gold, 0, -0.235, 0, 8)); g.add(sph(0.06, gold, 0, -0.5, 0));
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(r * .55, 0.012, 10, 48), gold); ring.rotation.x = Math.PI / 2; ring.position.y = -0.5; g.add(ring);
+      for (let i = 0; i < n; i++) { const a = i / n * Math.PI * 2, cx = Math.cos(a), cz = Math.sin(a);
+        const curve = new THREE.QuadraticBezierCurve3(new THREE.Vector3(0, -0.5, 0), new THREE.Vector3(cx * r * .6, -0.68, cz * r * .6), new THREE.Vector3(cx * r, -0.5, cz * r));
+        const arm = new THREE.Mesh(new THREE.TubeGeometry(curve, 12, 0.008, 8), gold); arm.castShadow = true; g.add(arm);
+        g.add(cyl(0.025, 0.03, 0.02, gold, cx * r, -0.49, cz * r)); g.add(cyl(0.012, 0.012, 0.1, std('#fff6e4', .5), cx * r, -0.43, cz * r, 10));
+        g.add(sph(0.028, on ? emissive('#ffe9c0', 3.5) : std('#eee', .3), cx * r, -0.35, cz * r));
+        for (let k = 0; k < 3; k++) { const c = new THREE.Mesh(new THREE.OctahedronGeometry(0.018), crystal); c.position.set(cx * r * (0.55 + k * 0.15), -0.55 - k * 0.06, cz * r * (0.55 + k * 0.15)); c.scale.y = 2; g.add(c); } }
+      for (let k = 0; k < 16; k++) { const a = k / 16 * Math.PI * 2; const c = new THREE.Mesh(new THREE.OctahedronGeometry(0.014), crystal); c.position.set(Math.cos(a) * r * .55, -0.56 - (k % 2) * 0.04, Math.sin(a) * r * .55); c.scale.y = 2.2; g.add(c); }
+      if (on) { const l = light(g, '#ffe6bd', 12 * (it.opts.power ?? 1), 0, -0.6, 0); l.castShadow = true; } return g; } },
+  wallLight: { name: 'ブラケット(壁の電気)', emoji: '🕯️', cat: '照明', kind: 'wall', size: [0.2, 0.3, 0.2], color: '#2f3036', opts: { on: true, power: 1 }, words: ['ブラケット', '壁の電気', '壁掛けの電気', '壁掛け照明', '壁のライト', '壁付け', '壁掛け', '壁の照明'], params: [['power', '明るさ', 0.2, 2], ['on', '点ける', 'bool']],
+    build(it) { const g = new THREE.Group(), on = it.opts.on !== false; g.add(box(0.1, 0.16, 0.02, std(it.color, .4, .4), 0, 0, 0.01)); g.add(cyl(0.008, 0.008, 0.12, std(it.color, .4, .4), 0, 0.02, 0.07).rotateX(Math.PI / 2));
+      const shade = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.1, 0.14, 24, 1, true), std('#f3eee4', .7, 0, { side: THREE.DoubleSide })); shade.position.set(0, 0.07, 0.13); g.add(shade);
+      g.add(sph(0.025, on ? emissive('#fff0d0', 3) : std('#eee', .3), 0, 0.07, 0.13)); if (on) light(g, WARM, 3 * (it.opts.power ?? 1), 0, 0.12, 0.2); return g; } },
+  downlight: { name: 'ダウンライト', emoji: '🔦', cat: '照明', kind: 'ceiling', size: [0.12, 0.02, 0.12], color: '#ffffff', opts: { on: true, power: 1 }, words: ['ダウンライト', 'スポット', 'スポットライト'], params: [['power', '明るさ', 0.2, 2], ['on', '点ける', 'bool']],
+    build(it) { const g = new THREE.Group(), on = it.opts.on !== false; g.add(cyl(0.06, 0.06, 0.01, std(WHITE, .5), 0, -0.005, 0)); g.add(cyl(0.045, 0.045, 0.004, on ? emissive('#fff3dd', 2.5) : std('#ddd', .5), 0, -0.011, 0));
+      if (on) { const s = new THREE.SpotLight(WARM, 10 * (it.opts.power ?? 1), 0, 0.75, 0.6, 2); s.position.set(0, -0.02, 0); s.target.position.set(0, -2.5, 0); g.add(s); g.add(s.target); g.userData.lights = [s]; } return g; } },
+  floorLamp: { name: 'フロアランプ', emoji: '🛋️', cat: '照明', kind: 'floor', size: [0.35, 1.5, 0.35], color: '#f1ead9', opts: { on: true, power: 1 }, words: ['フロアランプ', 'スタンド', 'スタンドライト', 'フロアライト'], params: [['power', '明るさ', 0.2, 2], ['on', '点ける', 'bool']],
+    build(it) { const g = new THREE.Group(), h = it.h, on = it.opts.on !== false; g.add(cyl(0.14, 0.14, 0.02, std(BLACK, .4, .5), 0, 0.01, 0)); g.add(cyl(0.012, 0.012, h - 0.3, std(BLACK, .4, .5), 0, (h - 0.3) / 2, 0, 10));
+      const shade = new THREE.Mesh(new THREE.CylinderGeometry(it.w * .4, it.w / 2, 0.3, 28, 1, true), std(it.color, .8, 0, { side: THREE.DoubleSide })); shade.position.y = h - 0.15; g.add(shade);
+      g.add(sph(0.03, on ? emissive('#fff0d0', 3) : std('#eee', .3), 0, h - 0.15, 0)); if (on) light(g, WARM, 4 * (it.opts.power ?? 1), 0, h - 0.15, 0); return g; } },
+
+  rug: { name: 'ラグ・絨毯', emoji: '🧶', cat: '敷物', kind: 'floor', size: [2.0, 0.015, 1.4], color: '#b8a58c', fabric: 'linen', opts: { round: false }, words: ['ラグ', '絨毯', 'じゅうたん', 'カーペット', 'マット'], params: [['round', '丸い形', 'bool']],
+    build(it) { const g = new THREE.Group(); const m = fabric(it, it.w, it.d); m.roughness = 1; let r; if (it.opts.round) r = cyl(it.w / 2, it.w / 2, 0.015, m, 0, 0.0075, 0, 48); else r = box(it.w, 0.015, it.d, m, 0, 0.0075, 0); r.castShadow = false; g.add(r); return g; } },
+
+  counter: { name: 'カウンター', emoji: '🍸', cat: '家具', kind: 'floor', size: [1.8, 1.0, 0.55], color: WOOD, opts: { base: '#f1efe9' }, words: ['カウンター', 'カウンターテーブル', 'キッチンカウンター'],
+    build(it) { const g = new THREE.Group(); g.add(box(it.w - 0.06, it.h - 0.05, it.d - 0.1, std(it.opts.base || '#f1efe9', .6), 0, (it.h - 0.05) / 2, -0.04)); g.add(box(it.w, 0.04, it.d, std(it.color, .35), 0, it.h - 0.02, 0)); g.add(box(it.w - 0.1, 0.08, it.d - 0.16, std(BLACK, .7), 0, 0.04, -0.06)); return g; } },
+  desk: { name: '机', emoji: '🖥️', cat: '家具', kind: 'floor', size: [1.2, 0.72, 0.6], color: WOOD, opts: {}, words: ['机', 'デスク', 'つくえ', '勉強机', 'ワークデスク'],
+    build(it) { const g = new THREE.Group(), w = it.w, h = it.h, d = it.d; g.add(box(w, 0.03, d, std(it.color, .4), 0, h - 0.015, 0)); const leg = std(BLACK, .4, .6); for (const [x, z] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) g.add(box(0.04, h - 0.03, 0.04, leg, x * (w / 2 - 0.05), (h - 0.03) / 2, z * (d / 2 - 0.05))); g.add(box(w - 0.1, 0.1, 0.02, leg, 0, h - 0.1, -d / 2 + 0.06)); return g; } },
+  table: { name: 'ダイニングテーブル', emoji: '🍽️', cat: '家具', kind: 'floor', size: [1.4, 0.72, 0.8], color: WOOD, opts: { chairs: 4 }, words: ['テーブル', 'ダイニングテーブル', '食卓', 'ダイニング'], params: [['chairs', '椅子の数', 0, 6]],
+    build(it) { const g = new THREE.Group(), w = it.w, h = it.h, d = it.d, wood = std(it.color, .45); g.add(box(w, 0.04, d, wood, 0, h - 0.02, 0)); for (const [x, z] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) g.add(box(0.06, h - 0.04, 0.06, wood, x * (w / 2 - 0.08), (h - 0.04) / 2, z * (d / 2 - 0.08)));
+      const n = Math.round(it.opts.chairs ?? 4); const spots = []; const per = Math.ceil(n / 2); for (let i = 0; i < n; i++) { const sideZ = i < per ? 1 : -1, k = i < per ? i : i - per, cnt = i < per ? per : n - per; spots.push([(k + 0.5) / cnt * w - w / 2, sideZ * (d / 2 + 0.3), sideZ > 0 ? Math.PI : 0]); }
+      for (const [x, z, ry] of spots) { const c = chairGroup(std(it.color, .5)); c.position.set(x, 0, z); c.rotation.y = ry; g.add(c); } return g; } },
+  lowtable: { name: 'ローテーブル', emoji: '🫖', cat: '家具', kind: 'floor', size: [1.0, 0.4, 0.55], color: DARKWOOD, opts: {}, words: ['ローテーブル', 'ちゃぶ台', '座卓', 'センターテーブル', 'コーヒーテーブル'],
+    build(it) { const g = new THREE.Group(), w = it.w, h = it.h, d = it.d, m = std(it.color, .4); g.add(box(w, 0.035, d, m, 0, h - 0.0175, 0)); for (const [x, z] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) g.add(box(0.05, h - 0.035, 0.05, m, x * (w / 2 - 0.06), (h - 0.035) / 2, z * (d / 2 - 0.06))); return g; } },
+  chair: { name: '椅子', emoji: '🪑', cat: '家具', kind: 'floor', size: [0.45, 0.85, 0.45], color: WOOD, opts: {}, words: ['椅子', 'いす', 'チェア'], build(it) { const g = new THREE.Group(); g.add(chairGroup(std(it.color, .5))); return g; } },
+  sofa: { name: 'ソファ', emoji: '🛋️', cat: '家具', kind: 'floor', size: [1.9, 0.8, 0.9], color: '#8c8f98', fabric: 'linen', opts: { seats: 3 }, words: ['ソファ', 'ソファー', '長椅子'], params: [['seats', '人数', 1, 4]],
+    build(it) { const g = new THREE.Group(), w = it.w, d = it.d, m = fabric(it, 1, 1), dark = std(BLACK, .5, .3); g.add(box(w, 0.1, d, dark, 0, 0.1, 0)); g.add(box(w, 0.3, d, m, 0, 0.3, 0)); g.add(box(w, 0.45, 0.22, m, 0, 0.6, -d / 2 + 0.11));
+      g.add(box(0.18, 0.5, d, m, -w / 2 + 0.09, 0.45, 0)); g.add(box(0.18, 0.5, d, m, w / 2 - 0.09, 0.45, 0));
+      const n = Math.round(it.opts.seats ?? 3), cw = (w - 0.36) / n; for (let i = 0; i < n; i++) { const cx = -w / 2 + 0.18 + cw * (i + .5); g.add(box(cw - 0.02, 0.14, d - 0.32, m, cx, 0.52, 0.06)); g.add(box(cw - 0.03, 0.4, 0.14, m, cx, 0.75, -d / 2 + 0.28)); } return g; } },
+  bed: { name: 'ベッド', emoji: '🛏️', cat: '家具', kind: 'floor', size: [1.45, 0.9, 2.05], color: '#e9e4d8', fabric: 'linen', opts: {}, words: ['ベッド', '寝床', 'べっど'],
+    build(it) { const g = new THREE.Group(), w = it.w, d = it.d, wood = std(WOOD, .5), m = fabric(it, 1, 1); g.add(box(w, 0.25, d, wood, 0, 0.125, 0)); g.add(box(w, 0.9, 0.05, wood, 0, 0.45, -d / 2 + 0.025)); g.add(box(w - 0.06, 0.22, d - 0.1, std('#f6f4ee', .9), 0, 0.36, 0.02));
+      g.add(box(w - 0.06, 0.06, d * 0.62, m, 0, 0.5, d * 0.2)); g.add(box(w * .4, 0.1, 0.4, std('#ffffff', .9), -w * .24, 0.52, -d / 2 + 0.35)); g.add(box(w * .4, 0.1, 0.4, std('#ffffff', .9), w * .24, 0.52, -d / 2 + 0.35)); return g; } },
+  shelf: { name: '棚', emoji: '📚', cat: '家具', kind: 'floor', size: [0.8, 1.8, 0.3], color: WOOD, opts: { boards: 5 }, words: ['棚', '本棚', 'シェルフ', 'ラック', '収納'], params: [['boards', '段数', 2, 8]],
+    build(it) { const g = new THREE.Group(), w = it.w, h = it.h, d = it.d, m = std(it.color, .5), n = Math.round(it.opts.boards ?? 5); g.add(box(0.02, h, d, m, -w / 2 + 0.01, h / 2, 0)); g.add(box(0.02, h, d, m, w / 2 - 0.01, h / 2, 0)); g.add(box(w, h, 0.01, m, 0, h / 2, -d / 2 + 0.005));
+      for (let i = 0; i < n; i++) { const y = 0.02 + i * (h - 0.04) / (n - 1); g.add(box(w - 0.04, 0.02, d, m, 0, y, 0)); if (i < n - 1) for (let k = 0; k < 4; k++) { const c = ['#c5553f', '#4a6fa5', '#e0c060', '#6a9a6a', '#8b6b9a'][(i * 3 + k) % 5]; g.add(box(0.035 + (k % 2) * 0.01, 0.2 + (k % 3) * 0.03, d * .7, std(c, .7), -w / 2 + 0.1 + k * 0.06, y + 0.12, 0)); } } return g; } },
+  tvboard: { name: 'テレビ台', emoji: '📺', cat: '家具', kind: 'floor', size: [1.6, 0.45, 0.4], color: DARKWOOD, opts: { tv: true }, words: ['テレビ台', 'テレビボード', 'tvボード'], params: [['tv', 'テレビも', 'bool']],
+    build(it) { const g = new THREE.Group(), w = it.w, h = it.h, d = it.d, m = std(it.color, .4); g.add(box(w, h, d, m, 0, h / 2, 0)); g.add(box(w - 0.04, 0.01, 0.005, std(BLACK, .5), 0, h / 2, d / 2 + 0.002));
+      if (it.opts.tv !== false) { g.add(box(w * .7, w * .7 * .56, 0.03, std('#111', .15, .5), 0, h + w * .7 * .28 + 0.05, 0)); g.add(box(0.3, 0.05, 0.2, std(BLACK, .4, .5), 0, h + 0.025, 0)); } return g; } },
+  tv: { name: '壁掛けテレビ', emoji: '📺', cat: '壁かざり', kind: 'wall', size: [1.2, 0.68, 0.05], color: '#111111', opts: {}, words: ['テレビ', 'tv', 'モニター', '壁掛けテレビ'],
+    build(it) { const g = new THREE.Group(); g.add(box(it.w, it.h, 0.03, std('#0b0b0d', .15, .5), 0, 0, 0.02)); g.add(box(it.w - 0.02, it.h - 0.02, 0.005, std('#1a1d26', .1, .6), 0, 0, 0.038)); return g; } },
+  picture: { name: '絵・額', emoji: '🖼️', cat: '壁かざり', kind: 'wall', size: [0.6, 0.45, 0.04], color: '#f0ece2', opts: {}, words: ['絵', '額', 'ポスター', '額縁', 'アート'],
+    build(it) { const g = new THREE.Group(), fr = std(it.opts.frame || DARKWOOD, .5); g.add(box(it.w, it.h, 0.03, fr, 0, 0, 0.015)); let inner; if (it.opts.photo && it._assets && it._assets[it.opts.photo]) inner = surfaceMaterial('wall', { photo: it.opts.photo }, { w: it.w, h: it.h }, it._assets); else inner = std(it.color, .8); const p = new THREE.Mesh(new THREE.PlaneGeometry(it.w - 0.06, it.h - 0.06), inner); p.position.z = 0.031; g.add(p); if (!it.opts.photo) { const a = new THREE.Mesh(new THREE.CircleGeometry(Math.min(it.w, it.h) * .25, 24), std('#d9a066', .8)); a.position.set(it.w * .1, it.h * .05, 0.032); g.add(a); const b = new THREE.Mesh(new THREE.PlaneGeometry(it.w - 0.1, it.h * .2), std('#6a8a9a', .8)); b.position.set(0, -it.h * .3, 0.032); g.add(b); } return g; } },
+  mirror: { name: '鏡', emoji: '🪞', cat: '壁かざり', kind: 'wall', size: [0.5, 1.2, 0.03], color: METAL, opts: {}, words: ['鏡', 'ミラー', 'かがみ'],
+    build(it) { const g = new THREE.Group(); g.add(box(it.w, it.h, 0.02, std(it.color, .3, .8), 0, 0, 0.01)); const m = new THREE.Mesh(new THREE.PlaneGeometry(it.w - 0.04, it.h - 0.04), new THREE.MeshStandardMaterial({ color: '#e8f0ff', roughness: 0.02, metalness: 1 })); m.position.z = 0.021; g.add(m); return g; } },
+  clock: { name: '時計', emoji: '🕰️', cat: '壁かざり', kind: 'wall', size: [0.3, 0.3, 0.04], color: '#f4f4f2', opts: {}, words: ['時計', 'とけい'],
+    build(it) { const g = new THREE.Group(), r = it.w / 2; g.add(cyl(r, r, 0.03, std(DARKWOOD, .5), 0, 0, 0.015).rotateX(Math.PI / 2)); g.add(cyl(r - 0.02, r - 0.02, 0.005, std(it.color, .6), 0, 0, 0.032).rotateX(Math.PI / 2)); g.add(box(0.012, r * .6, 0.004, std(BLACK, .5), 0, r * .3, 0.036)); const m = box(0.012, r * .8, 0.004, std(BLACK, .5), 0, 0, 0.037); m.rotation.z = -Math.PI / 3; m.position.set(r * .35, r * .2, 0.037); g.add(m); return g; } },
+  plant: { name: '観葉植物', emoji: '🪴', cat: 'みどり', kind: 'floor', size: [0.6, 1.4, 0.6], color: '#4e8a5a', opts: {}, words: ['観葉植物', '植物', 'グリーン', '木', '鉢'],
+    build(it) { const g = new THREE.Group(), h = it.h, r = it.w / 2; g.add(cyl(r * .4, r * .32, h * .22, std('#b9b1a6', .8), 0, h * .11, 0)); g.add(cyl(r * .38, r * .38, 0.01, std('#3b2a1a', 1), 0, h * .22, 0)); g.add(cyl(0.02, 0.03, h * .5, std('#6b4a2a', .9), 0, h * .45, 0, 8));
+      const leaf = std(it.color, .7); const seed = (it.id || '').length; for (let i = 0; i < 9; i++) { const a = i * 2.4 + seed, rr = r * (0.3 + (i % 3) * 0.25), y = h * (0.55 + (i % 4) * 0.11); const s = sph(r * (0.28 + (i % 2) * 0.1), leaf, Math.cos(a) * rr, y, Math.sin(a) * rr); s.scale.set(1.2, 0.7, 1); g.add(s); } return g; } },
+};
+
+function chairGroup(mat) {
+  const g = new THREE.Group(); g.add(box(0.42, 0.04, 0.42, mat, 0, 0.44, 0)); for (const [x, z] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) g.add(box(0.035, 0.42, 0.035, mat, x * 0.18, 0.21, z * 0.18)); g.add(box(0.42, 0.42, 0.03, mat, 0, 0.67, -0.19)); return g;
+}
+
+export const CATEGORIES = ['窓まわり', '照明', '敷物', '家具', '壁かざり', 'みどり'];
+export function catalogEntry(type) { return CATALOG[type] || null; }
+
+let seq = 0;
+export function newItem(type, over = {}) {
+  const c = CATALOG[type]; if (!c) return null;
+  const it = { id: 'i' + Date.now().toString(36) + (seq++).toString(36), type, roomId: null, x: 0, y: 0, z: 0, rot: 0, w: c.size[0], h: c.size[1], d: c.size[2], color: c.color, fabric: c.fabric || null, opts: { ...(c.opts || {}) } };
+  return Object.assign(it, over);
+}
+
+// アイテム → 3D(位置・向きは呼び出し側で)
+export function buildItem(it, assets) {
+  const c = CATALOG[it.type]; if (!c) return null;
+  it._assets = assets; const g = c.build(it); delete it._assets;
+  g.name = 'item:' + it.id; g.userData.itemId = it.id; g.traverse(o => { if (o.isMesh) o.userData.itemId = it.id; });
+  g.position.set(it.x, it.y, it.z); g.rotation.y = it.rot || 0;
+  return g;
+}
+// 言葉 → 種類
+export function typeByWord(text) {
+  let best = null, bestLen = 0;
+  for (const [type, c] of Object.entries(CATALOG)) for (const w of c.words) if (text.includes(w) && w.length > bestLen) { best = type; bestLen = w.length; }
+  return best;
+}

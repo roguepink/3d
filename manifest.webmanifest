@@ -1,0 +1,18 @@
+{
+  "id": "./?app=oheya3d",
+  "name": "おへや3D",
+  "short_name": "おへや3D",
+  "description": "写真から部屋を3Dにして、カーテン・照明・床・壁紙を置きかえ、中を歩き回れるアプリ",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#14161c",
+  "theme_color": "#14161c",
+  "lang": "ja",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

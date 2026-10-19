@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#14161c">
+<title>おへや3D</title>
+<meta name="description" content="写真から部屋を3Dにして、カーテン・照明・床・壁紙を置きかえ、中を歩き回れるアプリ。スマホの中だけで動きます。">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="おへや3D">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta property="og:type" content="website">
+<meta property="og:title" content="おへや3D">
+<meta property="og:description" content="写真から部屋を3Dにして、カーテン・照明・床・壁紙を置きかえ、中を歩き回れるアプリ。">
+<meta property="og:image" content="https://roguepink.github.io/3d/ogp.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="style.css">
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<div id="view"><canvas id="gl"></canvas></div>
+
+<!-- 画面中央の「ここ」マーク -->
+<div id="crosshair" aria-hidden="true"><div></div></div>
+
+<!-- 上のバー -->
+<header id="top">
+  <button id="btnHome" class="ib" title="はじめに">🏠</button>
+  <div id="modes" role="tablist">
+    <button class="mode on" data-mode="walk">👣 歩く</button>
+    <button class="mode" data-mode="orbit">🧊 全体</button>
+    <button class="mode" data-mode="plan">📐 間取り</button>
+  </div>
+  <button id="btnMenu" class="ib" title="メニュー">☰</button>
+</header>
+
+<!-- 右の道具 -->
+<nav id="tools">
+  <button id="btnAdd" class="tb" title="置く">＋<small>置く</small></button>
+  <button id="btnPhoto" class="tb" title="写真から">📷<small>写真</small></button>
+  <button id="btnMaterial" class="tb" title="床・壁">🧱<small>床・壁</small></button>
+  <button id="btnDayNight" class="tb" title="昼/夜">☀️<small>昼</small></button>
+  <button id="btnShot" class="tb" title="画像にする">📸<small>撮る</small></button>
+</nav>
+
+<!-- 歩くときの操作 -->
+<div id="walkpad">
+  <div id="joy"><div id="joyKnob"></div></div>
+  <div id="walkHint">左側:歩く　右側:見回す</div>
+</div>
+
+<!-- 選んだものの編集 -->
+<section id="edit" class="sheet hidden">
+  <div class="sheet-head"><b id="editName">カーテン</b><button class="ib close" data-close="edit">✕</button></div>
+  <div class="row chips" id="editColors"></div>
+  <div class="row" id="editMats"></div>
+  <div class="row grid3" id="editParams"></div>
+  <div class="row pad">
+    <div class="dpad">
+      <button data-mv="fwd">▲</button>
+      <button data-mv="left">◀</button><button data-mv="back">▼</button><button data-mv="right">▶</button>
+    </div>
+    <div class="col">
+      <button data-mv="up">⬆ 上へ</button>
+      <button data-mv="down">⬇ 下へ</button>
+      <button data-mv="rotl">⟲ 回す</button>
+      <button data-mv="rotr">⟳ 回す</button>
+    </div>
+    <div class="col">
+      <button data-mv="bigger">＋ 大きく</button>
+      <button data-mv="smaller">－ 小さく</button>
+      <button data-mv="dup">⧉ 複製</button>
+      <button data-mv="del" class="danger">🗑 消す</button>
+    </div>
+  </div>
+  <p class="hint">指で引っぱっても動かせます。</p>
+</section>
+
+<!-- 言葉で指示 -->
+<footer id="cmdbar">
+  <button id="btnMic" class="ib big" title="声で指示">🎤</button>
+  <input id="cmd" type="text" placeholder="例:ここにカーテンをつけて／床をフローリングに" autocomplete="off" enterkeyhint="send">
+  <button id="btnSend" class="ib big">➤</button>
+</footer>
+<div id="toast" class="hidden"></div>
+
+<!-- 置くもの一覧 -->
+<section id="catalog" class="sheet hidden">
+  <div class="sheet-head"><b>置くもの</b><button class="ib close" data-close="catalog">✕</button></div>
+  <div class="tabs" id="catTabs"></div>
+  <div class="cards" id="catCards"></div>
+  <p class="hint">選ぶと、見ている場所(画面の中央の○)に置きます。</p>
+</section>
+
+<!-- 床・壁の素材 -->
+<section id="surfaces" class="sheet hidden">
+  <div class="sheet-head"><b>床・壁・天井の素材</b><button class="ib close" data-close="surfaces">✕</button></div>
+  <div class="tabs" id="surfTabs"></div>
+  <div class="row chips" id="surfColors"></div>
+  <div class="cards" id="surfCards"></div>
+  <div class="row"><label class="filebtn">📷 見本の写真を貼る<input type="file" id="surfPhoto" accept="image/*"></label></div>
+  <p class="hint" id="surfHint">どの面に貼るかは、画面の中央の○で見ている面です。</p>
+</section>
+
+<!-- 写真・動画から -->
+<section id="photo" class="sheet hidden">
+  <div class="sheet-head"><b>写真・動画から部屋を作る</b><button class="ib close" data-close="photo">✕</button></div>
+  <div id="photoSteps"></div>
+</section>
+
+<!-- メニュー -->
+<section id="menu" class="sheet hidden">
+  <div class="sheet-head"><b>メニュー</b><button class="ib close" data-close="menu">✕</button></div>
+  <div class="menu-list">
+    <button id="mSave">💾 保存する</button>
+    <button id="mOpen">📂 開く</button>
+    <button id="mExport">⬇ ファイルに書き出す</button>
+    <label class="filebtn">⬆ ファイルを読み込む<input type="file" id="mImport" accept=".json,application/json"></label>
+    <button id="mGyro">📱 スマホを動かして見回す</button>
+    <button id="mQuality">🎚 画質:ふつう</button>
+    <button id="mAI">🤖 AIの設定</button>
+    <button id="mHelp">❓ 使い方</button>
+  </div>
+</section>
+
+<!-- はじめの画面 -->
+<section id="start" class="full">
+  <div class="start-inner">
+    <h1>おへや3D</h1>
+    <p class="lead">写真から部屋を3Dにして、カーテン・照明・床・壁紙を置きかえ、中を歩き回れます。</p>
+    <div class="start-grid">
+      <button id="sDemo" class="card big">🏡<b>見本の家を開く</b><small>まず触ってみる</small></button>
+      <button id="sNew" class="card big">📐<b>新しい部屋を作る</b><small>広さを入れるだけ</small></button>
+      <button id="sPhoto" class="card big">📷<b>写真から作る</b><small>壁ごとに写真を貼る</small></button>
+      <button id="sContinue" class="card big">▶️<b>前回のつづき</b><small id="sContinueSub">保存なし</small></button>
+    </div>
+    <p class="hint">スマホの中だけで動きます。写真はどこにも送りません。</p>
+  </div>
+</section>
+
+<!-- 新しい部屋 -->
+<section id="newroom" class="sheet hidden">
+  <div class="sheet-head"><b>新しい部屋</b><button class="ib close" data-close="newroom">✕</button></div>
+  <div class="row chips" id="roomPresets"></div>
+  <div class="row grid3">
+    <label>横(m)<input id="nrW" type="number" step="0.1" value="3.6"></label>
+    <label>奥行(m)<input id="nrD" type="number" step="0.1" value="2.7"></label>
+    <label>天井の高さ(m)<input id="nrH" type="number" step="0.1" value="2.4"></label>
+  </div>
+  <div class="row"><label>名前<input id="nrName" type="text" value="リビング"></label></div>
+  <div class="row"><label><input id="nrWin" type="checkbox" checked> 窓をひとつ付ける</label></div>
+  <div class="row"><button id="nrMake" class="primary">この部屋を作る</button></div>
+</section>
+
+<!-- 間取り -->
+<section id="plan" class="full hidden">
+  <div class="plan-top">
+    <b>間取り</b>
+    <button id="plAddRoom">＋部屋</button>
+    <button id="plDoor">🚪ドア</button>
+    <button id="plWindow">🪟窓</button>
+    <button id="plDel" class="danger">🗑</button>
+  </div>
+  <canvas id="planCanvas"></canvas>
+  <div id="planInfo" class="plan-info"></div>
+</section>
+
+<div id="dialog" class="hidden"><div class="dialog-box"><div id="dialogBody"></div><div class="dialog-btns" id="dialogBtns"></div></div></div>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
