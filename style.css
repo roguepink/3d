@@ -103,3 +103,5 @@ body.orbit-mode #walkpad, body.orbit-mode #crosshair { display:none; }
 #edit.sheet { max-height:58vh; }
 #edit .chips { max-height:96px; overflow:auto; }
 button:disabled { opacity:.4; }
+body:not(.ready) .start-grid { opacity:.45; pointer-events:none; }
+body.ready #loadingNote { display:none; }

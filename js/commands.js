@@ -21,16 +21,17 @@ function findSideWord(t) { for (const w of Object.keys(SIDE_WORDS).sort((a, b) =
 
 function floorSpec(t, color) {
   const pick = id => ({ lib: id });
+  if (/グレーのフローリング|灰色の木|グレーの木/.test(t)) return pick('grayoak');
   if (/ウォールナット|濃い|ダーク|こげ茶|焦げ茶/.test(t) && /フローリング|床|木/.test(t)) return pick('walnut');
   if (/白木|白いフローリング|明るいフローリング|白いゆか/.test(t)) return pick('whiteash');
   if (/ヘリンボーン/.test(t)) return pick('herring');
   if (/クッションフロア|クッション/.test(t)) return /石|ストーン/.test(t) ? pick('cf_stone') : pick('cf_wood');
   if (/フローリング|木の床|板/.test(t)) return pick('oak');
   if (/テラコッタ/.test(t)) return pick('tile_t');
-  if (/タイル/.test(t)) return /グレー|灰|黒/.test(t) ? pick('tile_g') : pick('tile_w');
+  if (/タイル/.test(t)) return /黒|ブラック/.test(t) ? pick('tile_k') : /グレー|灰/.test(t) ? pick('tile_g') : pick('tile_w');
   if (/大理石|マーブル/.test(t)) return pick('marble');
   if (/畳|たたみ|和室/.test(t)) return pick('tatami');
-  if (/カーペット|絨毯|じゅうたん/.test(t)) return color ? { lib: 'carpet_b', color: color.hex } : (/グレー|灰/.test(t) ? pick('carpet_g') : pick('carpet_b'));
+  if (/カーペット|絨毯|じゅうたん/.test(t)) return /白|アイボリー/.test(t) ? pick('carpet_w') : color ? { lib: 'carpet_b', color: color.hex } : (/グレー|灰/.test(t) ? pick('carpet_g') : pick('carpet_b'));
   if (/モルタル|コンクリ/.test(t)) return pick('concrete');
   if (color) return { lib: 'carpet_b', color: color.hex };
   return null;
@@ -38,9 +39,10 @@ function floorSpec(t, color) {
 function wallSpec(t, color) {
   const pick = id => ({ lib: id });
   if (/白レンガ|白いレンガ/.test(t)) return pick('brick_w'); if (/レンガ|煉瓦/.test(t)) return pick('brick');
-  if (/木|板|パネル|ウッド/.test(t) && !/木目調の壁紙/.test(t)) return pick('panel');
+  if (/木目調|木目の壁紙/.test(t)) return pick('wp_wood'); if (/木|板|パネル|ウッド/.test(t)) return pick('panel');
   if (/コンクリ|モルタル/.test(t)) return pick('concrete_w'); if (/漆喰|しっくい|塗り壁/.test(t)) return pick('plaster');
   if (/織物|布/.test(t)) return pick('wp_tex'); if (/ストライプ|しま|縞/.test(t)) return pick('wp_stripe'); if (/花柄|花/.test(t)) return pick('wp_floral');
+  if (/グレージュ/.test(t)) return pick('wp_greige'); if (/ダークグレー|濃いグレー|チャコール/.test(t)) return pick('wp_dark'); if (/ベージュ/.test(t)) return pick('wp_beige'); if (/くすみピンク|ピンク/.test(t) && !color) return pick('wp_pink');
   if (/ネイビー|紺/.test(t)) return pick('wp_navy'); if (/ブルーグレー|青み/.test(t)) return pick('wp_blue'); if (/グリーン|緑/.test(t) && !color) return pick('wp_green');
   if (color) return { color: color.hex };
   if (/壁紙|クロス|白/.test(t)) return pick('wp_white');
@@ -57,6 +59,7 @@ export function parseCommand(raw, app) {
   if (/使い方|ヘルプ|どうやって|何ができる/.test(t)) return { action: 'help' };
   if (/^(もどして|戻して|取り消し|とりけし|やっぱりやめ|アンドゥ|さっきのをやめ|元に戻)/.test(t)) return { action: 'undo' };
   if (/一覧|リスト|寸法を(出|教え|見せ)|サイズを(出|教え|見せ)/.test(t)) return { action: 'list' };
+  if (/ぐるっと|一周|ぐるり|見回して|まわして見/.test(t)) return { action: 'spin' };
   if (/間取り/.test(t)) return { action: 'mode', mode: 'plan' };
   if (/全体を見|上から見|俯瞰|ドールハウス/.test(t)) return { action: 'mode', mode: 'orbit' };
   if (/歩き(たい|回|まわ)|歩く|中に入/.test(t)) return { action: 'mode', mode: 'walk' };
@@ -112,7 +115,7 @@ export function parseCommand(raw, app) {
     if (/(上げ|あげ|巻き上|巻いて)/.test(t) && ['roller', 'blind'].includes(type)) adj.down = /全部|すべて/.test(t) ? 0 : 0.3; if (/(下ろ|おろ|下げ|さげ)/.test(t) && ['roller', 'blind'].includes(type)) adj.down = 1;
     if (/(つけ|点け|点灯|オン)/.test(t) && c.cat === '照明' && app && app.project.items.some(i => i.type === type)) adj.on = true;
     let scale = null; if (/もっと大き|大きく|おおきく|広げ/.test(t)) scale = 1.25; if (/もっと小さ|小さく|ちいさく|縮め/.test(t)) scale = 0.8;
-    if (/電球色|オレンジの光|あたたかい光|暖かい光/.test(t) && c.cat === '照明') adj.warm = true; if (/昼白色|白い光|白っぽい光/.test(t) && c.cat === '照明') adj.warm = false; if (/明るく|あかるく/.test(t) && c.cat === '照明') adj.power = 1.6; if (/暗く|くらく/.test(t) && c.cat === '照明') adj.power = 0.5;
+    if (/電球色|オレンジの光|あたたかい光|暖かい光/.test(t) && c.cat === '照明') adj.warm = true; if (/昼白色|白い光|白っぽい光/.test(t) && c.cat === '照明') adj.warm = false; if (/カーテンボックス|ボックス/.test(t) && type === 'curtain') adj.box = !/(外|はず|なし|いらない)/.test(t); if (/明るく|あかるく/.test(t) && c.cat === '照明') adj.power = 1.6; if (/暗く|くらく/.test(t) && c.cat === '照明') adj.power = 0.5;
     const typePos = Math.max(...c.words.filter(w => t.includes(w)).map(w => t.indexOf(w) + w.length));
     const colorAfter = color && t.indexOf(color.name) >= typePos; const fabricAfter = fabric && t.indexOf(fabric === 'lace' ? 'レース' : '') >= typePos;
     const changeVerb = /(にして|に変え|にかえ|変更|直し|なおし|したい|色を|色に|にする)/.test(t);

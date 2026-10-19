@@ -56,6 +56,7 @@ class App {
     $('#mQuality').onclick = () => { const q = { normal: 'high', high: 'low', low: 'normal' }[this.s3.quality]; this.s3.quality = q; this.s3.applyQuality(); localStorage.setItem('oheya-quality', q); $('#mQuality').textContent = '🎚 画質:' + { low: 'かるい', normal: 'ふつう', high: 'きれい' }[q]; };
     $('#mAI').onclick = () => this.aiSettings();
     $('#mHelp').onclick = () => this.help();
+    $('#mSpin').onclick = () => { this.closeSheets(); this.setMode('walk'); this.spin = 14; this.toast('ゆっくり一周します(14秒)。画面を録画すると紹介動画になります', 3500); };
     $('#mList').onclick = () => { this.closeSheets(); this.listItems(); };
     $('#mEye').onclick = () => { this.walk.eye = this.walk.eye > 1.3 ? 1.15 : 1.5; $('#mEye').textContent = this.walk.eye > 1.3 ? '👀 目の高さ:立っている(押すと座る)' : '👀 目の高さ:座っている(押すと立つ)'; this.toast(this.walk.eye > 1.3 ? '立った高さで見ています' : '座った高さで見ています(ソファからの眺め)'); };
     window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); this._install = e; $('#mInstall').classList.remove('hidden'); });
@@ -90,7 +91,7 @@ class App {
     const { group, pick } = buildHouse(this.project); g.add(group); this.housePick = pick;
     // 全体表示のときの部屋の名前
     this.labels = new THREE.Group(); this.labels.name = 'labels'; g.add(this.labels);
-    for (const r of this.project.rooms) { const c = document.createElement('canvas'); c.width = 256; c.height = 80; const x = c.getContext('2d'); x.fillStyle = 'rgba(0,0,0,.55)'; x.beginPath(); x.roundRect(8, 8, 240, 64, 18); x.fill(); x.fillStyle = '#fff'; x.font = 'bold 34px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(r.name, 128, 42); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, depthTest: false, transparent: true })); sp.position.set(r.x + r.w / 2, r.h + 0.5, r.z + r.d / 2); sp.scale.set(1.6, 0.5, 1); sp.renderOrder = 20; this.labels.add(sp); }
+    for (const r of this.project.rooms) { const c = document.createElement('canvas'); c.width = 256; c.height = 80; const x = c.getContext('2d'); x.fillStyle = 'rgba(0,0,0,.55)'; x.beginPath(); if (x.roundRect) x.roundRect(8, 8, 240, 64, 18); else x.rect(8, 8, 240, 64); x.fill(); x.fillStyle = '#fff'; x.font = 'bold 34px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(r.name, 128, 42); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, depthTest: false, transparent: true })); sp.position.set(r.x + r.w / 2, r.h + 0.5, r.z + r.d / 2); sp.scale.set(1.6, 0.5, 1); sp.renderOrder = 20; this.labels.add(sp); }
     this.applyCeilingVisibility();
   }
   rebuildItems() { const g = this.s3.itemGroup; while (g.children.length) g.remove(g.children[0]); this.itemGroups.clear(); for (const it of this.project.items) this.addItemMesh(it); this.updateShadowLights(); }
@@ -125,7 +126,9 @@ class App {
 
   // ---------- 毎フレーム ----------
   frame(dt) {
-    if (!this.project) return; this.walk.update(dt);
+    if (!this.project) return;
+    if (this.spin) { this.walk.yaw += dt * (Math.PI * 2 / 14); this.spin -= dt; if (this.spin <= 0) { this.spin = 0; this.toast('一周しました'); } }
+    this.walk.update(dt);
     if (this.mode === 'walk') { this._ct = (this._ct || 0) + dt; if (this._ct > 0.12) { this._ct = 0; this.center = this.hitAt(0.5, 0.5); $('#crosshair').classList.toggle('hit', !!(this.center && this.center.kind)); } }
     const r = roomAt(this.s3.camera.position, this.project.rooms); if (r && r.id !== this.currentRoomId) { this.currentRoomId = r.id; this.updateShadowLights(); }
     if (this.pinMesh.visible) { const s = this.pinMesh.position.distanceTo(this.s3.activeCamera().position) * 0.5 + 0.5; this.pinMesh.scale.setScalar(s); }
@@ -304,6 +307,7 @@ class App {
       case 'roomSize': { const room = this.currentRoom(); if (!room) return; this.snapshot(); if (cmd.w) room.w = cmd.w; if (cmd.d) room.d = cmd.d; if (cmd.h) room.h = cmd.h; this.plan.clampOpenings(room); for (const it of this.project.items) if (it.roomId === room.id) { it.x = Math.min(room.x + room.w - 0.1, it.x); it.z = Math.min(room.z + room.d - 0.1, it.z); if (catalogEntry(it.type).kind === 'ceiling') it.y = room.h; } this.plan.fixTwins(); this.load(this.project); this.toast(`${room.name}を ${room.w.toFixed(1)}×${room.d.toFixed(1)}m・天井${room.h.toFixed(2)}m にしました`); return; }
       case 'shot': this.shot(); return;
       case 'undo': this.undo(); return;
+      case 'spin': this.setMode('walk'); this.spin = 14; this.toast('ゆっくり一周します(14秒)'); return;
       case 'list': this.listItems(); return;
       case 'eye': this.walk.eye = cmd.eye; this.toast(cmd.eye > 1.3 ? '立った高さで見ています' : '座った高さで見ています'); return;
       case 'help': this.help(); return;
@@ -358,11 +362,12 @@ class App {
       const wins = (r.openings || []).filter(o => o.type === 'window'); for (const o of wins) lines.push(`  窓(${SIDE_NAME[o.side]}) 幅${o.w.toFixed(2)}×高さ${o.h.toFixed(2)}m 床から${(o.sill ?? 0.9).toFixed(2)}m`); }
     const text = lines.join('\n') || 'まだ何も置いていません'; this.dialog(`<p><b>置いたものの一覧</b></p><textarea readonly style="height:220px">${text.replace(/</g, '&lt;')}</textarea>`, [{ label: 'とじる', value: null }, { label: 'コピー', value: 'copy' }, { label: '送る', value: 'share', primary: true }]).then(async r => { if (r === 'copy') { await navigator.clipboard.writeText(text); this.toast('コピーしました'); } if (r === 'share') { if (navigator.share) { try { await navigator.share({ title: 'おへや3D 一覧', text }); } catch {} } else { await navigator.clipboard.writeText(text); this.toast('コピーしました'); } } });
   }
-  help() { this.dialog(`<p><b>使い方</b></p><p>👣 <b>歩く</b>:画面の左側を指でなぞると歩き、右側で見回します。PCは W A S D とマウス。</p><p>＋ <b>置く</b>:見ている場所(中央の○)に置きます。床をタップして場所を決めてから置いてもOK。</p><p>🎤 <b>言葉で</b>:「ここにカーテンをつけて」「床をフローリングに」「壁を白に」「シャンデリアを消して」「夜にして」「窓をつけて」など。</p><p>🧱 <b>床・壁</b>:見ている面の素材を変えます。見本帳の写真も貼れます。</p><p>📷 <b>写真</b>:部屋の写真を壁に貼って、本物そっくりの部屋を作ります。</p><p>📐 <b>間取り</b>:部屋を足して ドアでつなぐと、家全体を歩けます。</p><p>保存は自動です(「前回のつづき」)。</p>`, [{ label: 'とじる', primary: true }]); }
+  help() { this.dialog(`<p><b>使い方</b></p><p>👣 <b>歩く</b>:画面の左側を指でなぞると歩き、右側で見回します。PCは W A S D とマウス。</p><p>＋ <b>置く</b>:見ている場所(中央の○)に置きます。床をタップして場所を決めてから置いてもOK。</p><p>🎤 <b>言葉で</b>:「ここにカーテンをつけて」「床をフローリングに」「壁を白に」「シャンデリアを消して」「夜にして」「窓をつけて」など。</p><p>🧱 <b>床・壁</b>:見ている面の素材を変えます。見本帳の写真も貼れます。</p><p>📷 <b>写真</b>:部屋の写真を壁に貼って、本物そっくりの部屋を作ります。</p><p>📐 <b>間取り</b>:部屋を足して ドアでつなぐと、家全体を歩けます。</p><p>☰ メニュー:置いたものの寸法一覧(見積りの下書き)、ぐるっと一周見回す(紹介動画用)、昼・夕方・夜、立つ/座る、保存・書き出し。↶ でひとつ前にもどせます。</p><p>保存は自動です(「前回のつづき」)。</p>`, [{ label: 'とじる', primary: true }]); }
 }
 
 export function fileToDataUrl(file, max = 1600, quality = 0.88) {
   return new Promise((res, rej) => { const img = new Image(); img.onload = () => { const k = Math.min(1, max / Math.max(img.width, img.height)); const c = document.createElement('canvas'); c.width = Math.round(img.width * k); c.height = Math.round(img.height * k); c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); res(c.toDataURL('image/jpeg', quality)); URL.revokeObjectURL(img.src); }; img.onerror = rej; img.src = URL.createObjectURL(file); });
 }
 
-new App();
+try { new App(); document.body.classList.add('ready'); }
+catch (e) { console.error(e); const el = document.querySelector('.start-inner'); if (el) el.insertAdjacentHTML('beforeend', `<p style="color:#ff6b6b;font-size:16px;line-height:1.6">3Dの準備に失敗しました。ブラウザを最新にするか、別のブラウザ(Chrome / Safari)で開いてみてください。<br><small>${String(e.message || e).replace(/</g, '&lt;')}</small></p>`); }

@@ -31,8 +31,8 @@ const WARM = '#ffe2b8', DAYLIGHT = '#fff6e8';
 
 // ---- 各アイテム ----
 export const CATALOG = {
-  curtain: { name: 'カーテン', emoji: '🪟', cat: '窓まわり', kind: 'wall', size: [1.8, 2.0, 0.15], color: '#d9cdb8', fabric: 'plain', opts: { open: 0.3, lace: true, pleat: 1.5 },
-    words: ['カーテン', 'ドレープ', 'かーてん'], params: [['open', '開き具合', 0, 1], ['pleat', 'ヒダの多さ', 1, 2.5], ['lace', 'レースも', 'bool']],
+  curtain: { name: 'カーテン', emoji: '🪟', cat: '窓まわり', kind: 'wall', size: [1.8, 2.0, 0.15], color: '#d9cdb8', fabric: 'plain', opts: { open: 0.3, lace: true, pleat: 1.5, box: false },
+    words: ['カーテン', 'ドレープ', 'かーてん'], params: [['open', '開き具合', 0, 1], ['pleat', 'ヒダの多さ', 1, 2.5], ['lace', 'レースも', 'bool'], ['box', 'カーテンボックス', 'bool']],
     build(it) {
       const g = new THREE.Group(), w = it.w, h = it.h, open = it.opts.open ?? .3;
       const rail = box(w + 0.1, 0.03, 0.03, std(METAL, .35, .7), 0, h / 2 + 0.02, 0.1); g.add(rail);
@@ -41,6 +41,7 @@ export const CATALOG = {
       const amp = 0.03 + 0.012 * pleat; const L = pleatedPanel(pw, h - 0.03, pitch, amp, mat); L.position.set(-w / 2 + pw / 2, -0.015, 0.1); g.add(L);
       const R = pleatedPanel(pw, h - 0.03, pitch, amp, mat); R.position.set(w / 2 - pw / 2, -0.015, 0.1); g.add(R);
       if (open > 0.45) { const band = std(it.opts.tasselColor || '#c9b48a', .7); for (const sx of [-1, 1]) { const tb = new THREE.Mesh(new THREE.TorusGeometry(pw * 0.42 + 0.02, 0.012, 8, 24), band); tb.position.set(sx * (w / 2 - pw / 2), -h * 0.12, 0.1); tb.rotation.x = Math.PI / 2; tb.scale.z = 0.5; tb.castShadow = true; g.add(tb); const hook = box(0.02, 0.06, 0.03, std(METAL, .4, .6), sx * (w / 2 - 0.01), -h * 0.12, 0.015); g.add(hook); } }
+      if (it.opts.box) { const bm = std(it.opts.boxColor || WHITE, .6); g.add(box(w + 0.2, 0.12, 0.02, bm, 0, h / 2 + 0.06, 0.19)); g.add(box(w + 0.2, 0.02, 0.2, bm, 0, h / 2 + 0.11, 0.1)); g.add(box(0.02, 0.12, 0.2, bm, -w / 2 - 0.09, h / 2 + 0.06, 0.1)); g.add(box(0.02, 0.12, 0.2, bm, w / 2 + 0.09, h / 2 + 0.06, 0.1)); }
       if (it.opts.lace) { const lm = surfaceMaterial('fabric', { lib: 'lace' }, { w, h }); const lace = pleatedPanel(w - 0.04, h - 0.04, 0.1, 0.02, lm); lace.position.set(0, -0.02, 0.05); lace.castShadow = false; g.add(lace); const rail2 = rail.clone(); rail2.position.z = 0.05; g.add(rail2); }
       return g;
     } },
