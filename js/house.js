@@ -104,6 +104,7 @@ export function buildRoom(room, project, group) {
       { const cw = 0.055, cd = 0.014; const cl = box(cw, h.h + (isWin ? cw * 2 : cw), cd, matFrame); cl.position.set(-h.w / 2 - cw / 2, h.sill + h.h / 2 + (isWin ? 0 : cw / 2), cd / 2); og.add(cl); const cr = cl.clone(); cr.position.x = h.w / 2 + cw / 2; og.add(cr);
         const ct = box(h.w + cw * 2, cw, cd, matFrame); ct.position.set(0, h.sill + h.h + cw / 2, cd / 2); og.add(ct); if (isWin) { const cb = box(h.w + cw * 2, cw, cd * 2.2, matFrame); cb.position.set(0, h.sill - cw / 2, cd); og.add(cb); } }
       if (isWin) {
+        const sillBoard = box(h.w + 0.16, 0.025, 0.09, matFrame); sillBoard.position.set(0, h.sill - 0.0125, 0.045); og.add(sillBoard);
         const glass = new THREE.Mesh(new THREE.PlaneGeometry(h.w, h.h), matGlass); glass.position.set(0, h.sill + h.h / 2, -WALL_T / 2); og.add(glass);
         glass.userData = { kind: 'window', roomId: room.id, side, openingId: o.id }; pick.push(glass);
         // サッシ(縦の中桟 + 枠)

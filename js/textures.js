@@ -133,36 +133,36 @@ function drawMarble(g, w, h, r, { base = '#f1f0ec', vein = '#8e8f96' }) {
 // size: 1枚の絵が実際の何メートル分か / rough: ざらつき(0つるつる〜1マット)
 export const SURFACE_LIB = {
   floor: [
-    { id: 'oak', name: 'フローリング(ナチュラル)', size: 1.8, rough: .55, draw: (g, w, h, r) => drawWood(g, w, h, r, { base: '#c9a06a', dark: '#8d6a3f' }) },
-    { id: 'walnut', name: 'フローリング(ウォールナット)', size: 1.8, rough: .5, draw: (g, w, h, r) => drawWood(g, w, h, r, { base: '#6b4a33', dark: '#3b2616' }) },
-    { id: 'whiteash', name: 'フローリング(白木)', size: 1.8, rough: .6, draw: (g, w, h, r) => drawWood(g, w, h, r, { base: '#e4d6bd', dark: '#b9a78a', grainAlpha: .15 }) },
-    { id: 'herring', name: 'ヘリンボーン', size: 1.2, rough: .5, draw: (g, w, h, r) => { drawWood(g, w, h, r, { base: '#b98a58', dark: '#7a5533', plankW: 0.08, tile: 1.2 }); g.save(); g.translate(w / 2, h / 2); g.rotate(Math.PI / 4); g.globalAlpha = .5; g.drawImage(g.canvas, -w / 2, -h / 2); g.restore(); } },
-    { id: 'cf_wood', name: 'クッションフロア(木目)', size: 1.8, rough: .35, draw: (g, w, h, r) => drawWood(g, w, h, r, { base: '#d7b58a', dark: '#a88358', grainAlpha: .14 }) },
-    { id: 'cf_stone', name: 'クッションフロア(石目)', size: 1.2, rough: .3, draw: (g, w, h, r) => drawTile(g, w, h, r, { base: '#ddd8d0', grout: '#c5bfb6', size: .6, mottle: .08 }) },
-    { id: 'tile_w', name: 'タイル(白 60cm)', size: 1.2, rough: .18, draw: (g, w, h, r) => drawTile(g, w, h, r, { base: '#efede8', grout: '#c9c5bf', size: .6 }) },
-    { id: 'tile_g', name: 'タイル(グレー 30cm)', size: 1.2, rough: .3, draw: (g, w, h, r) => drawTile(g, w, h, r, { base: '#8f949a', grout: '#5d6166', size: .3 }) },
-    { id: 'tile_t', name: 'テラコッタ', size: 1.2, rough: .7, draw: (g, w, h, r) => drawTile(g, w, h, r, { base: '#c47a52', grout: '#9a6a52', size: .3, mottle: .12 }) },
-    { id: 'marble', name: '大理石', size: 1.2, rough: .12, draw: (g, w, h, r) => drawMarble(g, w, h, r, {}) },
-    { id: 'tatami', name: '畳', size: 1.8, rough: .8, draw: drawTatami },
-    { id: 'carpet_b', name: 'カーペット(ベージュ)', size: 1, rough: .95, draw: (g, w, h, r) => drawCarpet(g, w, h, r, { base: '#c8b89a' }) },
-    { id: 'carpet_g', name: 'カーペット(グレー)', size: 1, rough: .95, draw: (g, w, h, r) => drawCarpet(g, w, h, r, { base: '#8f9196' }) },
-    { id: 'concrete', name: 'モルタル', size: 1.5, rough: .7, draw: drawConcrete },
+    { id: 'oak', bump: 0.006, name: 'フローリング(ナチュラル)', size: 1.8, rough: .55, draw: (g, w, h, r) => drawWood(g, w, h, r, { base: '#c9a06a', dark: '#8d6a3f' }) },
+    { id: 'walnut', bump: 0.006, name: 'フローリング(ウォールナット)', size: 1.8, rough: .5, draw: (g, w, h, r) => drawWood(g, w, h, r, { base: '#6b4a33', dark: '#3b2616' }) },
+    { id: 'whiteash', bump: 0.005, name: 'フローリング(白木)', size: 1.8, rough: .6, draw: (g, w, h, r) => drawWood(g, w, h, r, { base: '#e4d6bd', dark: '#b9a78a', grainAlpha: .15 }) },
+    { id: 'herring', bump: 0.006, name: 'ヘリンボーン', size: 1.2, rough: .5, draw: (g, w, h, r) => { drawWood(g, w, h, r, { base: '#b98a58', dark: '#7a5533', plankW: 0.08, tile: 1.2 }); g.save(); g.translate(w / 2, h / 2); g.rotate(Math.PI / 4); g.globalAlpha = .5; g.drawImage(g.canvas, -w / 2, -h / 2); g.restore(); } },
+    { id: 'cf_wood', bump: 0.003, name: 'クッションフロア(木目)', size: 1.8, rough: .35, draw: (g, w, h, r) => drawWood(g, w, h, r, { base: '#d7b58a', dark: '#a88358', grainAlpha: .14 }) },
+    { id: 'cf_stone', bump: 0.004, name: 'クッションフロア(石目)', size: 1.2, rough: .3, draw: (g, w, h, r) => drawTile(g, w, h, r, { base: '#ddd8d0', grout: '#c5bfb6', size: .6, mottle: .08 }) },
+    { id: 'tile_w', bump: 0.008, name: 'タイル(白 60cm)', size: 1.2, rough: .18, draw: (g, w, h, r) => drawTile(g, w, h, r, { base: '#efede8', grout: '#c9c5bf', size: .6 }) },
+    { id: 'tile_g', bump: 0.008, name: 'タイル(グレー 30cm)', size: 1.2, rough: .3, draw: (g, w, h, r) => drawTile(g, w, h, r, { base: '#8f949a', grout: '#5d6166', size: .3 }) },
+    { id: 'tile_t', bump: 0.01, name: 'テラコッタ', size: 1.2, rough: .7, draw: (g, w, h, r) => drawTile(g, w, h, r, { base: '#c47a52', grout: '#9a6a52', size: .3, mottle: .12 }) },
+    { id: 'marble', bump: 0.002, name: '大理石', size: 1.2, rough: .12, draw: (g, w, h, r) => drawMarble(g, w, h, r, {}) },
+    { id: 'tatami', bump: 0.004, name: '畳', size: 1.8, rough: .8, draw: drawTatami },
+    { id: 'carpet_b', bump: 0.006, name: 'カーペット(ベージュ)', size: 1, rough: .95, draw: (g, w, h, r) => drawCarpet(g, w, h, r, { base: '#c8b89a' }) },
+    { id: 'carpet_g', bump: 0.006, name: 'カーペット(グレー)', size: 1, rough: .95, draw: (g, w, h, r) => drawCarpet(g, w, h, r, { base: '#8f9196' }) },
+    { id: 'concrete', bump: 0.006, name: 'モルタル', size: 1.5, rough: .7, draw: drawConcrete },
   ],
   wall: [
     { id: 'wp_white', name: '壁紙(白)', size: 1, rough: .9, draw: (g, w, h, r) => drawPlain(g, w, h, r, { base: '#f4f3ee', alpha: .06 }) },
     { id: 'wp_warm', name: '壁紙(オフホワイト)', size: 1, rough: .9, draw: (g, w, h, r) => drawPlain(g, w, h, r, { base: '#efe8da', alpha: .06 }) },
     { id: 'wp_gray', name: '壁紙(ライトグレー)', size: 1, rough: .9, draw: (g, w, h, r) => drawPlain(g, w, h, r, { base: '#d4d6d8', alpha: .06 }) },
-    { id: 'wp_tex', name: '壁紙(織物調)', size: .6, rough: .95, draw: (g, w, h, r) => drawWeave(g, w, h, r, { base: '#ece8df', contrast: .07, pitch: 3 }) },
+    { id: 'wp_tex', bump: 0.004, name: '壁紙(織物調)', size: .6, rough: .95, draw: (g, w, h, r) => drawWeave(g, w, h, r, { base: '#ece8df', contrast: .07, pitch: 3 }) },
     { id: 'wp_stripe', name: '壁紙(ストライプ)', size: .6, rough: .9, draw: (g, w, h, r) => drawStripe(g, w, h, r, { base: '#f1efe8', line: '#dcd6c6', ratio: .5, count: 6 }) },
     { id: 'wp_blue', name: '壁紙(ブルーグレー)', size: 1, rough: .9, draw: (g, w, h, r) => drawPlain(g, w, h, r, { base: '#9fb2bd', alpha: .05 }) },
     { id: 'wp_green', name: '壁紙(グリーン)', size: 1, rough: .9, draw: (g, w, h, r) => drawPlain(g, w, h, r, { base: '#8fa88c', alpha: .05 }) },
     { id: 'wp_navy', name: '壁紙(ネイビー)', size: 1, rough: .9, draw: (g, w, h, r) => drawPlain(g, w, h, r, { base: '#35466a', alpha: .05 }) },
     { id: 'wp_floral', name: '壁紙(花柄)', size: .8, rough: .9, draw: (g, w, h, r) => drawFloral(g, w, h, r, { base: '#f6f1e8' }) },
-    { id: 'panel', name: '木のパネル', size: 1.2, rough: .5, rotate: true, draw: (g, w, h, r) => drawPanel(g, w, h, r, {}) },
-    { id: 'brick', name: 'レンガ', size: 1.2, rough: .9, draw: (g, w, h, r) => drawBrick(g, w, h, r, {}) },
-    { id: 'brick_w', name: '白レンガ', size: 1.2, rough: .9, draw: (g, w, h, r) => drawBrick(g, w, h, r, { base: '#e8e4dc', mortar: '#cfcac0' }) },
-    { id: 'concrete_w', name: 'コンクリート', size: 1.5, rough: .7, draw: drawConcrete },
-    { id: 'plaster', name: '漆喰', size: 1, rough: .95, draw: (g, w, h, r) => drawPlain(g, w, h, r, { base: '#f6f4ee', alpha: .1 }) },
+    { id: 'panel', bump: 0.006, name: '木のパネル', size: 1.2, rough: .5, rotate: true, draw: (g, w, h, r) => drawPanel(g, w, h, r, {}) },
+    { id: 'brick', bump: 0.012, name: 'レンガ', size: 1.2, rough: .9, draw: (g, w, h, r) => drawBrick(g, w, h, r, {}) },
+    { id: 'brick_w', bump: 0.012, name: '白レンガ', size: 1.2, rough: .9, draw: (g, w, h, r) => drawBrick(g, w, h, r, { base: '#e8e4dc', mortar: '#cfcac0' }) },
+    { id: 'concrete_w', bump: 0.006, name: 'コンクリート', size: 1.5, rough: .7, draw: drawConcrete },
+    { id: 'plaster', bump: 0.004, name: '漆喰', size: 1, rough: .95, draw: (g, w, h, r) => drawPlain(g, w, h, r, { base: '#f6f4ee', alpha: .1 }) },
   ],
   fabric: [
     { id: 'plain', name: '無地', size: .25, rough: .85, tint: true, draw: (g, w, h, r) => drawWeave(g, w, h, r, { base: '#ffffff', contrast: .1 }) },
@@ -220,6 +220,7 @@ export function surfaceMaterial(kind, spec, dims = {}, assets = {}) {
       const s = e.size; t.repeat.set((dims.w || 1) / s, (dims.h || 1) / s); if (e.rotate) t.rotation = Math.PI / 2;
       const color = (e.tint || kind === 'fabric') && spec.color ? spec.color : (spec.color && kind !== 'fabric' ? spec.color : '#ffffff');
       mat = new THREE.MeshStandardMaterial({ map: t, color: e.tint ? (spec.color || '#ffffff') : color, roughness: e.rough, metalness: 0 });
+      if (e.bump) { mat.bumpMap = t; mat.bumpScale = e.bump; }
       if (e.lace) { mat.transparent = true; mat.opacity = .55; mat.alphaMap = t; mat.side = THREE.DoubleSide; }
     } else {
       mat = new THREE.MeshStandardMaterial({ color: spec.color || '#f4f4f0', roughness: .9, metalness: 0 });

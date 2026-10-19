@@ -48,6 +48,14 @@ export const CATALOG = {
     build(it) { const g = new THREE.Group(), w = it.w, h = it.h, down = it.opts.down ?? .8; g.add(box(w + 0.06, 0.07, 0.07, std(WHITE, .5), 0, h / 2 - 0.035, 0.045));
       const sh = Math.max(0.05, h * down); const s = new THREE.Mesh(new THREE.PlaneGeometry(w, sh), fabric(it, w, sh)); s.position.set(0, h / 2 - 0.07 - sh / 2, 0.075); s.castShadow = true; s.receiveShadow = true; g.add(s);
       g.add(box(w, 0.03, 0.02, std(WHITE, .5), 0, h / 2 - 0.07 - sh, 0.075)); return g; } },
+  shade: { name: 'シェード(布を たたみ上げる)', emoji: '🪭', cat: '窓まわり', kind: 'wall', size: [1.7, 1.9, 0.1], color: '#d8cdb9', fabric: 'linen', opts: { down: 0.7 }, words: ['シェード', 'ローマンシェード', 'プレーンシェード'], params: [['down', '下ろし具合', 0, 1]],
+    build(it) { const g = new THREE.Group(), w = it.w, h = it.h, down = it.opts.down ?? .7; g.add(box(w + 0.06, 0.06, 0.08, std(WHITE, .5), 0, h / 2 - 0.03, 0.05));
+      const mat = fabric(it, w, h); const sh = Math.max(0.08, h * down), flat = Math.max(0, sh - 0.25); if (flat > 0.02) { const p = new THREE.Mesh(new THREE.PlaneGeometry(w, flat), mat); p.position.set(0, h / 2 - 0.06 - flat / 2, 0.09); p.castShadow = true; p.receiveShadow = true; g.add(p); }
+      const folds = 3 + Math.round((1 - down) * 4); const fh = (sh - flat) / folds; for (let i = 0; i < folds; i++) { const f = box(w, fh * 0.95, 0.03 + i * 0.012, mat, 0, h / 2 - 0.06 - flat - fh * (i + 0.5), 0.09 + (0.03 + i * 0.012) / 2); g.add(f); } return g; } },
+  pleats: { name: 'プリーツスクリーン', emoji: '🗂️', cat: '窓まわり', kind: 'wall', size: [1.7, 1.9, 0.06], color: '#efe6d2', fabric: 'plain', opts: { down: 0.8 }, words: ['プリーツスクリーン', 'プリーツ', 'ハニカム'], params: [['down', '下ろし具合', 0, 1]],
+    build(it) { const g = new THREE.Group(), w = it.w, h = it.h, down = it.opts.down ?? .8; g.add(box(w + 0.04, 0.04, 0.05, std(WHITE, .5), 0, h / 2 - 0.02, 0.04));
+      const sh = Math.max(0.05, h * down), pitch = 0.025, n = Math.max(2, Math.round(sh / pitch)); const geo = new THREE.PlaneGeometry(w, sh, 1, n); const pos = geo.attributes.position; for (let i = 0; i < pos.count; i++) { const row = Math.floor(i / 2); pos.setZ(i, (row % 2) * 0.02); } geo.computeVertexNormals();
+      const m = new THREE.Mesh(geo, fabric(it, w, sh)); m.position.set(0, h / 2 - 0.04 - sh / 2, 0.03); m.castShadow = true; m.receiveShadow = true; g.add(m); g.add(box(w, 0.02, 0.03, std(WHITE, .5), 0, h / 2 - 0.04 - sh, 0.04)); return g; } },
   blind: { name: 'ブラインド(横型)', emoji: '🎚️', cat: '窓まわり', kind: 'wall', size: [1.7, 1.9, 0.06], color: '#f2f2f0', opts: { down: 0.9, tilt: 0.35 }, words: ['ブラインド', '横型ブラインド', 'アルミブラインド', 'よこがた'], params: [['down', '下ろし具合', 0, 1], ['tilt', '羽の角度', 0, 1]],
     build(it) { const g = new THREE.Group(), w = it.w, h = it.h, down = it.opts.down ?? .9, tilt = (it.opts.tilt ?? .35) * 1.3;
       g.add(box(w + 0.04, 0.05, 0.05, std(it.color, .5), 0, h / 2 - 0.025, 0.04));

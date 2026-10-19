@@ -56,11 +56,12 @@ class App {
     $('#mQuality').onclick = () => { const q = { normal: 'high', high: 'low', low: 'normal' }[this.s3.quality]; this.s3.quality = q; this.s3.applyQuality(); localStorage.setItem('oheya-quality', q); $('#mQuality').textContent = '🎚 画質:' + { low: 'かるい', normal: 'ふつう', high: 'きれい' }[q]; };
     $('#mAI').onclick = () => this.aiSettings();
     $('#mHelp').onclick = () => this.help();
+    $('#mList').onclick = () => { this.closeSheets(); this.listItems(); };
     $('#mEye').onclick = () => { this.walk.eye = this.walk.eye > 1.3 ? 1.15 : 1.5; $('#mEye').textContent = this.walk.eye > 1.3 ? '👀 目の高さ:立っている(押すと座る)' : '👀 目の高さ:座っている(押すと立つ)'; this.toast(this.walk.eye > 1.3 ? '立った高さで見ています' : '座った高さで見ています(ソファからの眺め)'); };
     window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); this._install = e; $('#mInstall').classList.remove('hidden'); });
     $('#mInstall').onclick = async () => { if (!this._install) return; this._install.prompt(); const r = await this._install.userChoice; if (r.outcome === 'accepted') { $('#mInstall').classList.add('hidden'); this.toast('ホーム画面に入れました'); } this._install = null; };
     $('#mShare').onclick = async () => { const url = location.origin + location.pathname; if (navigator.share) { try { await navigator.share({ title: 'おへや3D', text: '写真から部屋を3Dにして歩き回れるアプリ', url }); } catch {} } else { await navigator.clipboard.writeText(url); this.toast('アドレスをコピーしました'); } };
-    $('#sDemo').onclick = () => { this.load(demoProject()); $('#start').classList.add('hidden'); this.toast('左側を指でなぞると歩けます。右側で見回せます。'); };
+    $('#sDemo').onclick = () => { this.load(demoProject()); $('#start').classList.add('hidden'); this.firstHelp(); };
     $('#sNew').onclick = () => { $('#start').classList.add('hidden'); this.openNewRoom(); };
     $('#sPhoto').onclick = () => { $('#start').classList.add('hidden'); if (!this.project) this.load(this.blankProject()); openPhotoWizard(this); };
     $('#sContinue').onclick = async () => { const p = await loadProject('current'); if (p) { this.load(p); $('#start').classList.add('hidden'); } else this.toast('保存はまだありません'); };
@@ -160,7 +161,7 @@ class App {
       if (over.side) side = over.side;
       const L = wallLength(room, side); let { u, v } = wallUV(room, side, p); if (t && t.kind !== 'wall' && t.kind !== 'window') v = NaN;
       const wins = (room.openings || []).filter(o => o.side === side && o.type === 'window').map(o => ({ o, cu: (side === 'N' || side === 'E') ? o.pos + o.w / 2 : L - o.pos - o.w / 2 }));
-      const isWin = ['curtain', 'lace', 'roller', 'blind', 'vblind'].includes(type);
+      const isWin = ['curtain', 'lace', 'roller', 'blind', 'vblind', 'shade', 'pleats'].includes(type);
       let win = null; if (isWin && wins.length) { wins.sort((a, b) => Math.abs(a.cu - u) - Math.abs(b.cu - u)); win = wins[0]; if (Math.abs(win.cu - u) > 2.5 && t && (t.kind === 'wall')) win = null; }
       if (win) { const o = win.o, top = o.sill + o.h; u = win.cu;
         if (type === 'curtain' || type === 'lace') { it.w = o.w + 0.4; const bot = 0.02; const tp = Math.min(room.h - 0.05, top + 0.18); it.h = tp - bot; it.y = (tp + bot) / 2; }
@@ -194,7 +195,7 @@ class App {
     const params = $('#editParams'); params.innerHTML = '';
     for (const [key, name, a, b] of (c.params || [])) { const lab = document.createElement('label'); lab.textContent = name; if (a === 'bool') { const i = document.createElement('input'); i.type = 'checkbox'; i.checked = !!it.opts[key]; i.onchange = () => { it.opts[key] = i.checked; this.rebuildItem(it); }; lab.appendChild(i); } else { const i = document.createElement('input'); i.type = 'range'; i.min = a; i.max = b; i.step = (b - a) > 5 ? 1 : 0.01; i.value = it.opts[key] ?? a; i.oninput = () => { it.opts[key] = parseFloat(i.value); clearTimeout(this._pt); this._pt = setTimeout(() => this.rebuildItem(it, true), 60); }; lab.appendChild(i); } params.appendChild(lab); }
     const kind = c.kind; const sz = document.createElement('label'); sz.textContent = '幅 ' + it.w.toFixed(2) + 'm'; const si = document.createElement('input'); si.type = 'range'; si.min = 0.2; si.max = 6; si.step = 0.05; si.value = it.w; si.oninput = () => { it.w = parseFloat(si.value); sz.firstChild.textContent = '幅 ' + it.w.toFixed(2) + 'm'; clearTimeout(this._pt); this._pt = setTimeout(() => this.rebuildItem(it, true), 60); }; sz.appendChild(si); params.appendChild(sz);
-    const hz = document.createElement('label'); hz.textContent = '高さ ' + it.h.toFixed(2) + 'm'; const hi = document.createElement('input'); hi.type = 'range'; hi.min = 0.05; hi.max = 3; hi.step = 0.05; hi.value = it.h; hi.oninput = () => { const old = it.h; it.h = parseFloat(hi.value); if (kind === 'wall' && ['curtain', 'lace', 'roller', 'blind', 'vblind'].includes(it.type)) it.y += (it.h - old) / -2; hz.firstChild.textContent = '高さ ' + it.h.toFixed(2) + 'm'; clearTimeout(this._pt); this._pt = setTimeout(() => this.rebuildItem(it, true), 60); }; hz.appendChild(hi); params.appendChild(hz);
+    const hz = document.createElement('label'); hz.textContent = '高さ ' + it.h.toFixed(2) + 'm'; const hi = document.createElement('input'); hi.type = 'range'; hi.min = 0.05; hi.max = 3; hi.step = 0.05; hi.value = it.h; hi.oninput = () => { const old = it.h; it.h = parseFloat(hi.value); if (kind === 'wall' && ['curtain', 'lace', 'roller', 'blind', 'vblind', 'shade', 'pleats'].includes(it.type)) it.y += (it.h - old) / -2; hz.firstChild.textContent = '高さ ' + it.h.toFixed(2) + 'm'; clearTimeout(this._pt); this._pt = setTimeout(() => this.rebuildItem(it, true), 60); }; hz.appendChild(hi); params.appendChild(hz);
     if (kind === 'floor') { const dz = document.createElement('label'); dz.textContent = '奥行 ' + it.d.toFixed(2) + 'm'; const di = document.createElement('input'); di.type = 'range'; di.min = 0.2; di.max = 4; di.step = 0.05; di.value = it.d; di.oninput = () => { it.d = parseFloat(di.value); dz.firstChild.textContent = '奥行 ' + it.d.toFixed(2) + 'm'; clearTimeout(this._pt); this._pt = setTimeout(() => this.rebuildItem(it, true), 60); }; dz.appendChild(di); params.appendChild(dz); }
   }
   updateSelHelper() { const g = this.selectedId && this.itemGroups.get(this.selectedId); if (!g) { this.selHelper.visible = false; return; } this.selHelper.box.setFromObject(g, true); this.selHelper.visible = true; }
@@ -297,6 +298,7 @@ class App {
       case 'room': { this.openNewRoom(cmd); return; }
       case 'shot': this.shot(); return;
       case 'undo': this.undo(); return;
+      case 'list': this.listItems(); return;
       case 'eye': this.walk.eye = cmd.eye; this.toast(cmd.eye > 1.3 ? '立った高さで見ています' : '座った高さで見ています'); return;
       case 'help': this.help(); return;
       case 'info': this.toast(cmd.text, 5000); return;
@@ -340,6 +342,15 @@ class App {
     const cur = AI.getKey(); const html = `<p><b>AIの設定(任意)</b></p><p>Google の Gemini の鍵(APIキー)を入れると、自由な言い方の指示や、写真から部屋の広さを読み取る機能が使えます。鍵は この端末の中にだけ保存します。</p><input id="aiKey" type="password" placeholder="AIza… の鍵" value="${cur ? cur : ''}">`;
     const r = await this.dialog(html, [{ label: '消す', value: 'clear', danger: true }, { label: 'やめる', value: null }, { label: '保存', value: 'save', primary: true }]);
     if (r === 'save') { AI.setKey($('#aiKey').value.trim()); this.toast(AI.hasKey() ? 'AIの鍵を保存しました' : '鍵が空です'); } else if (r === 'clear') { AI.setKey(''); this.toast('鍵を消しました'); }
+  }
+  firstHelp() { try { if (localStorage.getItem('oheya-help-seen')) { this.toast('左側を指でなぞると歩けます。右側で見回せます。'); return; } localStorage.setItem('oheya-help-seen', '1'); } catch {} this.help(); }
+  // 置いたものの寸法一覧(見積りの下書きに)
+  listItems() {
+    const colorName = hex => { let best = '', bd = 1e9; const c = new THREE.Color(hex || '#ffffff'); for (const [n, h] of Object.entries(COLORS)) { const d = new THREE.Color(h); const dist = (c.r - d.r) ** 2 + (c.g - d.g) ** 2 + (c.b - d.b) ** 2; if (dist < bd) { bd = dist; best = n; } } return best; };
+    const lines = []; for (const r of this.project.rooms) { const its = this.project.items.filter(i => i.roomId === r.id); if (!its.length) continue; lines.push(`■ ${r.name}(${r.w.toFixed(1)}×${r.d.toFixed(1)}m・天井${r.h.toFixed(2)}m)`);
+      for (const it of its) { const c = catalogEntry(it.type); const f = it.fabric ? ((SURFACE_LIB.fabric.find(x => x.id === it.fabric) || {}).name || '') : ''; const size = c.kind === 'floor' ? `幅${it.w.toFixed(2)}×奥行${it.d.toFixed(2)}×高さ${it.h.toFixed(2)}m` : c.kind === 'wall' ? `幅${it.w.toFixed(2)}×丈${it.h.toFixed(2)}m` : `直径${it.w.toFixed(2)}m`; lines.push(`・${c.name} ${size} ${colorName(it.color)}${f ? '・' + f : ''}`); }
+      const wins = (r.openings || []).filter(o => o.type === 'window'); for (const o of wins) lines.push(`  窓(${SIDE_NAME[o.side]}) 幅${o.w.toFixed(2)}×高さ${o.h.toFixed(2)}m 床から${(o.sill ?? 0.9).toFixed(2)}m`); }
+    const text = lines.join('\n') || 'まだ何も置いていません'; this.dialog(`<p><b>置いたものの一覧</b></p><textarea readonly style="height:220px">${text.replace(/</g, '&lt;')}</textarea>`, [{ label: 'とじる', value: null }, { label: 'コピー', value: 'copy' }, { label: '送る', value: 'share', primary: true }]).then(async r => { if (r === 'copy') { await navigator.clipboard.writeText(text); this.toast('コピーしました'); } if (r === 'share') { if (navigator.share) { try { await navigator.share({ title: 'おへや3D 一覧', text }); } catch {} } else { await navigator.clipboard.writeText(text); this.toast('コピーしました'); } } });
   }
   help() { this.dialog(`<p><b>使い方</b></p><p>👣 <b>歩く</b>:画面の左側を指でなぞると歩き、右側で見回します。PCは W A S D とマウス。</p><p>＋ <b>置く</b>:見ている場所(中央の○)に置きます。床をタップして場所を決めてから置いてもOK。</p><p>🎤 <b>言葉で</b>:「ここにカーテンをつけて」「床をフローリングに」「壁を白に」「シャンデリアを消して」「夜にして」「窓をつけて」など。</p><p>🧱 <b>床・壁</b>:見ている面の素材を変えます。見本帳の写真も貼れます。</p><p>📷 <b>写真</b>:部屋の写真を壁に貼って、本物そっくりの部屋を作ります。</p><p>📐 <b>間取り</b>:部屋を足して ドアでつなぐと、家全体を歩けます。</p><p>保存は自動です(「前回のつづき」)。</p>`, [{ label: 'とじる', primary: true }]); }
 }

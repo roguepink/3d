@@ -52,9 +52,9 @@ export function openPhotoWizard(app, start) {
     if (kind === 'ai') aiStep();
   };
   // 四隅を合わせる
-  const cornerStep = async (kind, dataUrl, fromVideo) => {
+  const cornerStep = async (kind, dataUrl, fromVideo, presetSide) => {
     const img = await loadImage(dataUrl); const r = app.currentRoom(); const t = app.center;
-    let side = (t && t.kind === 'wall') ? t.side : 'N';
+    let side = presetSide || ((t && t.kind === 'wall') ? t.side : 'N');
     const render = () => {
       const maxW = Math.min(box.clientWidth || 360, 520); const k = maxW / img.width; const w = Math.round(img.width * k), h = Math.round(img.height * k);
       box.innerHTML = `<div class="steps"><span class="on">1 四隅を合わせる</span><span>2 貼る</span></div>
@@ -76,8 +76,11 @@ export function openPhotoWizard(app, start) {
           H = Math.max(64, Math.min(2048, H)); const c = rectify(img, corners, W, H); const out = c.toDataURL('image/jpeg', 0.88); const id = 'ph' + Date.now().toString(36);
           app.project.assets[id] = { dataUrl: out, kind: 'photo', name: kind === 'wall' ? SIDE_NAME[side] + 'の写真' : '床の写真' };
           if (kind === 'wall') { r.walls = r.walls || {}; r.walls[side] = { photo: id }; } else r.floor = { photo: id };
-          clearMaterialCache(); app.rebuildHouse(); app.touched(); app.closeSheets(); app.toast('貼りました。別の壁も同じように貼れます(📷写真 → 壁に写真を貼る)', 4000);
-          if (kind === 'wall') { const mid = { N: [r.x + r.w / 2, r.z + r.d * 0.8, 0], S: [r.x + r.w / 2, r.z + r.d * 0.2, Math.PI], E: [r.x + r.w * 0.2, r.z + r.d / 2, -Math.PI / 2], W: [r.x + r.w * 0.8, r.z + r.d / 2, Math.PI / 2] }[side]; app.s3.camera.position.set(mid[0], 1.5, mid[1]); app.walk.yaw = mid[2]; app.walk.pitch = 0; }
+          clearMaterialCache(); app.rebuildHouse(); app.touched(); app.closeSheets();
+          if (kind === 'wall') { const mid = { N: [r.x + r.w / 2, r.z + r.d * 0.8, 0], S: [r.x + r.w / 2, r.z + r.d * 0.2, Math.PI], E: [r.x + r.w * 0.2, r.z + r.d / 2, -Math.PI / 2], W: [r.x + r.w * 0.8, r.z + r.d / 2, Math.PI / 2] }[side]; app.s3.camera.position.set(mid[0], 1.5, mid[1]); app.walk.yaw = mid[2]; app.walk.pitch = 0;
+            const next = { N: 'E', E: 'S', S: 'W', W: null }[side]; const left = SIDES.filter(sd => !(r.walls && r.walls[sd] && r.walls[sd].photo));
+            setTimeout(() => app.dialog(`<p>${SIDE_NAME[side]}に貼りました。</p><p>${left.length ? `まだ写真のない壁: ${left.map(sd => SIDE_NAME[sd]).join('・')}` : '4つの壁ぜんぶに写真が入りました!'}</p>`, [{ label: '床の写真も貼る', value: 'floor' }, { label: 'これで終わる', value: null }, ...(left.length ? [{ label: `${SIDE_NAME[left.includes(next) ? next : left[0]]}を貼る`, value: 'next', primary: true }] : [])]).then(async v => { if (v === 'next') { const f = await pickFile('image/*'); if (!f) return; app.openSheet('photo'); cornerStep('wall', await fileToDataUrl(f, 2000, 0.9), false, left.includes(next) ? next : left[0]); } if (v === 'floor') { const f = await pickFile('image/*'); if (!f) return; app.openSheet('photo'); cornerStep('floor', await fileToDataUrl(f, 2000, 0.9)); } }), 200); }
+          else app.toast('床に貼りました', 2500);
         }, 30);
       };
     };

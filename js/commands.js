@@ -56,6 +56,7 @@ export function parseCommand(raw, app) {
   // 使い方・モード・撮影
   if (/使い方|ヘルプ|どうやって|何ができる/.test(t)) return { action: 'help' };
   if (/^(もどして|戻して|取り消し|とりけし|やっぱりやめ|アンドゥ|さっきのをやめ|元に戻)/.test(t)) return { action: 'undo' };
+  if (/一覧|リスト|寸法を(出|教え|見せ)|サイズを(出|教え|見せ)/.test(t)) return { action: 'list' };
   if (/間取り/.test(t)) return { action: 'mode', mode: 'plan' };
   if (/全体を見|上から見|俯瞰|ドールハウス/.test(t)) return { action: 'mode', mode: 'orbit' };
   if (/歩き(たい|回|まわ)|歩く|中に入/.test(t)) return { action: 'mode', mode: 'walk' };
