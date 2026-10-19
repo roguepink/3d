@@ -1,5 +1,5 @@
 // 写真・動画から部屋を作る:壁や床に写真を貼る(四隅を合わせてゆがみを直す)、パノラマ、動画から場面を切り出す、AIで広さを読む
-import { SIDES, SIDE_NAME, wallLength } from './house.js';
+import { wallLength, edgeName, edgeForCompass, normalizeRoom, edgeCount, rectPoly, wallPoint, edgeFrame } from './house.js';
 import { clearMaterialCache } from './textures.js';
 import { fileToDataUrl } from './main.js';
 import * as AI from './ai.js';
@@ -55,12 +55,12 @@ export function openPhotoWizard(app, start) {
   };
   // 四隅を合わせる
   const cornerStep = async (kind, dataUrl, fromVideo, presetSide) => {
-    const img = await loadImage(dataUrl); const r = app.currentRoom(); const t = app.center;
-    let side = presetSide || ((t && t.kind === 'wall') ? t.side : 'N');
+    const img = await loadImage(dataUrl); const r = app.currentRoom(); normalizeRoom(r); const t = app.center; const EDGES = [...Array(edgeCount(r)).keys()];
+    let side = presetSide ?? ((t && (t.kind === 'wall' || t.kind === 'window') && t.edge !== undefined) ? t.edge : (edgeForCompass(r, 'N', app.s3.camera.position) ?? 0));
     const render = () => {
       const maxW = Math.min(box.clientWidth || 360, 520); const k = maxW / img.width; const w = Math.round(img.width * k), h = Math.round(img.height * k);
       box.innerHTML = `<div class="steps"><span class="on">1 四隅を合わせる</span><span>2 貼る</span></div>
-        ${kind === 'wall' ? `<div class="row chips" id="sideChips">${SIDES.map(s => `<button class="chip text ${s === side ? 'on' : ''}" data-side="${s}">${SIDE_NAME[s]}</button>`).join('')}</div>` : `<p class="hint">床の、部屋いっぱいの四隅(左奥・右奥・右手前・左手前)に合わせてください。</p>`}
+        ${kind === 'wall' ? `<div class="row chips" id="sideChips">${EDGES.map(s => `<button class="chip text ${s === side ? 'on' : ''}" data-side="${s}">${edgeName(r, s)}</button>`).join('')}</div>` : `<p class="hint">床の、部屋いっぱいの四隅(左奥・右奥・右手前・左手前)に合わせてください。</p>`}
         <div class="corner-wrap" id="cw" style="width:${w}px;height:${h}px"><img src="${dataUrl}" style="width:${w}px;height:${h}px"><svg viewBox="0 0 ${w} ${h}"><polygon id="poly" fill="rgba(255,207,77,.18)" stroke="#ffcf4d" stroke-width="2"/></svg>
           ${['左上', '右上', '右下', '左下'].map((n, i) => `<div class="dot" data-i="${i}">${n[0]}${n[1] === '上' ? '↑' : '↓'}</div>`).join('')}</div>
         <p class="hint">黄色の●を、写真の中の${kind === 'wall' ? '壁' : '床'}の四隅へ指で動かしてください。(壁は、天井との境と床との境の角)</p>
@@ -70,18 +70,18 @@ export function openPhotoWizard(app, start) {
       let active = null; cw.addEventListener('pointerdown', e => { const rect = cw.getBoundingClientRect(); const x = e.clientX - rect.left, y = e.clientY - rect.top; let best = 0, bd = 1e9; pts.forEach((p, i) => { const d = Math.hypot(p[0] - x, p[1] - y); if (d < bd) { bd = d; best = i; } }); active = best; cw.setPointerCapture(e.pointerId); e.preventDefault(); });
       cw.addEventListener('pointermove', e => { if (active == null) return; const rect = cw.getBoundingClientRect(); pts[active] = [Math.max(0, Math.min(w, e.clientX - rect.left)), Math.max(0, Math.min(h, e.clientY - rect.top))]; upd(); });
       cw.addEventListener('pointerup', () => { active = null; }); cw.addEventListener('pointercancel', () => { active = null; });
-      for (const b of box.querySelectorAll('[data-side]')) b.onclick = () => { side = b.dataset.side; for (const x of box.querySelectorAll('[data-side]')) x.classList.toggle('on', x.dataset.side === side); };
+      for (const b of box.querySelectorAll('[data-side]')) b.onclick = () => { side = parseInt(b.dataset.side); for (const x of box.querySelectorAll('[data-side]')) x.classList.toggle('on', parseInt(x.dataset.side) === side); };
       box.querySelector('#cornerBack').onclick = () => fromVideo ? videoStep() : menu();
       box.querySelector('#cornerOk').onclick = () => {
         app.toast('ゆがみを直しています…'); setTimeout(() => {
           const corners = pts.map(p => [p[0] / k, p[1] / k]); let W, H; if (kind === 'wall') { const L = wallLength(r, side); W = 1280; H = Math.round(1280 * r.h / L); } else { W = 1280; H = Math.round(1280 * r.d / r.w); }
           H = Math.max(64, Math.min(2048, H)); const c = rectify(img, corners, W, H); const out = c.toDataURL('image/jpeg', 0.88); const id = 'ph' + Date.now().toString(36);
-          app.project.assets[id] = { dataUrl: out, kind: 'photo', name: kind === 'wall' ? SIDE_NAME[side] + 'の写真' : '床の写真' };
+          app.project.assets[id] = { dataUrl: out, kind: 'photo', name: kind === 'wall' ? edgeName(r, side) + 'の写真' : '床の写真' };
           if (kind === 'wall') { r.walls = r.walls || {}; r.walls[side] = { photo: id }; } else r.floor = { photo: id };
           clearMaterialCache(); app.rebuildHouse(); app.touched(); app.closeSheets();
-          if (kind === 'wall') { const mid = { N: [r.x + r.w / 2, r.z + r.d * 0.8, 0], S: [r.x + r.w / 2, r.z + r.d * 0.2, Math.PI], E: [r.x + r.w * 0.2, r.z + r.d / 2, -Math.PI / 2], W: [r.x + r.w * 0.8, r.z + r.d / 2, Math.PI / 2] }[side]; app.s3.camera.position.set(mid[0], 1.5, mid[1]); app.walk.yaw = mid[2]; app.walk.pitch = 0;
-            const next = { N: 'E', E: 'S', S: 'W', W: null }[side]; const left = SIDES.filter(sd => !(r.walls && r.walls[sd] && r.walls[sd].photo));
-            setTimeout(() => app.dialog(`<p>${SIDE_NAME[side]}に貼りました。</p><p>${left.length ? `まだ写真のない壁: ${left.map(sd => SIDE_NAME[sd]).join('・')}` : '4つの壁ぜんぶに写真が入りました!'}</p>`, [{ label: '床の写真も貼る', value: 'floor' }, { label: 'これで終わる', value: null }, ...(left.length ? [{ label: `${SIDE_NAME[left.includes(next) ? next : left[0]]}を貼る`, value: 'next', primary: true }] : [])]).then(async v => { if (v === 'next') { const f = await pickFile('image/*'); if (!f) return; app.openSheet('photo'); cornerStep('wall', await fileToDataUrl(f, 2000, 0.9), false, left.includes(next) ? next : left[0]); } if (v === 'floor') { const f = await pickFile('image/*'); if (!f) return; app.openSheet('photo'); cornerStep('floor', await fileToDataUrl(f, 2000, 0.9)); } }), 200); }
+          if (kind === 'wall') { const f = edgeFrame(r, side); const mid = wallPoint(r, side, f.L / 2, 0, Math.min(3, Math.max(1.2, f.L * 0.6))); app.s3.camera.position.set(mid.x, 1.5, mid.z); app.walk.yaw = f.rotY + Math.PI; app.walk.pitch = 0;
+            const next = (side + 1) % EDGES.length; const left = EDGES.filter(sd => !(r.walls && r.walls[sd] && r.walls[sd].photo));
+            setTimeout(() => app.dialog(`<p>${edgeName(r, side)}に貼りました。</p><p>${left.length ? `まだ写真のない壁: ${left.map(sd => edgeName(r, sd)).join('・')}` : '全部の壁に写真が入りました!'}</p>`, [{ label: '床の写真も貼る', value: 'floor' }, { label: 'これで終わる', value: null }, ...(left.length ? [{ label: `${edgeName(r, left.includes(next) ? next : left[0])}を貼る`, value: 'next', primary: true }] : [])]).then(async v => { if (v === 'next') { const f2 = await pickFile('image/*'); if (!f2) return; app.openSheet('photo'); cornerStep('wall', await fileToDataUrl(f2, 2000, 0.9), false, left.includes(next) ? next : left[0]); } if (v === 'floor') { const f2 = await pickFile('image/*'); if (!f2) return; app.openSheet('photo'); cornerStep('floor', await fileToDataUrl(f2, 2000, 0.9)); } }), 200); }
           else app.toast('床に貼りました', 2500);
         }, 30);
       };
@@ -115,9 +115,10 @@ export function openPhotoWizard(app, start) {
       box.querySelector('#aiNo').onclick = menu;
       box.querySelector('#aiYes').onclick = async () => {
         const p = app.project; const b = p.rooms.length ? Math.max(...p.rooms.map(r => r.x + r.w)) + 0.12 : 0;
-        const room = { id: 'r' + Date.now().toString(36), name: est.name || '部屋', x: b, z: 0, w: +est.width || 3.6, d: +est.depth || 3.6, h: +est.height || 2.4, floor: est.floor || { lib: 'oak' }, ceiling: { color: '#f7f6f2' }, walls: { N: est.wall || { lib: 'wp_white' }, E: est.wall || { lib: 'wp_white' }, S: est.wall || { lib: 'wp_white' }, W: est.wall || { lib: 'wp_white' } }, openings: [] };
-        for (const w of (est.windows || [])) { const side = SIDES.includes(w.side) ? w.side : 'N'; const L = wallLength(room, side); const ww = Math.min(L - 0.4, +w.w || 1.6); room.openings.push({ id: 'ai' + Math.random().toString(36).slice(2, 7), side, type: 'window', pos: Math.max(0.1, Math.min(L - ww - 0.1, (+w.center || 0.5) * L - ww / 2)), w: ww, h: +w.h || 1.2, sill: (w.sill != null && !isNaN(+w.sill)) ? +w.sill : 0.9 }); }
-        if (box.querySelector('#aiPaste').checked && est.backWall && est.backWall.length === 4) { const img = await loadImage(dataUrl); const corners = est.backWall.map(([nx, ny]) => [nx * img.width, ny * img.height]); const c = rectify(img, corners, 1280, Math.max(64, Math.round(1280 * room.h / room.w))); const id = 'ph' + Date.now().toString(36); p.assets[id] = { dataUrl: c.toDataURL('image/jpeg', 0.88), kind: 'photo', name: '奥の壁(AI)' }; room.walls.N = { photo: id }; }
+        const W = +est.width || 3.6, D = +est.depth || 3.6; const wallS = est.wall || { lib: 'wp_white' };
+        const room = { id: 'r' + Date.now().toString(36), name: est.name || '部屋', x: b, z: 0, w: W, d: D, h: +est.height || 2.4, poly: rectPoly(b, 0, W, D), floor: est.floor || { lib: 'oak' }, ceiling: { color: '#f7f6f2' }, walls: { 0: wallS, 1: wallS, 2: wallS, 3: wallS }, openings: [], parts: [] }; normalizeRoom(room);
+        for (const w of (est.windows || [])) { const side = ['N', 'E', 'S', 'W'].includes(w.side) ? w.side : 'N'; const edge = edgeForCompass(room, side) ?? 0; const L = wallLength(room, edge); const ww = Math.min(L - 0.4, +w.w || 1.6); room.openings.push({ id: 'ai' + Math.random().toString(36).slice(2, 7), edge, type: 'window', u: Math.max(0.1, Math.min(L - ww - 0.1, (+w.center || 0.5) * L - ww / 2)), w: ww, h: +w.h || 1.2, sill: (w.sill != null && !isNaN(+w.sill)) ? +w.sill : 0.9 }); }
+        if (box.querySelector('#aiPaste').checked && est.backWall && est.backWall.length === 4) { const img = await loadImage(dataUrl); const corners = est.backWall.map(([nx, ny]) => [nx * img.width, ny * img.height]); const c = rectify(img, corners, 1280, Math.max(64, Math.round(1280 * room.h / room.w))); const id = 'ph' + Date.now().toString(36); p.assets[id] = { dataUrl: c.toDataURL('image/jpeg', 0.88), kind: 'photo', name: '奥の壁(AI)' }; room.walls[0] = { photo: id }; }
         p.rooms.push(room); if (!p.items.some(i => i.roomId === room.id)) { const { newItem } = await import('./items.js'); p.items.push(newItem('ceilingLight', { roomId: room.id, x: room.x + room.w / 2, y: room.h, z: room.z + room.d / 2 })); }
         app.load(p); app.s3.camera.position.set(room.x + room.w / 2, 1.5, room.z + room.d * 0.8); app.walk.yaw = 0; app.closeSheets(); app.toast('AIの読み取りで部屋を作りました。広さは 間取り で直せます', 4000);
       };

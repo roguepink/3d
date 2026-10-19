@@ -3,9 +3,10 @@ import { newItem } from './items.js';
 export function demoProject() {
   const rooms = [
     { id: 'living', name: 'リビング', x: 0, z: 0, w: 5.4, d: 4.0, h: 2.45, floor: { lib: 'oak' }, ceiling: { color: '#f7f6f2' }, walls: { N: { lib: 'wp_white' }, E: { lib: 'wp_white' }, S: { lib: 'wp_white' }, W: { lib: 'wp_blue' } },
-      openings: [ { id: 'o1', side: 'N', type: 'window', pos: 1.2, w: 2.6, h: 1.9, sill: 0.35 }, { id: 'o2', side: 'E', type: 'door', pos: 1.2, w: 0.85, h: 2.0, open: 0.8 }, { id: 'o3', side: 'W', type: 'window', pos: 1.3, w: 1.2, h: 1.1, sill: 0.95 } ] },
-    { id: 'bed', name: '寝室', x: 5.52, z: 0, w: 3.6, d: 4.0, h: 2.45, floor: { lib: 'carpet_b' }, ceiling: { color: '#f7f6f2' }, walls: { N: { lib: 'wp_navy' }, E: { lib: 'wp_warm' }, S: { lib: 'wp_warm' }, W: { lib: 'wp_warm' } },
-      openings: [ { id: 'o4', side: 'W', type: 'door', pos: 1.2, w: 0.85, h: 2.0, twin: 'o2' }, { id: 'o5', side: 'N', type: 'window', pos: 1.0, w: 1.6, h: 1.2, sill: 0.9 }, { id: 'o6', side: 'S', type: 'door', pos: 0.4, w: 0.8, h: 2.0, open: 0.0 } ] },
+      openings: [ { id: 'o1', side: 'N', type: 'window', pos: 1.2, w: 2.6, h: 1.9, sill: 0.35 }, { id: 'o2', side: 'E', type: 'door', pos: 1.2, w: 0.85, h: 2.0, open: 0.8 }, { id: 'o3', side: 'W', type: 'window', pos: 1.3, w: 1.2, h: 1.1, sill: 0.95 } ],
+      parts: [ { id: 'p1', type: 'column', x: 4.95, z: 0, w: 0.45, d: 0.45 }, { id: 'p2', type: 'wall', x1: 5.4, z1: 3.3, x2: 4.6, z2: 3.3, h: 1.1 }, { id: 'p3', type: 'beam', x: 0, z: 2.6, w: 5.4, d: 0.3, drop: 0.25 } ] },
+    { id: 'bed', name: '寝室', x: 5.52, z: 0, w: 3.6, d: 4.0, h: 2.45, poly: [[5.52, 0], [8.42, 0], [9.12, 0.7], [9.12, 4.0], [5.52, 4.0]], floor: { lib: 'carpet_b' }, ceiling: { color: '#f7f6f2' }, walls: { 0: { lib: 'wp_navy' }, 1: { lib: 'wp_navy' }, 2: { lib: 'wp_warm' }, 3: { lib: 'wp_warm' }, 4: { lib: 'wp_warm' } },
+      openings: [ { id: 'o4', edge: 4, type: 'door', u: 1.95, w: 0.85, h: 2.0, twin: 'o2' }, { id: 'o5', edge: 0, type: 'window', u: 0.7, w: 1.6, h: 1.2, sill: 0.9 }, { id: 'o6', edge: 3, type: 'door', u: 2.4, w: 0.8, h: 2.0, open: 0.0 } ] },
     { id: 'hall', name: '廊下', x: 5.52, z: 4.12, w: 3.6, d: 1.4, h: 2.4, floor: { lib: 'tile_w' }, ceiling: { color: '#f7f6f2' }, walls: { N: { lib: 'wp_white' }, E: { lib: 'wp_white' }, S: { lib: 'wp_white' }, W: { lib: 'wp_white' } },
       openings: [ { id: 'o7', side: 'N', type: 'door', pos: 0.4, w: 0.8, h: 2.0, twin: 'o6' } ] },
   ];

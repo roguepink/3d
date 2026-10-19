@@ -74,12 +74,18 @@ export function parseCommand(raw, app) {
   if (/(部屋|へや|ルーム|リビング|寝室|和室|子供部屋|キッチン|廊下|玄関|トイレ)を?(作|つく|足|たし|増や|ふや|追加)/.test(t)) {
     const m = t.match(/(\d+(?:\.\d+)?)\s*(畳|帖|じょう)/); const jo = m ? parseFloat(m[1]) : null; const name = (t.match(/(リビング|寝室|和室|子供部屋|キッチン|廊下|玄関|トイレ|ダイニング|書斎)/) || [])[1];
     const sz = jo ? (jo <= 4.5 ? { w: 2.7, d: 2.7 } : jo <= 6 ? { w: 2.7, d: 3.6 } : jo <= 8 ? { w: 3.6, d: 3.6 } : jo <= 10 ? { w: 3.6, d: 4.5 } : jo <= 12 ? { w: 3.6, d: 5.4 } : { w: 4.5, d: 6.3 }) : null;
-    return { action: 'room', size: sz, name };
+    const shape = /L字|エル字|えるじ/.test(t) ? 'L' : /斜め|ななめ/.test(t) ? 'chamfer' : /出窓/.test(t) ? 'bay' : /柱/.test(t) ? 'column' : null;
+    return { action: 'room', size: sz, name, shape };
   }
   // 部屋の広さを変える(「部屋の横を4mに」「天井を2.6mに」「奥行きを3.6メートルに」)
   const rs = t.match(/(横幅|横|幅|奥行き|奥行|天井の高さ|天井|高さ)を?\s*(\d+(?:\.\d+)?)\s*(m|メートル|cm|センチ)/);
   if (rs && (/部屋|へや|広さ|天井/.test(t) || !typeByWord(t))) { let v = parseFloat(rs[2]); if (/cm|センチ/.test(rs[3])) v /= 100; const key = /奥行/.test(rs[1]) ? 'd' : /天井|高さ/.test(rs[1]) ? 'h' : 'w'; if (v > 0.5 && v < 30) return { action: 'roomSize', [key]: v }; }
   const jo = t.match(/(\d+(?:\.\d+)?)\s*(畳|帖|じょう)に(して|変え|かえ|広げ|せま)/); if (jo) { const n = parseFloat(jo[1]); const sz = n <= 4.5 ? { w: 2.7, d: 2.7 } : n <= 6 ? { w: 2.7, d: 3.6 } : n <= 8 ? { w: 3.6, d: 3.6 } : n <= 10 ? { w: 3.6, d: 4.5 } : n <= 12 ? { w: 3.6, d: 5.4 } : { w: 4.5, d: 6.3 }; return { action: 'roomSize', ...sz }; }
+  // 柱型・袖壁・梁・角を斜めに
+  if (/(柱型|柱|はしら)を?(つけ|付け|作|つく|足|たし|追加|入れ|いれ|立て)/.test(t)) return { action: 'part', part: 'column', size: size ? { w: size } : null };
+  if (/(袖壁|そで壁|そでかべ|腰壁|こしかべ|間仕切り|仕切り)を?(つけ|付け|作|つく|足|たし|追加|入れ|いれ|立て)/.test(t)) return { action: 'part', part: 'wall', size: size ? { w: size, h: /腰壁|こしかべ/.test(t) ? 1.1 : null } : (/腰壁|こしかべ/.test(t) ? { h: 1.1 } : null) };
+  if (/(梁|はり|下がり天井|さがり天井)を?(つけ|付け|作|つく|足|たし|追加|入れ|いれ|通し)/.test(t)) return { action: 'part', part: 'beam', size: size ? { h: size } : null };
+  if (/(角|かど|コーナー)を?(斜め|ななめ|落と|おと|切|カット)/.test(t)) return { action: 'chamfer', len: size || null };
   if (/窓を?(つけ|付け|作|つく|足|たし|追加|開け|あけ|増や)/.test(t)) return { action: 'window', side, size: size ? { w: size } : null, sill: /掃き出し|はきだし|大きい窓|大きな窓/.test(t) ? 0.3 : (/小さい|小窓/.test(t) ? 1.2 : undefined) };
   if (/(ドア|扉|とびら|出入口|入口)を?(つけ|付け|作|つく|足|たし|追加|開け|あけ|増や)/.test(t)) return { action: 'door', side, size: size ? { w: size } : null };
   // 床・壁・天井
