@@ -167,9 +167,9 @@ class App {
       const wins = (room.openings || []).filter(o => o.side === side && o.type === 'window').map(o => ({ o, cu: (side === 'N' || side === 'E') ? o.pos + o.w / 2 : L - o.pos - o.w / 2 }));
       const isWin = ['curtain', 'lace', 'roller', 'blind', 'vblind', 'shade', 'pleats', 'shoji'].includes(type);
       let win = null; if (isWin && wins.length) { wins.sort((a, b) => Math.abs(a.cu - u) - Math.abs(b.cu - u)); win = wins[0]; if (Math.abs(win.cu - u) > 2.5 && t && (t.kind === 'wall')) win = null; }
-      if (win) { const o = win.o, top = o.sill + o.h; u = win.cu;
-        if (type === 'curtain' || type === 'lace') { it.w = o.w + 0.4; const bot = 0.02; const tp = Math.min(room.h - 0.05, top + 0.18); it.h = tp - bot; it.y = (tp + bot) / 2; }
-        else { it.w = o.w + 0.1; const tp = Math.min(room.h - 0.05, top + 0.12), bot = Math.max(0.05, o.sill - 0.06); it.h = tp - bot; it.y = (tp + bot) / 2; } }
+      if (win) { const o = win.o, top = o.sill + o.h; u = win.cu; const keepW = over.w;
+        if (type === 'curtain' || type === 'lace') { it.w = keepW || o.w + 0.4; const bot = 0.02; const tp = Math.min(room.h - 0.05, top + 0.18); it.h = tp - bot; it.y = (tp + bot) / 2; }
+        else { it.w = keepW || o.w + 0.1; const tp = Math.min(room.h - 0.05, top + 0.12), bot = Math.max(0.05, o.sill - 0.06); it.h = tp - bot; it.y = (tp + bot) / 2; } if (over.h) { it.h = over.h; if (type === 'curtain' || type === 'lace') it.y = 0.02 + it.h / 2; } }
       else { const defY = { curtain: null, lace: null, roller: null, blind: null, vblind: null, wallLight: 1.75, tv: 1.15, picture: 1.5, mirror: 1.25, clock: 1.9 }[type]; if (isWin) { it.h = Math.min(it.h, room.h - 0.1); it.y = Number.isFinite(v) ? Math.min(room.h - it.h / 2, Math.max(it.h / 2, v)) : room.h - 0.05 - it.h / 2; if (type === 'curtain' || type === 'lace') { const tp = room.h - 0.06; it.h = tp - 0.02; it.y = (tp + 0.02) / 2; } } else it.y = Number.isFinite(v) ? Math.min(room.h - it.h / 2, Math.max(it.h / 2, v)) : defY; }
       u = Math.min(L - it.w / 2, Math.max(it.w / 2, u)); const wp = wallPoint(room, side, u, 0, 0); it.x = wp.x; it.z = wp.z; it.rot = wallFrame(room, side).rotY; it.side = side;
     } else if (c.kind === 'ceiling') {
@@ -301,6 +301,7 @@ class App {
         const spot = this.freeSpot(room, side, pos, w, cmd.action === 'door' && !cmd.side && !(t && t.kind === 'wall')); if (!spot) { this.toast('空いている壁がありません'); return; }
         this.addOpening(room, { side: spot.side, type: cmd.action, pos: spot.pos, w, h, sill: cmd.action === 'window' ? (cmd.sill ?? (h > 1.6 ? 0.3 : 0.9)) : 0, open: 0.9 }); this.toast((cmd.action === 'window' ? '窓' : 'ドア') + 'を' + SIDE_NAME[spot.side] + 'に付けました'); return; }
       case 'room': { this.openNewRoom(cmd); return; }
+      case 'roomSize': { const room = this.currentRoom(); if (!room) return; this.snapshot(); if (cmd.w) room.w = cmd.w; if (cmd.d) room.d = cmd.d; if (cmd.h) room.h = cmd.h; this.plan.clampOpenings(room); for (const it of this.project.items) if (it.roomId === room.id) { it.x = Math.min(room.x + room.w - 0.1, it.x); it.z = Math.min(room.z + room.d - 0.1, it.z); if (catalogEntry(it.type).kind === 'ceiling') it.y = room.h; } this.plan.fixTwins(); this.load(this.project); this.toast(`${room.name}を ${room.w.toFixed(1)}×${room.d.toFixed(1)}m・天井${room.h.toFixed(2)}m にしました`); return; }
       case 'shot': this.shot(); return;
       case 'undo': this.undo(); return;
       case 'list': this.listItems(); return;

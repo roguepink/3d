@@ -1,6 +1,7 @@
 // 置けるもの(カーテン・照明・家具など)のカタログと3Dの作り方
 import * as THREE from 'three';
 import { surfaceMaterial } from './textures.js';
+import { mergeGroup } from './merge.js';
 
 const stdCache = new Map();
 export function std(color, rough = .6, metal = 0, extra = {}) {
@@ -166,6 +167,7 @@ export function newItem(type, over = {}) {
 export function buildItem(it, assets) {
   const c = CATALOG[it.type]; if (!c) return null;
   it._assets = assets; const g = c.build(it); delete it._assets;
+  g.position.set(0, 0, 0); g.rotation.set(0, 0, 0); mergeGroup(g);
   g.name = 'item:' + it.id; g.userData.itemId = it.id; g.traverse(o => { if (o.isMesh) o.userData.itemId = it.id; });
   g.position.set(it.x, it.y, it.z); g.rotation.y = it.rot || 0;
   return g;

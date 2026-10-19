@@ -1,6 +1,7 @@
 // 部屋のデータ → 壁・床・天井・窓・ドアの3D
 import * as THREE from 'three';
 import { surfaceMaterial } from './textures.js';
+import { mergeGroup } from './merge.js';
 
 export const WALL_T = 0.12;      // 壁の厚み
 export const SIDES = ['N', 'E', 'S', 'W'];
@@ -61,11 +62,11 @@ export function buildRoom(room, project, group) {
   // 床
   const floor = new THREE.Mesh(new THREE.PlaneGeometry(room.w, room.d), surfaceMaterial('floor', room.floor, { w: room.w, h: room.d }, assets));
   floor.rotation.x = -Math.PI / 2; floor.position.set(room.x + room.w / 2, 0, room.z + room.d / 2); floor.receiveShadow = true;
-  floor.userData = { kind: 'floor', roomId: room.id }; roomGroup.add(floor); pick.push(floor);
+  floor.userData = { kind: 'floor', roomId: room.id, keep: true }; roomGroup.add(floor); pick.push(floor);
   // 天井
   const ceil = new THREE.Mesh(new THREE.PlaneGeometry(room.w, room.d), surfaceMaterial('wall', room.ceiling || { color: '#f7f7f4' }, { w: room.w, h: room.d }, assets));
   ceil.rotation.x = Math.PI / 2; ceil.position.set(room.x + room.w / 2, H, room.z + room.d / 2); ceil.receiveShadow = true;
-  ceil.userData = { kind: 'ceiling', roomId: room.id }; roomGroup.add(ceil); pick.push(ceil);
+  ceil.userData = { kind: 'ceiling', roomId: room.id, keep: true }; roomGroup.add(ceil); pick.push(ceil);
   // 壁
   for (const side of SIDES) {
     const L = wallLength(room, side), f = wallFrame(room, side);
@@ -74,13 +75,13 @@ export function buildRoom(room, project, group) {
     const spec = (room.walls && room.walls[side]) || { lib: 'wp_white' };
     const wall = new THREE.Mesh(wallGeometry(L, H, holes), surfaceMaterial('wall', spec, { w: L, h: H }, assets));
     wall.position.copy(f.origin); wall.rotation.y = f.rotY; wall.receiveShadow = true; wall.castShadow = false;
-    wall.userData = { kind: 'wall', roomId: room.id, side }; roomGroup.add(wall); pick.push(wall);
+    wall.userData = { kind: 'wall', roomId: room.id, side, keep: true }; roomGroup.add(wall); pick.push(wall);
     // 壁の上端(全体を上から見たとき用)
     const cap = box(L + WALL_T * 2, 0.02, WALL_T, matCap); cap.castShadow = false;
     cap.position.copy(wallPoint(room, side, L / 2, H + 0.01, -WALL_T / 2)); cap.rotation.y = f.rotY; roomGroup.add(cap);
     // 外側の壁(厚みの外の面。外から見たときだけ見える)
     const outer = new THREE.Mesh(wallGeometry(L, H, holes), new THREE.MeshStandardMaterial({ color: '#e8e4dc', roughness: .9, side: THREE.BackSide }));
-    outer.position.copy(wallPoint(room, side, 0, 0, -WALL_T)); outer.rotation.y = f.rotY; outer.receiveShadow = true; roomGroup.add(outer);
+    outer.position.copy(wallPoint(room, side, 0, 0, -WALL_T)); outer.rotation.y = f.rotY; outer.receiveShadow = true; outer.userData.keep = true; roomGroup.add(outer);
     // 廻り縁(天井との境の細い縁)
     const crown = box(L, 0.035, 0.02, matWood); crown.castShadow = false; crown.position.copy(wallPoint(room, side, L / 2, H - 0.0175, 0.01)); crown.rotation.y = f.rotY; roomGroup.add(crown);
     // 巾木(ドアのところは切る)
@@ -106,7 +107,7 @@ export function buildRoom(room, project, group) {
       if (isWin) {
         const sillBoard = box(h.w + 0.16, 0.025, 0.09, matFrame); sillBoard.position.set(0, h.sill - 0.0125, 0.045); og.add(sillBoard);
         const glass = new THREE.Mesh(new THREE.PlaneGeometry(h.w, h.h), matGlass); glass.position.set(0, h.sill + h.h / 2, -WALL_T / 2); og.add(glass);
-        glass.userData = { kind: 'window', roomId: room.id, side, openingId: o.id }; pick.push(glass);
+        glass.userData = { kind: 'window', roomId: room.id, side, openingId: o.id, keep: true }; pick.push(glass);
         // サッシ(縦の中桟 + 枠)
         const fw = 0.04;
         const s1 = box(fw, h.h, 0.05, matSash); s1.position.set(0, h.sill + h.h / 2, -WALL_T / 2); og.add(s1);
@@ -129,9 +130,10 @@ export function buildRoom(room, project, group) {
     const tex = new THREE.Texture(); tex.colorSpace = THREE.SRGBColorSpace; const img = new Image(); img.onload = () => { tex.image = img; tex.needsUpdate = true; }; img.src = assets[room.pano].dataUrl;
     const R = Math.max(4, Math.max(room.w, room.d) * 1.5);
     const sphere = new THREE.Mesh(new THREE.SphereGeometry(R, 48, 32), new THREE.MeshBasicMaterial({ map: tex, side: THREE.BackSide }));
-    sphere.position.set(room.x + room.w / 2, 1.5, room.z + room.d / 2); sphere.rotation.y = room.panoRot || 0; sphere.userData = { kind: 'pano', roomId: room.id }; roomGroup.add(sphere);
+    sphere.position.set(room.x + room.w / 2, 1.5, room.z + room.d / 2); sphere.rotation.y = room.panoRot || 0; sphere.userData = { kind: 'pano', roomId: room.id, keep: true }; roomGroup.add(sphere);
     roomGroup.traverse(o => { if (o !== sphere && o.isMesh) { o.visible = false; o.userData.ghost = true; } });
   }
+  mergeGroup(roomGroup);
   group.add(roomGroup);
   return pick;
 }

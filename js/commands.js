@@ -2,7 +2,7 @@
 import { typeByWord, CATALOG, catalogEntry } from './items.js';
 import { colorByName, COLORS, COLOR_ALIASES, SURFACE_LIB } from './textures.js';
 
-const z2h = s => s.replace(/[０-９．]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0)).replace(/[、。,.!！?？「」\s]/g, m => (m === '．' ? '.' : ' '));
+const z2h = s => s.replace(/[０-９．]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0)).replace(/[、。,!！?？「」\s]/g, ' ');
 const SIDE_WORDS = { '正面': 'front', '奥': 'front', '前の壁': 'front', '向かい': 'front', '右': 'right', '左': 'left', '後ろ': 'back', 'うしろ': 'back', '手前': 'back', '北': 'N', '南': 'S', '東': 'E', '西': 'W' };
 
 // 見ている向きから、「右の壁」などを N/E/S/W に直す
@@ -73,6 +73,10 @@ export function parseCommand(raw, app) {
     const sz = jo ? (jo <= 4.5 ? { w: 2.7, d: 2.7 } : jo <= 6 ? { w: 2.7, d: 3.6 } : jo <= 8 ? { w: 3.6, d: 3.6 } : jo <= 10 ? { w: 3.6, d: 4.5 } : jo <= 12 ? { w: 3.6, d: 5.4 } : { w: 4.5, d: 6.3 }) : null;
     return { action: 'room', size: sz, name };
   }
+  // 部屋の広さを変える(「部屋の横を4mに」「天井を2.6mに」「奥行きを3.6メートルに」)
+  const rs = t.match(/(横幅|横|幅|奥行き|奥行|天井の高さ|天井|高さ)を?\s*(\d+(?:\.\d+)?)\s*(m|メートル|cm|センチ)/);
+  if (rs && (/部屋|へや|広さ|天井/.test(t) || !typeByWord(t))) { let v = parseFloat(rs[2]); if (/cm|センチ/.test(rs[3])) v /= 100; const key = /奥行/.test(rs[1]) ? 'd' : /天井|高さ/.test(rs[1]) ? 'h' : 'w'; if (v > 0.5 && v < 30) return { action: 'roomSize', [key]: v }; }
+  const jo = t.match(/(\d+(?:\.\d+)?)\s*(畳|帖|じょう)に(して|変え|かえ|広げ|せま)/); if (jo) { const n = parseFloat(jo[1]); const sz = n <= 4.5 ? { w: 2.7, d: 2.7 } : n <= 6 ? { w: 2.7, d: 3.6 } : n <= 8 ? { w: 3.6, d: 3.6 } : n <= 10 ? { w: 3.6, d: 4.5 } : n <= 12 ? { w: 3.6, d: 5.4 } : { w: 4.5, d: 6.3 }; return { action: 'roomSize', ...sz }; }
   if (/窓を?(つけ|付け|作|つく|足|たし|追加|開け|あけ|増や)/.test(t)) return { action: 'window', side, size: size ? { w: size } : null, sill: /掃き出し|はきだし|大きい窓|大きな窓/.test(t) ? 0.3 : (/小さい|小窓/.test(t) ? 1.2 : undefined) };
   if (/(ドア|扉|とびら|出入口|入口)を?(つけ|付け|作|つく|足|たし|追加|開け|あけ|増や)/.test(t)) return { action: 'door', side, size: size ? { w: size } : null };
   // 床・壁・天井
