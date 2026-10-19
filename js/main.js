@@ -52,7 +52,7 @@ class App {
     $('#mOpen').onclick = () => this.openList();
     $('#mExport').onclick = () => { const blob = new Blob([JSON.stringify(this.project)], { type: 'application/json' }); download(blob, (this.project.name || 'oheya') + '.json'); this.toast('ファイルに書き出しました'); };
     $('#mImport').onchange = e => { const f = e.target.files[0]; if (!f) return; f.text().then(t => { try { const p = JSON.parse(t); if (!p.rooms) throw 0; this.load(p); this.closeSheets(); this.toast('読み込みました'); } catch { this.toast('このファイルは読めませんでした'); } }); e.target.value = ''; };
-    $('#mGyro').onclick = () => { const on = this.walk.setGyro(!this.walk.gyro.on); $('#mGyro').textContent = on ? '📱 傾きで見回す:ON(押すと止める)' : '📱 スマホを動かして見回す'; this.toast(on ? 'スマホを動かすと見回せます' : '傾き操作を止めました'); };
+    const gyro = () => { const on = this.walk.setGyro(!this.walk.gyro.on); setTimeout(() => { const now = this.walk.gyro.on; $('#mGyro').textContent = now ? '📱 傾きで見回す:ON(押すと止める)' : '📱 スマホを動かして見回す'; $('#btnGyro').classList.toggle('on', now); this.toast(now ? 'スマホを動かすと見回せます(もう一度押すと止まります)' : '傾き操作を止めました'); }, 300); void on; }; $('#mGyro').onclick = gyro; $('#btnGyro').onclick = () => { this.setMode('walk'); gyro(); };
     $('#mQuality').onclick = () => { const q = { normal: 'high', high: 'low', low: 'normal' }[this.s3.quality]; this.s3.quality = q; this.s3.applyQuality(); localStorage.setItem('oheya-quality', q); $('#mQuality').textContent = '🎚 画質:' + { low: 'かるい', normal: 'ふつう', high: 'きれい' }[q]; };
     $('#mAI').onclick = () => this.aiSettings();
     $('#mHelp').onclick = () => this.help();

@@ -105,3 +105,5 @@ body.orbit-mode #walkpad, body.orbit-mode #crosshair { display:none; }
 button:disabled { opacity:.4; }
 body:not(.ready) .start-grid { opacity:.45; pointer-events:none; }
 body.ready #loadingNote { display:none; }
+.tb.on { background:var(--accent); color:#1a1a1a; } .tb.on small { color:#1a1a1a; }
+@media (max-height:700px) { .tb { width:50px; height:50px; font-size:19px; } #tools { gap:6px; } }
