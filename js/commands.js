@@ -85,6 +85,16 @@ export function parseCommand(raw, app) {
   const rs = t.match(/(横幅|横|幅|奥行き|奥行|天井の高さ|天井|高さ)を?\s*(\d+(?:\.\d+)?)\s*(m|メートル|cm|センチ)/);
   if (rs && (/部屋|へや|広さ|天井/.test(t) || !typeByWord(t))) { let v = parseFloat(rs[2]); if (/cm|センチ/.test(rs[3])) v /= 100; const key = /奥行/.test(rs[1]) ? 'd' : /天井|高さ/.test(rs[1]) ? 'h' : 'w'; if (v > 0.5 && v < 30) return { action: 'roomSize', [key]: v }; }
   const jo = t.match(/(\d+(?:\.\d+)?)\s*(畳|帖|じょう)に(して|変え|かえ|広げ|せま)/); if (jo) { const n = parseFloat(jo[1]); const sz = n <= 4.5 ? { w: 2.61, d: 2.61 } : n <= 6 ? { w: 2.61, d: 3.52 } : n <= 8 ? { w: 3.52, d: 3.52 } : n <= 10 ? { w: 3.52, d: 4.43 } : n <= 12 ? { w: 3.52, d: 5.34 } : n <= 16 ? { w: 4.43, d: 5.34 } : { w: 5.34, d: 5.34 }; return { action: 'roomSize', ...sz }; }
+  // 廻り縁・巾木・窓枠・ドア枠
+  const trimPart = /(巾木|幅木|はばき)/.test(t) ? 'base' : /(廻り縁|回り縁|廻縁|まわりぶち|まわり縁)/.test(t) ? 'crown' : /(ドアの枠|ドア枠|扉の枠)/.test(t) ? 'door' : /(窓の枠|窓枠|枠|ケーシング|クロス巻き込み|巻き込み)/.test(t) ? 'casing' : null;
+  if (trimPart) {
+    const cmd = { action: 'trim', part: trimPart, allRooms: /全部の部屋|家中|どの部屋も/.test(t) };
+    if (/(なし|無し|無く|なく|取って|とって|外し|はずし|消し|けし|いらない|巻き込み)/.test(t)) cmd.on = false; else if (/(あり|つけ|付け|入れ|戻し|もどし)/.test(t)) cmd.on = true;
+    const hm = t.match(/(\d+)\s*(mm|ミリ)/); if (hm) cmd.h = parseInt(hm[1]); else if (size) cmd.h = Math.round(size * 1000);
+    if (/ウォールナット|濃い木|ダークブラウン/.test(t)) cmd.finish = 'wood_walnut'; else if (/ミディアム|茶色の木|こげ茶/.test(t)) cmd.finish = 'wood_medium'; else if (/ライト|明るい木|薄い木/.test(t) && /木|もくめ|木目/.test(t)) cmd.finish = 'wood_light'; else if (/ホワイトウッド|白木/.test(t)) cmd.finish = 'wood_white'; else if (/木目|木|ナチュラル/.test(t)) cmd.finish = 'wood_natural'; else if (/オフホワイト|アイボリー/.test(t)) cmd.finish = 'offwhite'; else if (/ダークグレー|濃いグレー|チャコール/.test(t)) cmd.finish = 'dark'; else if (/ライトグレー|薄いグレー/.test(t)) cmd.finish = 'lightgray'; else if (/グレー|灰/.test(t)) cmd.finish = 'gray'; else if (/黒|ブラック/.test(t)) cmd.finish = 'black'; else if (/白|ホワイト/.test(t)) cmd.finish = 'white';
+    if (/(そろえ|揃え|同じに|統一)/.test(t)) cmd.same = true;
+    if (cmd.on !== undefined || cmd.h || cmd.finish || cmd.same) return cmd;
+  }
   // 柱型・袖壁・梁・角を斜めに
   if (/(柱型|柱|はしら)を?(つけ|付け|作|つく|足|たし|追加|入れ|いれ|立て)/.test(t)) return { action: 'part', part: 'column', size: size ? { w: size } : null };
   if (/(袖壁|そで壁|そでかべ|腰壁|こしかべ|間仕切り|仕切り)を?(つけ|付け|作|つく|足|たし|追加|入れ|いれ|立て)/.test(t)) return { action: 'part', part: 'wall', size: size ? { w: size, h: /腰壁|こしかべ/.test(t) ? 1.1 : null } : (/腰壁|こしかべ/.test(t) ? { h: 1.1 } : null) };

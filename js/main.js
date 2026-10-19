@@ -2,9 +2,9 @@
 import * as THREE from 'three';
 import { Scene3D } from './scene3d.js';
 import { WalkControls } from './controls.js';
-import { buildHouse, walkable, roomAt, houseBounds, edgeFrame, wallPoint, wallUV, wallLength, edgeName, edgeForCompass, nearestEdge, edgeDistance, frameFromRot, clampIntoRoom, insideRoom, neighborAcross, normalizeRoom, shapePoly, chamferVertex, isRect, resizeRect, WALL_T, MODULES, ROOM_PRESETS, mm, mmRaw, joOf, innerOf, shinShin, roomJo } from './house.js';
-import { CATALOG, CATEGORIES, newItem, buildItem, catalogEntry, typeByWord } from './items.js';
-import { SURFACE_LIB, COLORS, colorByName, swatchCanvas, clearMaterialCache, libEntry } from './textures.js';
+import { buildHouse, walkable, roomAt, houseBounds, edgeFrame, wallPoint, wallUV, wallLength, edgeName, edgeForCompass, nearestEdge, edgeDistance, frameFromRot, clampIntoRoom, insideRoom, neighborAcross, normalizeRoom, shapePoly, chamferVertex, isRect, resizeRect, WALL_T, MODULES, ROOM_PRESETS, mm, mmRaw, joOf, innerOf, shinShin, roomJo, roomTrim } from './house.js';
+import { CATALOG, CATEGORIES, EQUIP_CATEGORIES, newItem, buildItem, catalogEntry, typeByWord } from './items.js';
+import { SURFACE_LIB, COLORS, colorByName, swatchCanvas, clearMaterialCache, libEntry, TRIM_FINISHES, trimMaterial, trimFinish } from './textures.js';
 import { demoProject } from './demo.js';
 import { saveProject, loadProject, listProjects, deleteProject, download, shareOrDownload } from './store.js';
 import { parseCommand } from './commands.js';
@@ -40,7 +40,7 @@ class App {
     for (const b of $$('#modes .mode')) b.onclick = () => this.setMode(b.dataset.mode);
     $('#btnHome').onclick = () => { $('#start').classList.remove('hidden'); this.refreshContinue(); };
     $('#btnMenu').onclick = () => this.openSheet('menu'); $('#btnUndo').onclick = () => this.undo(); $('#btnRedo').onclick = () => this.redo(); $('#plUndo').onclick = () => this.undo(); $('#plRedo').onclick = () => this.redo();
-    $('#btnAdd').onclick = () => this.openCatalog();
+    $('#btnAdd').onclick = () => this.openCatalog(false); $('#btnEquip').onclick = () => this.openCatalog(true);
     $('#btnPhoto').onclick = () => { this.closeSheets(); openPhotoWizard(this); };
     $('#btnMaterial').onclick = () => this.openSurfaces();
     $('#btnDayNight').onclick = () => this.setDaytime({ day: 'evening', evening: 'night', night: 'day' }[this.project.settings.daytime || (this.project.settings.night ? 'night' : 'day')]);
@@ -104,7 +104,8 @@ class App {
     for (const r of this.project.rooms) { const c = document.createElement('canvas'); c.width = 256; c.height = 80; const x = c.getContext('2d'); x.fillStyle = 'rgba(0,0,0,.55)'; x.beginPath(); if (x.roundRect) x.roundRect(8, 8, 240, 64, 18); else x.rect(8, 8, 240, 64); x.fill(); x.fillStyle = '#fff'; x.font = 'bold 34px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(r.name, 128, 42); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, depthTest: false, transparent: true })); sp.position.set(r.x + r.w / 2, r.h + 0.5, r.z + r.d / 2); sp.scale.set(1.6, 0.5, 1); sp.renderOrder = 20; this.labels.add(sp); }
     this.applyCeilingVisibility();
   }
-  rebuildItems() { const g = this.s3.itemGroup; while (g.children.length) g.remove(g.children[0]); this.itemGroups.clear(); for (const it of this.project.items) this.addItemMesh(it); this.updateShadowLights(); }
+  rebuildItems() { const g = this.s3.itemGroup; while (g.children.length) g.remove(g.children[0]); this.itemGroups.clear(); for (const it of this.project.items) this.addItemMesh(it); this.updateShadowLights(); this.applyEquipVisibility(); }
+  applyEquipVisibility() { for (const [id, g] of this.itemGroups) { const it = this.item(id); const e = it && catalogEntry(it.type); if (e && e.equip) g.visible = !this.hideEquip; } }
   addItemMesh(it) { let m = null; try { if (!it.opts) it.opts = {}; m = buildItem(it, this.project.assets); } catch (e) { console.warn('item build failed', it.type, e); } if (!m) return; this.s3.itemGroup.add(m); this.itemGroups.set(it.id, m); return m; }
   rebuildItem(it, keep) { if (!keep) this.snapshot(); const old = this.itemGroups.get(it.id); if (old) this.s3.itemGroup.remove(old); this.addItemMesh(it); this.updateShadowLights(); this.updateSelHelper(); this.touched(); }
   updateItemPose(it) { const m = this.itemGroups.get(it.id); if (m) { m.position.set(it.x, it.y, it.z); m.rotation.y = it.rot || 0; } this.updateSelHelper(); this.touched(); }
@@ -167,11 +168,13 @@ class App {
   defaultTarget() { const r = this.currentRoom(); if (!r) return null; const cam = this.s3.camera.position; const dir = new THREE.Vector3(-Math.sin(this.walk.yaw), 0, -Math.cos(this.walk.yaw)); const p = cam.clone().addScaledVector(dir, 1.5); p.y = 0; p.x = Math.min(r.x + r.w - 0.3, Math.max(r.x + 0.3, p.x)); p.z = Math.min(r.z + r.d - 0.3, Math.max(r.z + 0.3, p.z)); return { kind: 'floor', roomId: r.id, point: p, normal: new THREE.Vector3(0, 1, 0) }; }
 
   // ---------- 置く ----------
-  openCatalog() {
-    this.openSheet('catalog'); const tabs = $('#catTabs'), cards = $('#catCards'); tabs.innerHTML = ''; this._cat = this._cat || CATEGORIES[0];
-    for (const c of CATEGORIES) { const b = document.createElement('button'); b.textContent = c; b.classList.toggle('on', c === this._cat); b.onclick = () => { this._cat = c; this.openCatalog(); }; tabs.appendChild(b); }
+  openCatalog(equip = false) {
+    this.openSheet('catalog'); const tabs = $('#catTabs'), cards = $('#catCards'); tabs.innerHTML = ''; const cats = equip ? EQUIP_CATEGORIES : CATEGORIES; const key = equip ? '_ecat' : '_cat'; this[key] = cats.includes(this[key]) ? this[key] : cats[0];
+    $('#catTitle').textContent = equip ? '設備を付ける' : '置くもの'; $('#catHint').textContent = equip ? '見ている壁や床に付けます。コンセントやスイッチは一般的な高さに自動で付きます(あとで上下に動かせます)。' : '選ぶと、見ている場所(画面の中央の○)に置きます。';
+    for (const c of cats) { const b = document.createElement('button'); b.textContent = c; b.classList.toggle('on', c === this[key]); b.onclick = () => { this[key] = c; this.openCatalog(equip); }; tabs.appendChild(b); }
+    if (equip) { const hb = document.createElement('button'); hb.textContent = this.hideEquip ? '👁 設備を見せる' : '🙈 設備を隠す'; hb.onclick = () => { this.hideEquip = !this.hideEquip; this.applyEquipVisibility(); this.openCatalog(true); }; tabs.appendChild(hb); }
     cards.innerHTML = '';
-    for (const [type, e] of Object.entries(CATALOG)) { if (e.cat !== this._cat) continue; const b = document.createElement('button'); b.className = 'card sw'; const th = thumbnail(type); if (th) { const img = document.createElement('img'); img.src = th; img.alt = e.name; b.appendChild(img); } else b.textContent = e.emoji; const bb = document.createElement('b'); bb.textContent = e.name; b.appendChild(bb); b.onclick = () => { const it = this.place(type, this.target()); if (it) { this.closeSheets(); this.select(it.id); this.toast(e.name + 'を置きました。指で引っぱると動かせます'); } }; cards.appendChild(b); }
+    for (const [type, e] of Object.entries(CATALOG)) { if (e.cat !== this[key] || !!e.equip !== equip) continue; const b = document.createElement('button'); b.className = 'card sw'; const th = thumbnail(type); if (th) { const img = document.createElement('img'); img.src = th; img.alt = e.name; b.appendChild(img); } else b.textContent = e.emoji; const bb = document.createElement('b'); bb.textContent = e.name; b.appendChild(bb); b.onclick = () => { const it = this.place(type, this.target()); if (it) { this.closeSheets(); this.select(it.id); this.toast(e.name + 'を置きました。指で引っぱると動かせます'); } }; cards.appendChild(b); }
   }
   // 種類と場所から、置き場所を決めて置く
   place(type, t, over = {}) {
@@ -184,7 +187,7 @@ class App {
       const hitPart = !!(t && t.kind === 'part' && t.normal && Math.abs(t.normal.y) < 0.5);
       let edge = null; if (over.side) edge = edgeForCompass(room, over.side, this.s3.camera.position); else if (hitWall) edge = t.edge; else if (!hitPart) edge = nearestEdge(room, p);
       // 高さの決め方(窓に合わせない場合)
-      const defaultY = v => { const defY = { wallLight: 1.75, tv: 1.15, picture: 1.5, mirror: 1.25, clock: 1.9 }[type] ?? 1.4; if (isWin) { it.h = Math.min(it.h, room.h - 0.1); it.y = Number.isFinite(v) ? Math.min(room.h - it.h / 2, Math.max(it.h / 2, v)) : room.h - 0.05 - it.h / 2; if (type === 'curtain' || type === 'lace') { const tp = room.h - 0.06; it.h = tp - 0.02; it.y = (tp + 0.02) / 2; } } else it.y = Number.isFinite(v) ? Math.min(room.h - it.h / 2, Math.max(it.h / 2, v)) : defY; };
+      const defaultY = v => { if (c.attachY !== undefined) v = NaN; const defY = c.attachY === 'top' ? room.h - 0.05 - it.h / 2 : (typeof c.attachY === 'number' ? c.attachY : ({ wallLight: 1.75, tv: 1.15, picture: 1.5, mirror: 1.25, clock: 1.9 }[type] ?? 1.4)); if (isWin) { it.h = Math.min(it.h, room.h - 0.1); it.y = Number.isFinite(v) ? Math.min(room.h - it.h / 2, Math.max(it.h / 2, v)) : room.h - 0.05 - it.h / 2; if (type === 'curtain' || type === 'lace') { const tp = room.h - 0.06; it.h = tp - 0.02; it.y = (tp + 0.02) / 2; } } else it.y = Number.isFinite(v) ? Math.min(room.h - it.h / 2, Math.max(it.h / 2, v)) : defY; };
       if (edge !== null && edge !== undefined) {
         const f = edgeFrame(room, edge), L = f.L; let { u, v } = wallUV(room, edge, p); if (!hitWall) v = NaN; if (over.side) u = L / 2;
         const wins = room.openings.filter(o => o.edge === edge && o.type === 'window').map(o => ({ o, cu: o.u + o.w / 2 }));
@@ -194,6 +197,7 @@ class App {
           else { it.w = keepW || o.w + 0.1; const tp = Math.min(room.h - 0.05, top + 0.12), bot = Math.max(0.05, o.sill - 0.06); it.h = tp - bot; it.y = (tp + bot) / 2; }
           if (over.h) { it.h = over.h; if (type === 'curtain' || type === 'lace') it.y = 0.02 + it.h / 2; } }
         else defaultY(v);
+        if (!isWin) { for (const { o } of wins) { const inY = it.y > o.sill - 0.02 && it.y < o.sill + o.h + 0.02; const overlap = u + it.w / 2 > o.u - 0.03 && u - it.w / 2 < o.u + o.w + 0.03; if (inY && overlap) { const left = o.u - 0.05 - it.w / 2, right = o.u + o.w + 0.05 + it.w / 2; const cands = [left, right].filter(c => c - it.w / 2 >= 0.02 && c + it.w / 2 <= L - 0.02); if (cands.length) u = cands.sort((a, b) => Math.abs(a - u) - Math.abs(b - u))[0]; } } }
         it.w = Math.min(it.w, L - 0.02); u = Math.min(L - it.w / 2, Math.max(it.w / 2, u)); const wp = wallPoint(room, edge, u, 0, 0); it.x = wp.x; it.z = wp.z; it.rot = f.rotY; it.edge = edge;
       } else {
         // 柱型や袖壁の面に付ける
@@ -227,9 +231,15 @@ class App {
       const lab = document.createElement('label'); lab.className = 'filebtn'; lab.textContent = '📷 生地の写真'; const inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'image/*'; inp.onchange = e => this.userTextureFor(e.target.files[0], 'fabric', it); lab.appendChild(inp); mats.appendChild(lab); }
     const params = $('#editParams'); params.innerHTML = '';
     for (const [key, name, a, b] of (c.params || [])) { const lab = document.createElement('label'); lab.textContent = name; if (a === 'bool') { const i = document.createElement('input'); i.type = 'checkbox'; i.checked = !!it.opts[key]; i.onchange = () => { it.opts[key] = i.checked; this.rebuildItem(it); }; lab.appendChild(i); } else { const i = document.createElement('input'); i.type = 'range'; i.min = a; i.max = b; i.step = (b - a) > 5 ? 1 : 0.01; i.value = it.opts[key] ?? a; i.oninput = () => { it.opts[key] = parseFloat(i.value); clearTimeout(this._pt); this._pt = setTimeout(() => this.rebuildItem(it, true), 60); }; lab.appendChild(i); } params.appendChild(lab); }
-    const kind = c.kind; const sz = document.createElement('label'); sz.textContent = '幅 ' + it.w.toFixed(2) + 'm'; const si = document.createElement('input'); si.type = 'range'; si.min = 0.2; si.max = 6; si.step = 0.05; si.value = it.w; si.oninput = () => { it.w = parseFloat(si.value); sz.firstChild.textContent = '幅 ' + it.w.toFixed(2) + 'm'; clearTimeout(this._pt); this._pt = setTimeout(() => this.rebuildItem(it, true), 60); }; sz.appendChild(si); params.appendChild(sz);
-    const hz = document.createElement('label'); hz.textContent = '高さ ' + it.h.toFixed(2) + 'm'; const hi = document.createElement('input'); hi.type = 'range'; hi.min = 0.05; hi.max = 3; hi.step = 0.05; hi.value = it.h; hi.oninput = () => { const old = it.h; it.h = parseFloat(hi.value); if (kind === 'wall' && ['curtain', 'lace', 'roller', 'blind', 'vblind', 'shade', 'pleats', 'shoji'].includes(it.type)) it.y += (it.h - old) / -2; hz.firstChild.textContent = '高さ ' + it.h.toFixed(2) + 'm'; clearTimeout(this._pt); this._pt = setTimeout(() => this.rebuildItem(it, true), 60); }; hz.appendChild(hi); params.appendChild(hz);
-    if (kind === 'floor') { const dz = document.createElement('label'); dz.textContent = '奥行 ' + it.d.toFixed(2) + 'm'; const di = document.createElement('input'); di.type = 'range'; di.min = 0.2; di.max = 4; di.step = 0.05; di.value = it.d; di.oninput = () => { it.d = parseFloat(di.value); dz.firstChild.textContent = '奥行 ' + it.d.toFixed(2) + 'm'; clearTimeout(this._pt); this._pt = setTimeout(() => this.rebuildItem(it, true), 60); }; dz.appendChild(di); params.appendChild(dz); }
+    const kind = c.kind; const rng = c.range || {};
+    const sizeField = (key, label, def) => { const [mn, mx] = rng[key] || def; const lab = document.createElement('label'); lab.className = 'sizef'; const span = document.createElement('span'); span.textContent = label; lab.appendChild(span);
+      const num = document.createElement('input'); num.type = 'number'; num.step = 5; num.min = Math.round(mn * 1000); num.max = Math.round(mx * 1000); num.value = Math.round(it[key] * 1000); num.className = 'mmin';
+      const sl = document.createElement('input'); sl.type = 'range'; sl.min = mn; sl.max = mx; sl.step = (mx - mn) > 2 ? 0.01 : 0.005; sl.value = it[key];
+      const apply = v => { v = Math.min(mx, Math.max(mn, v)); const old = it[key]; it[key] = v; if (key === 'w' && kind === 'ceiling') it.d = v; if (key === 'h' && kind === 'wall' && ['curtain', 'lace', 'roller', 'blind', 'vblind', 'shade', 'pleats', 'shoji'].includes(it.type)) it.y += (v - old) / -2; sl.value = v; num.value = Math.round(v * 1000); clearTimeout(this._pt); this._pt = setTimeout(() => this.rebuildItem(it, true), 60); };
+      sl.oninput = () => apply(parseFloat(sl.value)); num.onchange = () => apply((parseFloat(num.value) || 0) / 1000); lab.appendChild(num); lab.appendChild(sl); params.appendChild(lab); };
+    sizeField('w', kind === 'ceiling' ? '直径 mm' : '幅 mm', [0.2, 6]);
+    if (!(kind === 'ceiling' && c.range && !c.range.h)) sizeField('h', kind === 'wall' && ['curtain', 'lace', 'roller', 'blind', 'vblind', 'shade', 'pleats', 'shoji'].includes(it.type) ? '丈 mm' : '高さ mm', [0.05, 3]);
+    if (kind === 'floor' || (kind === 'ceiling' && c.range && c.range.d)) sizeField('d', '奥行 mm', [0.2, 4]);
   }
   updateSelHelper() { const g = this.selectedId && this.itemGroups.get(this.selectedId); if (!g) { this.selHelper.visible = false; return; } this.selHelper.box.setFromObject(g, true); this.selHelper.visible = true; }
   editMove(op) {
@@ -237,7 +247,7 @@ class App {
     const yaw = this.walk.yaw; const fwd = new THREE.Vector3(-Math.sin(yaw), 0, -Math.cos(yaw)), right = new THREE.Vector3(Math.cos(yaw), 0, -Math.sin(yaw));
     if (op === 'del') { this.removeItem(it.id); return; }
     if (op === 'dup') { const n = newItem(it.type, { ...JSON.parse(JSON.stringify(it)), id: undefined }); n.id = newItem(it.type).id; if (c.kind === 'wall') { const f = frameFromRot(it.rot || 0); n.x += f.along.x * (it.w + 0.1); n.z += f.along.z * (it.w + 0.1); } else { n.x += 0.4; n.z += 0.4; } this.project.items.push(n); this.addItemMesh(n); this.select(n.id); this.touched(); return; }
-    if (op === 'bigger' || op === 'smaller') { const k = op === 'bigger' ? 1.1 : 1 / 1.1; it.w *= k; if (c.kind === 'floor' || c.kind === 'ceiling') { it.d *= k; if (c.kind === 'floor') it.h *= k; } else it.h *= k; this.rebuildItem(it); this.select(it.id); return; }
+    if (op === 'bigger' || op === 'smaller') { const k = op === 'bigger' ? 1.1 : 1 / 1.1; const rng = c.range || {}; const cl = (key, v) => rng[key] ? Math.min(rng[key][1], Math.max(rng[key][0], v)) : v; it.w = cl('w', it.w * k); if (c.kind === 'floor' || c.kind === 'ceiling') { it.d = cl('d', it.d * k); if (c.kind === 'floor') it.h = cl('h', it.h * k); } else it.h = cl('h', it.h * k); this.rebuildItem(it); this.select(it.id); return; }
     if (op === 'rotl' || op === 'rotr') { it.rot += (op === 'rotl' ? 1 : -1) * Math.PI / 12; this.updateItemPose(it); return; }
     if (c.kind === 'wall') { const f = frameFromRot(it.rot || 0); const along = f.along; const dir = { left: -1, right: 1, fwd: 0, back: 0 }[op]; if (dir) { it.x += along.x * dir * step; it.z += along.z * dir * step; } if (op === 'up') it.y += step; if (op === 'down') it.y -= step; if (op === 'fwd' || op === 'back') { this.toast('壁のものは、左右と上下に動かせます'); return; } this.updateItemPose(it); return; }
     const v = { fwd, back: fwd.clone().negate(), right, left: right.clone().negate() }[op]; if (v) { it.x += v.x * step; it.z += v.z * step; }
@@ -261,10 +271,12 @@ class App {
   openSurfaces(forceTab) {
     this.openSheet('surfaces'); const t = this.pin || this.center; this._surfTarget = t && t.kind !== 'item' ? t : null;
     this._surfTab = forceTab || (t && t.kind === 'wall' ? '壁' : t && t.kind === 'ceiling' ? '天井' : this._surfTab || '床');
-    const tabs = $('#surfTabs'); tabs.innerHTML = ''; for (const n of ['床', '壁', '天井']) { const b = document.createElement('button'); b.textContent = n; b.classList.toggle('on', n === this._surfTab); b.onclick = () => this.openSurfaces(n); tabs.appendChild(b); }
+    const tabs = $('#surfTabs'); tabs.innerHTML = ''; for (const n of ['床', '壁', '天井', '縁・枠']) { const b = document.createElement('button'); b.textContent = n; b.classList.toggle('on', n === this._surfTab); b.onclick = () => this.openSurfaces(n); tabs.appendChild(b); }
     const room = (t && t.roomId && this.room(t.roomId)) || this.currentRoom(); if (!room) return;
     const side = (t && (t.kind === 'wall' || t.kind === 'window') && t.edge !== undefined) ? t.edge : null;
     $('#surfHint').textContent = this._surfTab === '床' ? `${room.name}の床` : this._surfTab === '天井' ? `${room.name}の天井` : side !== null ? `${room.name}の${edgeName(room, side)}(見ている壁)。下の「全部の壁」で全部に。` : `${room.name}の壁。見ている壁がないので全部の壁に貼ります。`;
+    $('#surfColors').classList.toggle('hidden', this._surfTab === '縁・枠'); $('#surfPhotoRow').classList.toggle('hidden', this._surfTab === '縁・枠'); $('#surfCards').className = this._surfTab === '縁・枠' ? 'trim-list' : 'cards';
+    if (this._surfTab === '縁・枠') { this.renderTrim(room); return; }
     const kind = this._surfTab === '床' ? 'floor' : 'wall';
     const apply = spec => { this.snapshot(); if (this._surfTab === '床') room.floor = spec; else if (this._surfTab === '天井') room.ceiling = spec; else { room.walls = room.walls || {}; if (this._allWalls || side === null) for (let e = 0; e < room.poly.length; e++) room.walls[e] = spec; else room.walls[side] = spec; } clearMaterialCache(); this.rebuildHouse(); this.touched(); this.toast('貼りかえました'); };
     const colors = $('#surfColors'); colors.innerHTML = '';
@@ -275,6 +287,25 @@ class App {
     for (const e of SURFACE_LIB[kind]) { const b = document.createElement('button'); b.className = 'card sw'; b.appendChild(swatchCanvas(kind, e.id)); const bb = document.createElement('b'); bb.textContent = e.name; b.appendChild(bb); b.onclick = () => apply({ lib: e.id }); cards.appendChild(b); }
     for (const [id, a] of Object.entries(this.project.assets)) { if (a.kind !== 'tile') continue; const b = document.createElement('button'); b.className = 'card sw'; const img = document.createElement('img'); img.src = a.dataUrl; b.appendChild(img); const bb = document.createElement('b'); bb.textContent = a.name || '写真'; b.appendChild(bb); b.onclick = () => apply({ user: id, size: a.size || 0.5 }); cards.appendChild(b); }
     $('#surfPhoto').onchange = e => { const f = e.target.files[0]; e.target.value = ''; if (f) this.userTextureFor(f, kind, null, apply); };
+  }
+  // 廻り縁・巾木・窓枠・ドア枠の設定
+  renderTrim(room) {
+    const t = roomTrim(room); room.trim = t; const box = $('#surfCards'); box.innerHTML = ''; $('#surfHint').textContent = `${room.name}の廻り縁・巾木・枠。寸法は mm。`;
+    const commit = (msg) => { clearMaterialCache(); this.rebuildHouse(); this.touched(); if (msg) this.toast(msg); this.renderTrim(room); };
+    const finishChips = (cur, onPick) => { const wrap = document.createElement('div'); wrap.className = 'row chips'; for (const f of TRIM_FINISHES) { const b = document.createElement('button'); b.className = 'chip' + (f.id === cur ? ' on' : ''); b.title = f.name; if (f.wood) { const m = trimMaterial(f.id); b.style.backgroundImage = `url(${m.map.image.toDataURL()})`; b.style.backgroundSize = 'cover'; } else b.style.background = f.color; b.onclick = () => { this.snapshot(); onPick(f.id); commit(f.name + 'にしました'); }; wrap.appendChild(b); } const nm = document.createElement('span'); nm.className = 'hint'; nm.textContent = trimFinish(cur).name; wrap.appendChild(nm); return wrap; };
+    const section = (title, cfg, opts) => { const sec = document.createElement('div'); sec.className = 'trim-sec'; const head = document.createElement('div'); head.className = 'trim-head'; const h = document.createElement('b'); h.textContent = title; head.appendChild(h);
+      if (opts.toggle) { const tg = document.createElement('button'); tg.className = 'chip text' + (cfg.on ? ' on' : ''); tg.textContent = cfg.on ? 'あり' : 'なし'; tg.onclick = () => { this.snapshot(); cfg.on = !cfg.on; commit(title + 'を' + (cfg.on ? 'あり' : 'なし') + 'にしました'); }; head.appendChild(tg); }
+      if (opts.num) { const lab = document.createElement('label'); lab.className = 'mmlab'; lab.textContent = opts.num.label; const inp = document.createElement('input'); inp.type = 'number'; inp.step = 5; inp.min = opts.num.min; inp.max = opts.num.max; inp.value = cfg[opts.num.key]; inp.onchange = () => { const v = parseFloat(inp.value); if (!(v >= opts.num.min && v <= opts.num.max)) { this.toast(`${opts.num.min}〜${opts.num.max}mm の間で`); return; } this.snapshot(); cfg[opts.num.key] = v; commit(); }; lab.appendChild(inp); const u = document.createElement('span'); u.textContent = 'mm'; lab.appendChild(u); head.appendChild(lab); }
+      sec.appendChild(head); if (opts.note) { const n = document.createElement('p'); n.className = 'hint'; n.textContent = opts.note; sec.appendChild(n); } sec.appendChild(finishChips(cfg.finish, id => { cfg.finish = id; })); box.appendChild(sec); };
+    section('廻り縁(天井との境)', t.crown, { toggle: true, num: { key: 'h', label: '高さ', min: 10, max: 150 } });
+    section('巾木(床との境)', t.base, { toggle: true, num: { key: 'h', label: '高さ', min: 20, max: 300 } });
+    section('窓の枠', t.casing, { toggle: true, num: { key: 'w', label: '見付(幅)', min: 20, max: 120 }, note: t.casing.on ? '枠あり:木枠が窓のまわりに回ります。' : '枠なし:クロス巻き込み(壁紙がそのまま窓の側面まで回る納まり)。' });
+    section('ドアの枠', t.door, {});
+    const row = document.createElement('div'); row.className = 'row';
+    const b1 = document.createElement('button'); b1.textContent = '🎨 3つの仕上げを廻り縁に合わせる'; b1.onclick = () => { this.snapshot(); t.base.finish = t.crown.finish; t.casing.finish = t.crown.finish; t.door.finish = t.crown.finish; commit('仕上げをそろえました'); }; row.appendChild(b1);
+    const b2 = document.createElement('button'); b2.textContent = '🏠 この設定を全部の部屋に'; b2.onclick = () => { this.snapshot(); for (const r of this.project.rooms) r.trim = JSON.parse(JSON.stringify(t)); commit('全部の部屋に同じ設定にしました'); }; row.appendChild(b2);
+    const b3 = document.createElement('button'); b3.textContent = '↩ 標準にもどす'; b3.onclick = () => { this.snapshot(); delete room.trim; commit('標準(白・廻り縁35・巾木60・枠あり)にもどしました'); }; row.appendChild(b3);
+    box.appendChild(row);
   }
   // 見本の写真 → 繰り返し模様として使う
   async userTextureFor(file, kind, it, apply) {
@@ -335,6 +366,7 @@ class App {
       case 'roomSize': { const room = this.currentRoom(); if (!room) return; this.snapshot(); const g = MODULES[this.module()].half; const conv = v => { if (!v) return v; const k = v / g; const onGrid = Math.abs(k - Math.round(k)) * g < 0.006; return onGrid ? innerOf(v) : v; }; cmd = { ...cmd, w: conv(cmd.w), d: conv(cmd.d) }; if (cmd.w || cmd.d) { if (!isRect(room)) { this.toast('この部屋は四角ではないので、間取りで角を動かして広さを変えてください', 4000); return; } resizeRect(room, cmd.w || room.w, cmd.d || room.d); } if (cmd.h) room.h = cmd.h; this.plan.clampOpenings(room); for (const it of this.project.items) if (it.roomId === room.id) { it.x = Math.min(room.x + room.w - 0.1, it.x); it.z = Math.min(room.z + room.d - 0.1, it.z); if (catalogEntry(it.type).kind === 'ceiling') it.y = room.h; } this.plan.fixTwins(); this.reload(); this.toast(`${room.name}:内法 ${mm(room.w)}×${mm(room.d)}mm(芯々 ${mm(shinShin(room.w))}×${mm(shinShin(room.d))})・天井 ${mm(room.h)}mm`, 4000); return; }
       case 'shot': this.shot(); return;
       case 'undo': this.undo(); return;
+      case 'trim': { const room = this.currentRoom(); if (!room) return; this.snapshot(); const rooms = cmd.allRooms ? this.project.rooms : [room]; for (const r of rooms) { const t = roomTrim(r); r.trim = t; const cfg = t[cmd.part]; if (cmd.on !== undefined && cmd.part !== 'door') cfg.on = cmd.on; if (cmd.h && cmd.part !== 'door') cfg[cmd.part === 'casing' ? 'w' : 'h'] = cmd.h; if (cmd.finish) cfg.finish = cmd.finish; if (cmd.same) { t.base.finish = t.crown.finish; t.casing.finish = t.crown.finish; t.door.finish = t.crown.finish; } } clearMaterialCache(); this.rebuildHouse(); this.touched(); const nm = { crown: '廻り縁', base: '巾木', casing: '窓の枠', door: 'ドアの枠' }[cmd.part]; this.toast(`${nm}を変えました${cmd.allRooms ? '(全部の部屋)' : ''}`); return; }
       case 'zoom': { if (cmd.reset) this.setZoom(1); else this.setZoom(this.s3.zoom * (cmd.k || 1)); this.toast(cmd.reset ? '標準の見え方にしました' : cmd.k > 1 ? '寄りました(アップ)' : '広く見えるようにしました'); return; }
       case 'redo': this.redo(); return;
       case 'spin': this.setMode('walk'); this.spin = 14; this.toast('ゆっくり一周します(14秒)'); return;

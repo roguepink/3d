@@ -239,3 +239,19 @@ export function surfaceMaterial(kind, spec, dims = {}, assets = {}) {
   matCache.set(key, mat); return mat;
 }
 export function clearMaterialCache() { matCache.clear(); }
+
+// ---------- 仕上げ材(廻り縁・巾木・窓枠・ドア枠) ----------
+export const TRIM_FINISHES = [
+  { id: 'white', name: '白', color: '#f4f4f2' }, { id: 'offwhite', name: 'オフホワイト', color: '#ece7dc' }, { id: 'lightgray', name: 'ライトグレー', color: '#c9ccd1' }, { id: 'gray', name: 'グレー', color: '#8e9298' }, { id: 'dark', name: 'ダークグレー', color: '#4a4d54' }, { id: 'black', name: '黒', color: '#2a2a2e' },
+  { id: 'wood_light', name: '木目(ライト)', wood: { base: '#e3cfae', dark: '#bda080' } }, { id: 'wood_natural', name: '木目(ナチュラル)', wood: { base: '#caa36f', dark: '#8f6b43' } }, { id: 'wood_medium', name: '木目(ミディアム)', wood: { base: '#a97a4e', dark: '#6e4a2c' } }, { id: 'wood_walnut', name: '木目(ウォールナット)', wood: { base: '#6b4a33', dark: '#3b2616' } }, { id: 'wood_white', name: '木目(ホワイトウッド)', wood: { base: '#ece4d6', dark: '#cfc4b2' } },
+];
+export function trimFinish(id) { return TRIM_FINISHES.find(f => f.id === id) || TRIM_FINISHES[0]; }
+const trimCache = new Map();
+// 細い部材用の材質(木目は細かく繰り返す)
+export function trimMaterial(id) {
+  const f = trimFinish(id); if (trimCache.has(f.id)) return trimCache.get(f.id);
+  let m;
+  if (f.wood) { const t = canvasTexture('trim:' + f.id, 256, (g, w, h, r) => drawWood(g, w, h, r, { base: f.wood.base, dark: f.wood.dark, plankW: 0.6, tile: 0.6, grainAlpha: .22 })); t.repeat.set(1, 1); m = new THREE.MeshStandardMaterial({ map: t, roughness: .5, metalness: 0 }); }
+  else m = new THREE.MeshStandardMaterial({ color: f.color, roughness: .55, metalness: 0 });
+  trimCache.set(f.id, m); return m;
+}

@@ -1,7 +1,7 @@
 // 部屋のデータ → 壁・床・天井・窓・ドア・柱型・袖壁・梁 の3D
 // 部屋の形は多角形(poly: [[x,z],...] 絶対座標)。壁は多角形の「辺(edge)」。開口は辺の番号(edge)と、辺の始点からの距離(u)。
 import * as THREE from 'three';
-import { surfaceMaterial } from './textures.js';
+import { surfaceMaterial, trimMaterial } from './textures.js';
 import { mergeGroup } from './merge.js';
 
 export const WALL_T = 0.12;      // 壁の厚み
@@ -33,6 +33,9 @@ export function normalizeRoom(room) {
   }
   return room;
 }
+// 仕上げ(廻り縁・巾木・枠)の既定。h は mm
+export const TRIM_DEFAULT = { crown: { on: true, h: 35, finish: 'white' }, base: { on: true, h: 60, finish: 'white' }, casing: { on: true, w: 55, finish: 'white' }, door: { finish: 'white' } };
+export function roomTrim(room) { const t = room.trim || {}; const d = TRIM_DEFAULT; return { crown: { ...d.crown, ...(t.crown || {}) }, base: { ...d.base, ...(t.base || {}) }, casing: { ...d.casing, ...(t.casing || {}) }, door: { ...d.door, ...(t.door || {}) } }; }
 export function syncBounds(room) { const b = polyBounds(room.poly); room.x = b.minX; room.z = b.minZ; room.w = b.maxX - b.minX; room.d = b.maxZ - b.minZ; return room; }
 export function isRect(room) { const p = room.poly; if (p.length !== 4) return false; for (let i = 0; i < 4; i++) { const a = p[i], b = p[(i + 1) % 4]; if (Math.abs(a[0] - b[0]) > 1e-6 && Math.abs(a[1] - b[1]) > 1e-6) return false; } return true; }
 
@@ -125,6 +128,8 @@ export function buildRoom(room, project, group) {
   const assets = project.assets || {};
   const H = room.h, pick = [];
   const roomGroup = new THREE.Group(); roomGroup.name = 'room:' + room.id; roomGroup.userData.roomId = room.id;
+  const trim = roomTrim(room); const matCrown = trimMaterial(trim.crown.finish), matBase = trimMaterial(trim.base.finish), matCase = trimMaterial(trim.casing.finish), matDoorFrame = trimMaterial(trim.door.finish);
+  const crownH = Math.max(0.01, (trim.crown.h || 35) / 1000), baseH = Math.max(0.01, (trim.base.h || 60) / 1000), caseW = Math.max(0.02, (trim.casing.w || 55) / 1000);
   // 床
   const floor = new THREE.Mesh(slabGeometry(room.poly, true), surfaceMaterial('floor', room.floor, { w: room.w, h: room.d }, assets));
   floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true;
@@ -148,28 +153,30 @@ export function buildRoom(room, project, group) {
     // 外側の面(外から見たときだけ見える)
     const outer = new THREE.Mesh(wallGeometry(L, H, holes), matOuter);
     outer.position.copy(wallPoint(room, e, 0, 0, -WALL_T)); outer.rotation.y = f.rotY; outer.receiveShadow = true; outer.userData.keep = true; roomGroup.add(outer);
-    // 廻り縁
-    const crown = box(L, 0.035, 0.02, matWood); crown.castShadow = false; crown.position.copy(wallPoint(room, e, L / 2, H - 0.0175, 0.01)); crown.rotation.y = f.rotY; roomGroup.add(crown);
+    // 廻り縁(あり/なし・高さ・仕上げ)
+    if (trim.crown.on) { const crown = box(L, crownH, Math.min(0.03, crownH * 0.6)); crown.material = matCrown; crown.castShadow = false; crown.position.copy(wallPoint(room, e, L / 2, H - crownH / 2, Math.min(0.03, crownH * 0.6) / 2)); crown.rotation.y = f.rotY; roomGroup.add(crown); }
     // 巾木(ドアのところは切る)
-    const doors = holes.filter(h => h.op.type !== 'window').sort((a, b) => a.u - b.u);
-    let u0 = 0; const segs = [];
-    for (const d of doors) { if (d.u > u0) segs.push([u0, d.u]); u0 = d.u + d.w; } if (u0 < L) segs.push([u0, L]);
-    for (const [a, b] of segs) { const bb = box(b - a, 0.06, 0.012, matWood); bb.position.copy(wallPoint(room, e, (a + b) / 2, 0.03, 0.006)); bb.rotation.y = f.rotY; roomGroup.add(bb); }
+    if (trim.base.on) { const doors = holes.filter(h => h.op.type !== 'window').sort((a, b) => a.u - b.u);
+      let u0 = 0; const segs = [];
+      for (const d of doors) { if (d.u > u0) segs.push([u0, d.u]); u0 = d.u + d.w; } if (u0 < L) segs.push([u0, L]);
+      for (const [a, b] of segs) { const bb = box(b - a, baseH, 0.012); bb.material = matBase; bb.position.copy(wallPoint(room, e, (a + b) / 2, baseH / 2, 0.006)); bb.rotation.y = f.rotY; roomGroup.add(bb); } }
     // 開口の枠・窓・ドア
     for (const h of holes) {
       const o = h.op, cu = h.u + h.w / 2, isWin = o.type === 'window';
       const og = new THREE.Group(); og.position.copy(wallPoint(room, e, cu, 0, 0)); og.rotation.y = f.rotY; roomGroup.add(og);
+      const casingOn = isWin ? trim.casing.on : true; const mFrame = isWin ? matCase : matDoorFrame; const wallMat = wall.material;
       if (!o.twin) {
-        const jd = WALL_T + 0.02;
-        const jl = box(0.03, h.h, jd, matFrame); jl.position.set(-h.w / 2 - 0.015, h.sill + h.h / 2, -WALL_T / 2 + 0.01); og.add(jl);
+        // 壁の厚み分の側面。窓で枠なしのときは、壁紙を巻き込む(クロス巻き込み)
+        const jd = WALL_T + 0.02; const jm = casingOn ? mFrame : wallMat;
+        const jl = box(0.03, h.h, jd, jm); jl.position.set(-h.w / 2 - 0.015, h.sill + h.h / 2, -WALL_T / 2 + 0.01); og.add(jl);
         const jr = jl.clone(); jr.position.x = h.w / 2 + 0.015; og.add(jr);
-        const jt = box(h.w + 0.06, 0.03, jd, matFrame); jt.position.set(0, h.sill + h.h + 0.015, -WALL_T / 2 + 0.01); og.add(jt);
-        if (isWin) { const js = box(h.w + 0.06, 0.03, jd + 0.03, matFrame); js.position.set(0, h.sill - 0.015, -WALL_T / 2 + 0.02); og.add(js); }
+        const jt = box(h.w + 0.06, 0.03, jd, jm); jt.position.set(0, h.sill + h.h + 0.015, -WALL_T / 2 + 0.01); og.add(jt);
+        if (isWin) { const js = box(h.w + 0.06, 0.03, jd + 0.03, casingOn ? mFrame : matFrame); js.position.set(0, h.sill - 0.015, -WALL_T / 2 + 0.02); og.add(js); }
       }
-      { const cw = 0.055, cd = 0.014; const cl = box(cw, h.h + (isWin ? cw * 2 : cw), cd, matFrame); cl.position.set(-h.w / 2 - cw / 2, h.sill + h.h / 2 + (isWin ? 0 : cw / 2), cd / 2); og.add(cl); const cr = cl.clone(); cr.position.x = h.w / 2 + cw / 2; og.add(cr);
-        const ct = box(h.w + cw * 2, cw, cd, matFrame); ct.position.set(0, h.sill + h.h + cw / 2, cd / 2); og.add(ct); if (isWin) { const cb = box(h.w + cw * 2, cw, cd * 2.2, matFrame); cb.position.set(0, h.sill - cw / 2, cd); og.add(cb); } }
+      if (casingOn) { const cw = caseW, cd = 0.014; const cl = box(cw, h.h + (isWin ? cw * 2 : cw), cd, mFrame); cl.position.set(-h.w / 2 - cw / 2, h.sill + h.h / 2 + (isWin ? 0 : cw / 2), cd / 2); og.add(cl); const cr = cl.clone(); cr.position.x = h.w / 2 + cw / 2; og.add(cr);
+        const ct = box(h.w + cw * 2, cw, cd, mFrame); ct.position.set(0, h.sill + h.h + cw / 2, cd / 2); og.add(ct); if (isWin) { const cb = box(h.w + cw * 2, cw, cd * 2.2, mFrame); cb.position.set(0, h.sill - cw / 2, cd); og.add(cb); } }
       if (isWin) {
-        const sillBoard = box(h.w + 0.16, 0.025, 0.09, matFrame); sillBoard.position.set(0, h.sill - 0.0125, 0.045); og.add(sillBoard);
+        const sillBoard = box(h.w + (casingOn ? 0.16 : 0.0), 0.025, 0.09, casingOn ? mFrame : matFrame); sillBoard.position.set(0, h.sill - 0.0125, 0.045); og.add(sillBoard);
         const glass = new THREE.Mesh(new THREE.PlaneGeometry(h.w, h.h), matGlass); glass.position.set(0, h.sill + h.h / 2, -WALL_T / 2); og.add(glass);
         glass.userData = { kind: 'window', roomId: room.id, edge: e, openingId: o.id, keep: true }; pick.push(glass);
         const fw = 0.04;
@@ -194,11 +201,11 @@ export function buildRoom(room, project, group) {
     if (part.type === 'column') {
       const m = new THREE.Mesh(new THREE.BoxGeometry(part.w, H, part.d), surfaceMaterial('wall', spec, { w: Math.max(part.w, part.d), h: H }, assets)); m.position.set(b.cx, H / 2, b.cz); m.castShadow = true; m.receiveShadow = true;
       m.userData = { kind: 'part', part: 'column', roomId: room.id, partId: part.id, keep: true }; roomGroup.add(m); pick.push(m);
-      const bb = box(part.w + 0.024, 0.06, part.d + 0.024, matWood); bb.position.set(b.cx, 0.03, b.cz); roomGroup.add(bb);
+      if (trim.base.on) { const bb = box(part.w + 0.024, baseH, part.d + 0.024, matBase); bb.position.set(b.cx, baseH / 2, b.cz); roomGroup.add(bb); }
     } else if (part.type === 'wall') {
       const h = part.h || H; const m = new THREE.Mesh(new THREE.BoxGeometry(b.L, h, b.d), surfaceMaterial('wall', spec, { w: b.L, h }, assets)); m.position.set(b.cx, h / 2, b.cz); m.rotation.y = b.rot; m.castShadow = true; m.receiveShadow = true;
       m.userData = { kind: 'part', part: 'wall', roomId: room.id, partId: part.id, keep: true }; roomGroup.add(m); pick.push(m);
-      const bb = box(b.L + 0.024, 0.06, b.d + 0.024, matWood); bb.position.set(b.cx, 0.03, b.cz); bb.rotation.y = b.rot; roomGroup.add(bb);
+      if (trim.base.on) { const bb = box(b.L + 0.024, baseH, b.d + 0.024, matBase); bb.position.set(b.cx, baseH / 2, b.cz); bb.rotation.y = b.rot; roomGroup.add(bb); }
       if (h < H - 0.05) { const top = box(b.L + 0.02, 0.03, b.d + 0.04, matWood); top.position.set(b.cx, h + 0.015, b.cz); top.rotation.y = b.rot; roomGroup.add(top); }
     } else if (part.type === 'beam') {
       const drop = part.drop || 0.3; const m = new THREE.Mesh(new THREE.BoxGeometry(part.w, drop, part.d), surfaceMaterial('wall', room.ceiling || { color: '#f7f7f4' }, { w: Math.max(part.w, part.d), h: drop }, assets)); m.position.set(b.cx, H - drop / 2, b.cz); m.castShadow = true; m.receiveShadow = true;

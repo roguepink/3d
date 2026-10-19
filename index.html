@@ -49,6 +49,7 @@
   <button id="btnAdd" class="tb" title="置く">＋<small>置く</small></button>
   <button id="btnPhoto" class="tb" title="写真から">📷<small>写真</small></button>
   <button id="btnMaterial" class="tb" title="床・壁">🧱<small>床・壁</small></button>
+  <button id="btnEquip" class="tb" title="設備">🔌<small>設備</small></button>
   <button id="btnDayNight" class="tb" title="昼/夜">☀️<small>昼</small></button>
   <button id="btnShot" class="tb" title="画像にする">📸<small>撮る</small></button>
   <button id="btnGyro" class="tb" title="スマホを動かして見回す">📱<small>傾き</small></button>
@@ -98,10 +99,10 @@
 
 <!-- 置くもの一覧 -->
 <section id="catalog" class="sheet hidden">
-  <div class="sheet-head"><b>置くもの</b><button class="ib close" data-close="catalog">✕</button></div>
+  <div class="sheet-head"><b id="catTitle">置くもの</b><button class="ib close" data-close="catalog">✕</button></div>
   <div class="tabs" id="catTabs"></div>
   <div class="cards" id="catCards"></div>
-  <p class="hint">選ぶと、見ている場所(画面の中央の○)に置きます。</p>
+  <p class="hint" id="catHint">選ぶと、見ている場所(画面の中央の○)に置きます。</p>
 </section>
 
 <!-- 床・壁の素材 -->
@@ -110,7 +111,7 @@
   <div class="tabs" id="surfTabs"></div>
   <div class="row chips" id="surfColors"></div>
   <div class="cards" id="surfCards"></div>
-  <div class="row"><label class="filebtn">📷 見本の写真を貼る<input type="file" id="surfPhoto" accept="image/*"></label></div>
+  <div class="row" id="surfPhotoRow"><label class="filebtn">📷 見本の写真を貼る<input type="file" id="surfPhoto" accept="image/*"></label></div>
   <p class="hint" id="surfHint">どの面に貼るかは、画面の中央の○で見ている面です。</p>
 </section>
 
