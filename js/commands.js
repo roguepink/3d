@@ -61,8 +61,11 @@ export function parseCommand(raw, app) {
   if (/歩き(たい|回|まわ)|歩く|中に入/.test(t)) return { action: 'mode', mode: 'walk' };
   if (/(写真|画像|スクショ|スクリーンショット)を?(撮|とっ|取っ|保存|作)/.test(t)) return { action: 'shot' };
   // 夜・昼
+  if (/夕方|夕暮れ|夕日|西日|夕焼け|サンセット/.test(t)) return { action: 'night', mode: 'evening' };
   if (/夜に|夜の|ナイト|夜景|暗くして|日が暮れ/.test(t) && !/照明|電気|ライト|明かり/.test(t)) return { action: 'night', on: true };
-  if (/昼に|昼の|朝に|明るい時間|日中/.test(t)) return { action: 'night', on: false };
+  if (/昼に|昼の|朝に|明るい時間|日中|昼間/.test(t)) return { action: 'night', on: false };
+  if (/座っ|すわっ|ソファから|低い目線/.test(t) && /見|目線|高さ/.test(t)) return { action: 'eye', eye: 1.15 };
+  if (/立っ|たっ/.test(t) && /見|目線|高さ/.test(t)) return { action: 'eye', eye: 1.5 };
   // 部屋・窓・ドア
   if (/(部屋|へや|ルーム|リビング|寝室|和室|子供部屋|キッチン|廊下|玄関|トイレ)を?(作|つく|足|たし|増や|ふや|追加)/.test(t)) {
     const m = t.match(/(\d+(?:\.\d+)?)\s*(畳|帖|じょう)/); const jo = m ? parseFloat(m[1]) : null; const name = (t.match(/(リビング|寝室|和室|子供部屋|キッチン|廊下|玄関|トイレ|ダイニング|書斎)/) || [])[1];

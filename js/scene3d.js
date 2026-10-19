@@ -46,6 +46,12 @@ export class Scene3D {
     this.scene && this.scene.traverse(o => { if (o.material) o.material.needsUpdate = true; });
   }
   resize() { const w = this.canvas.clientWidth || window.innerWidth, h = this.canvas.clientHeight || window.innerHeight; this.renderer.setSize(w, h, false); for (const c of [this.camera, this.orbitCam]) { c.aspect = w / h; c.updateProjectionMatrix(); } }
+  setDaytime(mode) {
+    const u = this.sky.material.uniforms; this.daytime = mode;
+    if (mode === 'evening') { u.top.value.set('#4a5f9a'); u.bottom.value.set('#f0a060'); this.sun.color.set('#ffb070'); this.sun.intensity = 1.8; this.hemi.intensity = 0.45; this.hemi.color.set('#f6c9a0'); this.ambient.intensity = 0.1; this.scene.environmentIntensity = 0.35; this.ground.material.color.set('#6f8a55'); this.renderer.toneMappingExposure = 1.0; this.scene.fog.color.set('#f0b080'); this.sunLow = true; this.updateSunPos(); return; }
+    this.sun.color.set('#fff4e0'); this.hemi.color.set('#cfe3ff'); this.sunLow = false; this.setNight(mode === 'night'); this.updateSunPos();
+  }
+  updateSunPos() { if (!this._sunArgs) return; const [cx, cz, radius] = this._sunArgs; if (this.sunLow) this.sun.position.set(cx - radius * 2.2, radius * 0.55 + 2, cz + radius * 0.8); else this.sun.position.set(cx + radius * 0.8, radius * 1.6 + 4, cz + radius * 0.6); }
   setNight(on) {
     this.night = on; const u = this.sky.material.uniforms;
     if (on) { u.top.value.set('#0b1230'); u.bottom.value.set('#2a2f4a'); this.sun.intensity = 0.0; this.hemi.intensity = 0.12; this.ambient.intensity = 0.05; this.scene.environmentIntensity = 0.18; this.ground.material.color.set('#2d3a2a'); this.renderer.toneMappingExposure = 1.05; this.scene.fog.color.set('#1a2038'); }
@@ -63,7 +69,7 @@ export class Scene3D {
       const t = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.16, th, 8), trunk); t.position.set(x, th / 2, z); t.castShadow = true; g.add(t);
       for (let k = 0; k < 3; k++) { const c = new THREE.Mesh(new THREE.SphereGeometry(0.9 + rnd() * 0.7, 12, 9), leaf); c.position.set(x + (rnd() - .5) * 1.2, th + 0.3 + k * 0.6 + rnd() * 0.3, z + (rnd() - .5) * 1.2); c.castShadow = true; g.add(c); } }
   }
-  setSunTarget(cx, cz, radius) { this.placeGarden(cx, cz, radius); this.sun.target.position.set(cx, 0, cz); this.sun.position.set(cx + radius * 0.8, radius * 1.6 + 4, cz + radius * 0.6); const sc = this.sun.shadow.camera; const r = radius + 2; sc.left = -r; sc.right = r; sc.top = r; sc.bottom = -r; sc.far = radius * 4 + 20; sc.updateProjectionMatrix(); }
+  setSunTarget(cx, cz, radius) { this._sunArgs = [cx, cz, radius]; this.placeGarden(cx, cz, radius); this.sun.target.position.set(cx, 0, cz); this.updateSunPos(); const sc = this.sun.shadow.camera; const r = radius + 2; sc.left = -r; sc.right = r; sc.top = r; sc.bottom = -r; sc.far = radius * 4 + 20; sc.updateProjectionMatrix(); }
   activeCamera() { return this.mode === 'walk' ? this.camera : this.orbitCam; }
   // 画面の点(0..1)からの当たり判定
   pick(nx, ny, objects = this.pickables) {

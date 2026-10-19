@@ -42,7 +42,7 @@ class App {
     $('#btnAdd').onclick = () => this.openCatalog();
     $('#btnPhoto').onclick = () => { this.closeSheets(); openPhotoWizard(this); };
     $('#btnMaterial').onclick = () => this.openSurfaces();
-    $('#btnDayNight').onclick = () => this.setNight(!this.project.settings.night);
+    $('#btnDayNight').onclick = () => this.setDaytime({ day: 'evening', evening: 'night', night: 'day' }[this.project.settings.daytime || (this.project.settings.night ? 'night' : 'day')]);
     $('#btnShot').onclick = () => this.shot();
     $('#btnSend').onclick = () => this.runCommand($('#cmd').value);
     $('#cmd').addEventListener('keydown', e => { if (e.key === 'Enter') { this.runCommand($('#cmd').value); $('#cmd').blur(); } });
@@ -56,6 +56,10 @@ class App {
     $('#mQuality').onclick = () => { const q = { normal: 'high', high: 'low', low: 'normal' }[this.s3.quality]; this.s3.quality = q; this.s3.applyQuality(); localStorage.setItem('oheya-quality', q); $('#mQuality').textContent = '🎚 画質:' + { low: 'かるい', normal: 'ふつう', high: 'きれい' }[q]; };
     $('#mAI').onclick = () => this.aiSettings();
     $('#mHelp').onclick = () => this.help();
+    $('#mEye').onclick = () => { this.walk.eye = this.walk.eye > 1.3 ? 1.15 : 1.5; $('#mEye').textContent = this.walk.eye > 1.3 ? '👀 目の高さ:立っている(押すと座る)' : '👀 目の高さ:座っている(押すと立つ)'; this.toast(this.walk.eye > 1.3 ? '立った高さで見ています' : '座った高さで見ています(ソファからの眺め)'); };
+    window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); this._install = e; $('#mInstall').classList.remove('hidden'); });
+    $('#mInstall').onclick = async () => { if (!this._install) return; this._install.prompt(); const r = await this._install.userChoice; if (r.outcome === 'accepted') { $('#mInstall').classList.add('hidden'); this.toast('ホーム画面に入れました'); } this._install = null; };
+    $('#mShare').onclick = async () => { const url = location.origin + location.pathname; if (navigator.share) { try { await navigator.share({ title: 'おへや3D', text: '写真から部屋を3Dにして歩き回れるアプリ', url }); } catch {} } else { await navigator.clipboard.writeText(url); this.toast('アドレスをコピーしました'); } };
     $('#sDemo').onclick = () => { this.load(demoProject()); $('#start').classList.add('hidden'); this.toast('左側を指でなぞると歩けます。右側で見回せます。'); };
     $('#sNew').onclick = () => { $('#start').classList.add('hidden'); this.openNewRoom(); };
     $('#sPhoto').onclick = () => { $('#start').classList.add('hidden'); if (!this.project) this.load(this.blankProject()); openPhotoWizard(this); };
@@ -74,7 +78,7 @@ class App {
   // ---------- 読み込み・組み立て ----------
   load(p) {
     this.project = p; p.assets = p.assets || {}; p.items = p.items || []; p.settings = p.settings || {}; this.selectedId = null; this.setPin(null);
-    clearMaterialCache(); this.rebuildHouse(); this.rebuildItems(); this.setNight(!!p.settings.night, true);
+    clearMaterialCache(); this.rebuildHouse(); this.rebuildItems(); this.setDaytime(p.settings.daytime || (p.settings.night ? 'night' : 'day'), true);
     const b = houseBounds(p.rooms); this.s3.setSunTarget((b.minX + b.maxX) / 2, (b.minZ + b.maxZ) / 2, Math.max(b.maxX - b.minX, b.maxZ - b.minZ) / 2 + 2);
     if (p.camera) { this.s3.camera.position.set(p.camera.x, 1.5, p.camera.z); this.walk.yaw = p.camera.yaw || 0; this.walk.pitch = 0; }
     else if (p.rooms[0]) { const r = p.rooms[0]; this.s3.camera.position.set(r.x + r.w / 2, 1.5, r.z + r.d * 0.8); this.walk.yaw = 0; this.walk.pitch = 0; }
@@ -111,7 +115,8 @@ class App {
     if (m === 'orbit') this.fitOrbit(); this.applyCeilingVisibility(); this.closeSheets();
   }
   fitOrbit() { const b = houseBounds(this.project ? this.project.rooms : []); const cx = (b.minX + b.maxX) / 2, cz = (b.minZ + b.maxZ) / 2, size = Math.max(b.maxX - b.minX, b.maxZ - b.minZ, 3); this.s3.orbitCam.position.set(cx + size * 0.25, size * 1.15 + 2, cz + size * 1.0); this.s3.orbit.target.set(cx, 0.5, cz); this.s3.orbit.update(); }
-  setNight(on, silent) { this.project.settings.night = on; this.s3.setNight(on); $('#btnDayNight').innerHTML = on ? '🌙<small>夜</small>' : '☀️<small>昼</small>'; if (!silent) { this.toast(on ? '夜にしました。照明の雰囲気が分かります' : '昼にしました'); this.touched(); } }
+  setNight(on, silent) { this.setDaytime(on ? 'night' : 'day', silent); }
+  setDaytime(mode, silent) { this.project.settings.daytime = mode; this.project.settings.night = mode === 'night'; this.s3.setDaytime(mode); $('#btnDayNight').innerHTML = { day: '☀️<small>昼</small>', evening: '🌇<small>夕方</small>', night: '🌙<small>夜</small>' }[mode]; if (!silent) { this.toast({ day: '昼にしました', evening: '夕方にしました。西日が入ります', night: '夜にしました。照明の雰囲気が分かります' }[mode]); this.touched(); } }
 
   // ---------- 毎フレーム ----------
   frame(dt) {
@@ -282,7 +287,7 @@ class App {
         if (cmd.target === 'floor') room.floor = spec; else if (cmd.target === 'ceiling') room.ceiling = spec; else { room.walls = room.walls || {}; const side = cmd.side || (t && t.kind === 'wall' ? t.side : null); if (side && !cmd.all) room.walls[side] = spec; else for (const s of SIDES) room.walls[s] = spec; }
         if (cmd.allRooms) for (const r of this.project.rooms) { if (cmd.target === 'floor') r.floor = spec; else if (cmd.target === 'ceiling') r.ceiling = spec; else for (const s of SIDES) (r.walls = r.walls || {})[s] = spec; }
         clearMaterialCache(); this.rebuildHouse(); this.touched(); this.toast({ floor: '床', ceiling: '天井', wall: '壁' }[cmd.target] + 'を貼りかえました'); return; }
-      case 'night': this.setNight(!!cmd.on); return;
+      case 'night': this.setDaytime(cmd.mode || (cmd.on ? 'night' : 'day')); return;
       case 'lights': { for (const it of this.project.items) if (catalogEntry(it.type).cat === '照明' && (!cmd.type || it.type === cmd.type)) { it.opts.on = cmd.on; this.rebuildItem(it); } this.toast(cmd.on ? '照明をつけました' : '照明を消しました'); return; }
       case 'mode': this.setMode(cmd.mode); return;
       case 'window': case 'door': { const room = this.currentRoom(); if (!room) return; const side = cmd.side || (t && t.kind === 'wall' ? t.side : this.nearestSide(room, (t && t.point) || this.s3.camera.position)); const L = wallLength(room, side); const w = cmd.size?.w || (cmd.action === 'window' ? 1.65 : 0.8), h = cmd.size?.h || (cmd.action === 'window' ? 1.1 : 2.0);
@@ -292,6 +297,7 @@ class App {
       case 'room': { this.openNewRoom(cmd); return; }
       case 'shot': this.shot(); return;
       case 'undo': this.undo(); return;
+      case 'eye': this.walk.eye = cmd.eye; this.toast(cmd.eye > 1.3 ? '立った高さで見ています' : '座った高さで見ています'); return;
       case 'help': this.help(); return;
       case 'info': this.toast(cmd.text, 5000); return;
     }
