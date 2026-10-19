@@ -39,6 +39,7 @@ export function openPhotoWizard(app, start) {
       <button data-go="floor">🟫 床に写真を貼る</button>
       <button data-go="pano">🌐 360°パノラマ写真から<small style="display:block;color:#c9cdd8;font-size:13px">スマホのパノラマ撮影の写真。見回すだけならいちばん本物っぽい</small></button>
       <button data-go="video">🎬 動画から場面を切り出す</button>
+      <button data-go="try">🧪 写真なしで手順を試す<small style="display:block;color:#c9cdd8;font-size:13px">今の3Dの画面を写真の代わりにして、四隅合わせを体験</small></button>
       <button data-go="ai">🤖 AIに写真から部屋の広さを読ませる${AI.hasKey() ? '' : '<small style="display:block;color:#c9cdd8;font-size:13px">(メニュー → AIの設定 で鍵を入れると使えます)</small>'}</button>
     </div><p class="hint">写真はこの端末の中だけで処理します(AIを使うときだけ、その写真をGoogleに送ります)。</p>`;
     for (const b of box.querySelectorAll('[data-go]')) b.onclick = () => go(b.dataset.go);
@@ -49,6 +50,7 @@ export function openPhotoWizard(app, start) {
     if (kind === 'wall' || kind === 'floor') { const f = await pickFile('image/*'); if (!f) return; const dataUrl = await fileToDataUrl(f, 2000, 0.9); cornerStep(kind, dataUrl); }
     if (kind === 'pano') { const f = await pickFile('image/*'); if (!f) return; const dataUrl = await fileToDataUrl(f, 4096, 0.85); const id = 'pano' + Date.now().toString(36); app.project.assets[id] = { dataUrl, kind: 'pano', name: 'パノラマ' }; const r = app.currentRoom(); r.pano = id; app.rebuildHouse(); app.touched(); app.closeSheets(); app.toast('パノラマを貼りました。見回してみてください。やめるときは 床・壁 → パノラマをはがす'); }
     if (kind === 'video') videoStep();
+    if (kind === 'try') { app.closeSheets(); const blob = await app.s3.screenshot(); const dataUrl = await new Promise(res => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.readAsDataURL(blob); }); app.openSheet('photo'); cornerStep('wall', dataUrl); }
     if (kind === 'ai') aiStep();
   };
   // 四隅を合わせる

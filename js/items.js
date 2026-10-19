@@ -39,6 +39,7 @@ export const CATALOG = {
       const pleat = it.opts.pleat ?? 1.5; const pw = Math.max(0.12, (w / 2) * (1 - open * 0.88)), pitch = (0.18 / pleat) * (1 - open * 0.55), mat = fabric(it, pw, h);
       const amp = 0.03 + 0.012 * pleat; const L = pleatedPanel(pw, h - 0.03, pitch, amp, mat); L.position.set(-w / 2 + pw / 2, -0.015, 0.1); g.add(L);
       const R = pleatedPanel(pw, h - 0.03, pitch, amp, mat); R.position.set(w / 2 - pw / 2, -0.015, 0.1); g.add(R);
+      if (open > 0.45) { const band = std(it.opts.tasselColor || '#c9b48a', .7); for (const sx of [-1, 1]) { const tb = new THREE.Mesh(new THREE.TorusGeometry(pw * 0.42 + 0.02, 0.012, 8, 24), band); tb.position.set(sx * (w / 2 - pw / 2), -h * 0.12, 0.1); tb.rotation.x = Math.PI / 2; tb.scale.z = 0.5; tb.castShadow = true; g.add(tb); const hook = box(0.02, 0.06, 0.03, std(METAL, .4, .6), sx * (w / 2 - 0.01), -h * 0.12, 0.015); g.add(hook); } }
       if (it.opts.lace) { const lm = surfaceMaterial('fabric', { lib: 'lace' }, { w, h }); const lace = pleatedPanel(w - 0.04, h - 0.04, 0.1, 0.02, lm); lace.position.set(0, -0.02, 0.05); lace.castShadow = false; g.add(lace); const rail2 = rail.clone(); rail2.position.z = 0.05; g.add(rail2); }
       return g;
     } },
@@ -56,6 +57,14 @@ export const CATALOG = {
     build(it) { const g = new THREE.Group(), w = it.w, h = it.h, down = it.opts.down ?? .8; g.add(box(w + 0.04, 0.04, 0.05, std(WHITE, .5), 0, h / 2 - 0.02, 0.04));
       const sh = Math.max(0.05, h * down), pitch = 0.025, n = Math.max(2, Math.round(sh / pitch)); const geo = new THREE.PlaneGeometry(w, sh, 1, n); const pos = geo.attributes.position; for (let i = 0; i < pos.count; i++) { const row = Math.floor(i / 2); pos.setZ(i, (row % 2) * 0.02); } geo.computeVertexNormals();
       const m = new THREE.Mesh(geo, fabric(it, w, sh)); m.position.set(0, h / 2 - 0.04 - sh / 2, 0.03); m.castShadow = true; m.receiveShadow = true; g.add(m); g.add(box(w, 0.02, 0.03, std(WHITE, .5), 0, h / 2 - 0.04 - sh, 0.04)); return g; } },
+  shoji: { name: '障子', emoji: '🎎', cat: '窓まわり', kind: 'wall', size: [1.7, 1.8, 0.06], color: '#b98a5a', opts: { open: 0 }, words: ['障子', 'しょうじ'], params: [['open', '開き具合', 0, 1]],
+    build(it) { const g = new THREE.Group(), w = it.w, h = it.h, open = it.opts.open ?? 0, wood = std(it.color, .6), paper = new THREE.MeshStandardMaterial({ color: '#fbf7ee', roughness: 1, transparent: true, opacity: .9, side: THREE.DoubleSide, emissive: '#fff6e6', emissiveIntensity: .15 });
+      g.add(box(w + 0.1, 0.05, 0.08, wood, 0, h / 2 + 0.025, 0.04)); g.add(box(w + 0.1, 0.04, 0.08, wood, 0, -h / 2 - 0.02, 0.04));
+      const pw = w / 2, panels = [[-pw / 2 + open * pw * 0.96, 0.02], [pw / 2, 0.05]];
+      for (const [px, pz] of panels) { const pg = new THREE.Group(); pg.position.set(px, 0, pz); g.add(pg); const sheet = new THREE.Mesh(new THREE.PlaneGeometry(pw - 0.04, h - 0.04), paper); sheet.position.z = 0.012; pg.add(sheet);
+        pg.add(box(0.03, h, 0.025, wood, -pw / 2 + 0.015, 0, 0.012)); pg.add(box(0.03, h, 0.025, wood, pw / 2 - 0.015, 0, 0.012)); pg.add(box(pw, 0.03, 0.025, wood, 0, h / 2 - 0.015, 0.012)); pg.add(box(pw, 0.03, 0.025, wood, 0, -h / 2 + 0.015, 0.012));
+        const cols = 3, rows = Math.max(4, Math.round(h / 0.3)); for (let i = 1; i < cols; i++) pg.add(box(0.012, h - 0.04, 0.012, wood, -pw / 2 + pw * i / cols, 0, 0.02)); for (let j = 1; j < rows; j++) pg.add(box(pw - 0.04, 0.012, 0.012, wood, 0, -h / 2 + h * j / rows, 0.02)); }
+      return g; } },
   blind: { name: 'ブラインド(横型)', emoji: '🎚️', cat: '窓まわり', kind: 'wall', size: [1.7, 1.9, 0.06], color: '#f2f2f0', opts: { down: 0.9, tilt: 0.35 }, words: ['ブラインド', '横型ブラインド', 'アルミブラインド', 'よこがた'], params: [['down', '下ろし具合', 0, 1], ['tilt', '羽の角度', 0, 1]],
     build(it) { const g = new THREE.Group(), w = it.w, h = it.h, down = it.opts.down ?? .9, tilt = (it.opts.tilt ?? .35) * 1.3;
       g.add(box(w + 0.04, 0.05, 0.05, std(it.color, .5), 0, h / 2 - 0.025, 0.04));
