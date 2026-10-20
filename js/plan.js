@@ -69,7 +69,7 @@ export class PlanEditor {
       <div><span>開き具合</span>${chip('dopen', '0', '閉める', open < 0.05)}${chip('dopen', '0.5', '半分', open > 0.3 && open < 0.7)}${chip('dopen', '1', '全開', open > 0.85)}</div></div>`;
   }
   bayInfo(o) { const chip = (v, label) => `<button class="chip text${(o.bay || 'none') === v ? ' on' : ''}" data-act="obay" data-v="${v}">${label}</button>`;
-    return `<div class="door-set"><div><span>出窓</span>${chip('none', 'ふつうの窓')}${chip('trap', '台形の出窓')}${chip('box', '角の出窓')}</div></div>${o.bay ? `<div class="dims">${this.field('obd', '出幅(mm)', mmRaw(o.bayDepth ?? 0.45))}</div>` : ''}`; }
+    return `<div class="door-set"><div><span>出窓</span>${chip('none', 'ふつうの窓')}${chip('trap', '台形の出窓')}${chip('box', '角(箱型)の出窓')}</div></div>${o.bay ? `<div class="dims">${this.field('obd', '出幅(mm)', mmRaw(o.bayDepth ?? 0.45))}</div>` : ''}`; }
   bindInfo() {
     const app = this.app, s = this.sel;
     const redo = () => { this.fixTwins(); app.rebuildHouse(); app.rebuildItems(); app.touched(); this.draw(); this.info(null); };

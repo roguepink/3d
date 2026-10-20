@@ -128,23 +128,36 @@ const matBayRoof = new THREE.MeshStandardMaterial({ color: '#6f747b', roughness:
 function footprint(pts) { const sh = new THREE.Shape(); pts.forEach(([x, z], i) => i ? sh.lineTo(x, z) : sh.moveTo(x, z)); sh.closePath(); return sh; }
 function slab(pts, thick, mat, topY) { const g = new THREE.ExtrudeGeometry(footprint(pts), { depth: thick, bevelEnabled: false }); g.rotateX(Math.PI / 2); const m = new THREE.Mesh(g, mat); m.position.y = topY; m.castShadow = true; m.receiveShadow = true; return m; }
 function buildBay(og, o, h, ctx) {
-  const D = Math.max(0.2, o.bayDepth ?? 0.45), w = h.w, EAR = 0.02, zo = -WALL_T, zf = -WALL_T - D;
-  const wf = o.bay === 'trap' ? Math.max(0.4, w - 2 * D) : w; // 台形は両わきが45°
+  const D = Math.max(0.2, o.bayDepth ?? 0.45), w = h.w, EAR = 0.02, zo = -WALL_T, zf = -WALL_T - D, trap = o.bay === 'trap';
+  const wf = trap ? Math.max(0.4, w - 2 * D) : w; // 台形は両わきが45°、角(箱型)は正面が開口と同じ幅
   const inner = [[-w / 2 - EAR, EAR], [w / 2 + EAR, EAR], [w / 2 + EAR, zo], [w / 2, zo], [wf / 2, zf], [-wf / 2, zf], [-w / 2, zo], [-w / 2 - EAR, zo]];
   const outer = [[-w / 2, zo], [w / 2, zo], [wf / 2, zf], [-wf / 2, zf]];
-  // 天板(下の枠:左右に20mm・部屋側に20mm出す)と天井板
-  const counter = ctx.tagTrim(slab(inner, 0.03, ctx.mFrame, h.sill)); og.add(counter);
-  const ceil = slab(outer.map(([x, z]) => [x, z]), 0.02, ctx.mFrame, h.sill + h.h + 0.02); og.add(ceil);
-  // 外側:天板の下の腰の部分と、上の屋根
-  og.add(slab(outer, 0.3, ctx.matOuter.clone ? new THREE.MeshStandardMaterial({ color: '#e8e4dc', roughness: .9 }) : ctx.matOuter, h.sill - 0.03));
+  const y = h.sill + h.h / 2, fw = 0.04, sash = ctx.matSash;
+  const bar = (L, H, T, x, yy, z, ang = 0) => { const m = new THREE.Mesh(new THREE.BoxGeometry(L, H, T), sash); m.position.set(x, yy, z); m.rotation.y = ang; og.add(m); return m; };
+  // 天板(左右・部屋側に20mm出す)と天井板
+  og.add(ctx.tagTrim(slab(inner, 0.03, ctx.mFrame, h.sill)));
+  og.add(slab(outer, 0.02, ctx.mFrame, h.sill + h.h + 0.02));
+  // 外側:天板の下の腰と、上の屋根
+  og.add(slab(outer, 0.3, new THREE.MeshStandardMaterial({ color: '#e8e4dc', roughness: .9 }), h.sill - 0.03));
   og.add(slab(outer.map(([x, z]) => [x * 1.04, z - (z < zo ? 0.04 : 0)]), 0.06, matBayRoof, h.sill + h.h + 0.08));
-  // ガラスとサッシ(前+左右)
-  const y = h.sill + h.h / 2; const segs = [[[-wf / 2, zf], [wf / 2, zf]], [[w / 2, zo], [wf / 2, zf]], [[-wf / 2, zf], [-w / 2, zo]]];
-  segs.forEach(([[x1, z1], [x2, z2]], i) => { const L = Math.hypot(x2 - x1, z2 - z1); if (L < 0.05) return; const mx = (x1 + x2) / 2, mz = (z1 + z2) / 2, ang = Math.atan2(-(z2 - z1), x2 - x1);
-    const gl = new THREE.Mesh(new THREE.PlaneGeometry(L, h.h), ctx.matGlass); gl.position.set(mx, y, mz); gl.rotation.y = ang; og.add(gl); if (i === 0) { gl.userData = { kind: 'window', roomId: ctx.roomId, edge: ctx.edge, openingId: o.id, keep: true }; ctx.pick.push(gl); }
-    const fw = 0.04; for (const yy of [h.sill + fw / 2, h.sill + h.h - fw / 2]) { const r = new THREE.Mesh(new THREE.BoxGeometry(L, fw, 0.05), ctx.matSash); r.position.set(mx, yy, mz); r.rotation.y = ang; og.add(r); }
-    if (i === 0 && L > 1.0) { const c = new THREE.Mesh(new THREE.BoxGeometry(fw, h.h, 0.05), ctx.matSash); c.position.set(mx, y, mz); c.rotation.y = ang; og.add(c); } });
-  for (const [x, z] of [[-wf / 2, zf], [wf / 2, zf], [-w / 2, zo], [w / 2, zo]]) { const p = new THREE.Mesh(new THREE.BoxGeometry(0.05, h.h, 0.05), ctx.matSash); p.position.set(x, y, z); og.add(p); }
+  if (trap) {
+    // 左右の斜めの窓(はめ殺し)
+    for (const [[x1, z1], [x2, z2]] of [[[w / 2, zo], [wf / 2, zf]], [[-wf / 2, zf], [-w / 2, zo]]]) { const L = Math.hypot(x2 - x1, z2 - z1), mx = (x1 + x2) / 2, mz = (z1 + z2) / 2, ang = Math.atan2(-(z2 - z1), x2 - x1);
+      const gl = new THREE.Mesh(new THREE.PlaneGeometry(L, h.h), ctx.matGlass); gl.position.set(mx, y, mz); gl.rotation.y = ang; og.add(gl);
+      bar(L, fw, 0.05, mx, h.sill + fw / 2, mz, ang); bar(L, fw, 0.05, mx, h.sill + h.h - fw / 2, mz, ang); }
+    for (const [x, z] of [[-w / 2, zo], [w / 2, zo]]) bar(0.05, h.h, 0.05, x, y, z);
+  } else {
+    // 角(箱型):左右は壁。クロス巻き込み(壁と同じ仕上げ)
+    for (const sx of [-1, 1]) { const m = new THREE.Mesh(new THREE.BoxGeometry(0.1, h.h + 0.02, D), ctx.wallMat); m.position.set(sx * (w / 2 + 0.05), y, (zo + zf) / 2); m.receiveShadow = true; og.add(m); }
+  }
+  // 正面:引き違いの2枚(内側と外側のレールに1枚ずつ、真ん中で少し重なる)
+  const pw = wf / 2 + 0.025, rail = 0.025;
+  for (const [i, sx] of [[0, -1], [1, 1]]) { const cx = sx * (wf / 2 - pw / 2), cz = zf + (i === 0 ? rail : -rail) * 0.5 + 0.01;
+    const gl = new THREE.Mesh(new THREE.PlaneGeometry(pw - fw, h.h - fw), ctx.matGlass); gl.position.set(cx, y, cz); og.add(gl); if (i === 0) { gl.userData = { kind: 'window', roomId: ctx.roomId, edge: ctx.edge, openingId: o.id, keep: true }; ctx.pick.push(gl); }
+    bar(pw, fw, 0.03, cx, h.sill + fw / 2, cz); bar(pw, fw, 0.03, cx, h.sill + h.h - fw / 2, cz); bar(fw, h.h, 0.03, cx - pw / 2 + fw / 2, y, cz); bar(fw, h.h, 0.03, cx + pw / 2 - fw / 2, y, cz); }
+  // 正面の外枠
+  bar(wf + 0.04, 0.03, 0.07, 0, h.sill + 0.015, zf + 0.01); bar(wf + 0.04, 0.03, 0.07, 0, h.sill + h.h - 0.015, zf + 0.01);
+  for (const sx of [-1, 1]) bar(0.03, h.h, 0.07, sx * (wf / 2 + 0.005), y, zf + 0.01);
 }
 
 export function wallSpec(room, e) { return (room.walls && (room.walls[e] !== undefined ? room.walls[e] : room.walls[String(e)])) || { lib: 'wp_white' }; }
@@ -218,7 +231,7 @@ export function buildRoom(room, project, group) {
         const s4 = box(fw, h.h, 0.05, matSash); s4.position.set(-h.w / 2 + fw / 2, h.sill + h.h / 2, -WALL_T / 2); og.add(s4);
         const s5 = s4.clone(); s5.position.x = h.w / 2 - fw / 2; og.add(s5);
       } else if (bay) {
-        buildBay(og, o, h, { mFrame, matGlass, matSash, matOuter, roomId: room.id, edge: e, pick, tagTrim });
+        buildBay(og, o, h, { mFrame, matGlass, matSash, matOuter, wallMat, roomId: room.id, edge: e, pick, tagTrim });
       } else if (o.type === 'door' && !o.twin) {
         // 丁番:部屋の内側から見て左(left)/右(right)。開く向き:内開き(in=この部屋側)/外開き(out)
         const sx = o.hinge === 'right' ? -1 : 1, sz = o.swing === 'out' ? -1 : 1;
