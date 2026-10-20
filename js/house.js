@@ -137,7 +137,7 @@ function buildBay(og, o, h, ctx) {
   const bar = (L, H, T, x, yy, z, ang = 0) => { const m = new THREE.Mesh(new THREE.BoxGeometry(L, H, T), sash); m.position.set(x, yy, z); m.rotation.y = ang; og.add(m); return m; };
   // 天板(左右・部屋側に20mm出す)と天井板
   og.add(ctx.tagTrim(slab(inner, 0.03, ctx.mFrame, h.sill)));
-  og.add(slab(outer, 0.02, ctx.mFrame, h.sill + h.h + 0.02));
+  og.add(slab(outer, 0.02, trap ? ctx.mFrame : ctx.wallMat, h.sill + h.h + 0.02));
   // 外側:天板の下の腰と、上の屋根
   og.add(slab(outer, 0.3, new THREE.MeshStandardMaterial({ color: '#e8e4dc', roughness: .9 }), h.sill - 0.03));
   og.add(slab(outer.map(([x, z]) => [x * 1.04, z - (z < zo ? 0.04 : 0)]), 0.06, matBayRoof, h.sill + h.h + 0.08));
@@ -204,7 +204,8 @@ export function buildRoom(room, project, group) {
     for (const h of holes) {
       const o = h.op, cu = h.u + h.w / 2, isWin = o.type === 'window';
       const og = new THREE.Group(); og.position.copy(wallPoint(room, e, cu, 0, 0)); og.rotation.y = f.rotY; roomGroup.add(og); const tagTrim = m => { m.userData = { kind: 'trim', part: isWin ? 'casing' : 'door', roomId: room.id, openingId: o.id, mergeKey: isWin ? 'casing' : 'door' }; return m; };
-      const casingOn = isWin ? trim.casing.on : true; const mFrame = isWin ? matCase : matDoorFrame; const wallMat = wall.material;
+      // 箱型の出窓は、枠なし(三方クロス巻き込み)
+      const casingOn = isWin ? (trim.casing.on && o.bay !== 'box') : true; const mFrame = isWin ? matCase : matDoorFrame; const wallMat = wall.material;
       const bay = isWin && (o.bay === 'trap' || o.bay === 'box'); const EAR = 0.02; // 窓台・出窓天板の左右の出(20mm)
       if (!o.twin) {
         // 壁の厚み分の側面(額縁)。窓で枠なしのときは、壁紙を巻き込む(クロス巻き込み)
