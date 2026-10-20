@@ -77,7 +77,7 @@ class App {
     $('#sPhoto').onclick = () => { $('#start').classList.add('hidden'); if (!this.project) this.load(this.blankProject()); openPhotoWizard(this); };
     $('#sContinue').onclick = async () => { const p = await loadProject('current'); if (p) { this.load(p); $('#start').classList.add('hidden'); } else this.toast('保存はまだありません'); };
     $('#nrMake').onclick = () => this.makeNewRoom();
-    for (const [k, info] of Object.entries(MODULES)) { const b = document.createElement('button'); b.className = 'chip text'; b.innerHTML = `${info.name}${info.badge ? `<small>${info.badge}</small>` : ''}`; b.dataset.module = k; b.onclick = () => this.setModule(k); $('#roomModules').appendChild(b); }
+    for (const [k, info] of Object.entries(MODULES)) { const b = document.createElement('button'); b.className = 'chip text'; b.textContent = info.name; b.dataset.module = k; b.onclick = () => this.setModule(k); $('#roomModules').appendChild(b); }
     for (const id of ['nrW', 'nrD', 'nrH']) $('#' + id).addEventListener('input', () => this.updateRoomNote());
     this.fillPresets();
     this._shape = 'rect'; for (const [k, n, desc] of ROOM_SHAPES) { const b = document.createElement('button'); b.className = 'shape-chip' + (k === 'rect' ? ' on' : ''); b.dataset.shape = k; b.title = desc; b.innerHTML = `${shapeIconSVG(k)}<span>${n}</span>`; b.onclick = () => { this._shape = k; for (const x of $$('#roomShapes .shape-chip')) x.classList.toggle('on', x.dataset.shape === k); $('#shapeNote').textContent = desc; }; $('#roomShapes').appendChild(b); }
@@ -397,12 +397,12 @@ class App {
       sec.appendChild(head); if (opts.note) { const n = document.createElement('p'); n.className = 'hint'; n.textContent = opts.note; sec.appendChild(n); } sec.appendChild(finishChips(cfg.finish, id => { cfg.finish = id; })); box.appendChild(sec); };
     section('廻り縁(天井との境)', t.crown, { toggle: true, num: { key: 'h', label: '高さ', min: 10, max: 150 } });
     section('巾木(床との境)', t.base, { toggle: true, num: { key: 'h', label: '高さ', min: 20, max: 300 } });
-    section('窓の枠', t.casing, { toggle: true, num: { key: 'w', label: '見付(幅)', min: 20, max: 120 }, note: t.casing.on ? '枠あり:木枠が窓のまわりに回ります。' : '枠なし:クロス巻き込み(壁紙がそのまま窓の側面まで回る納まり)。' });
+    section('窓の枠', t.casing, { toggle: true, num: { key: 'w', label: '見付(幅)', min: 10, max: 120 }, note: t.casing.on ? '枠あり:四方枠(上下左右おなじ見付)。' : '枠なし:クロス巻き込み。窓台だけ左右に20mm出ます。' });
     section('ドアの枠', t.door, {});
     const row = document.createElement('div'); row.className = 'row';
     const b1 = document.createElement('button'); b1.textContent = '🎨 3つの仕上げを廻り縁に合わせる'; b1.onclick = () => { this.snapshot(); t.base.finish = t.crown.finish; t.casing.finish = t.crown.finish; t.door.finish = t.crown.finish; commit('仕上げをそろえました'); }; row.appendChild(b1);
     const b2 = document.createElement('button'); b2.textContent = '🏠 この設定を全部の部屋に'; b2.onclick = () => { this.snapshot(); for (const r of this.project.rooms) r.trim = JSON.parse(JSON.stringify(t)); commit('全部の部屋に同じ設定にしました'); }; row.appendChild(b2);
-    const b3 = document.createElement('button'); b3.textContent = '↩ 標準にもどす'; b3.onclick = () => { this.snapshot(); delete room.trim; commit('標準(白・廻り縁35・巾木60・枠あり)にもどしました'); }; row.appendChild(b3);
+    const b3 = document.createElement('button'); b3.textContent = '↩ 標準にもどす'; b3.onclick = () => { this.snapshot(); delete room.trim; commit('標準(白・廻り縁35・巾木60・枠20)にもどしました'); }; row.appendChild(b3);
     box.appendChild(row);
   }
   // 見本の写真 → 繰り返し模様として使う
@@ -518,7 +518,8 @@ class App {
     const b = houseBounds(this.project.rooms); const x = this.project.rooms.length ? b.maxX + WALL_T : 0, z = this.project.rooms.length ? b.minZ : 0; if (this._shape === 'bay') { /* 出窓は北側にはみ出す */ }
     const shape = this._shape || 'rect'; const room = { id: 'r' + Date.now().toString(36), name, x, z, w, d, h, poly: shapePoly(shape, x, z, w, d, MODULES[this.module()].half), floor: { lib: 'oak' }, ceiling: { color: '#f7f6f2' }, walls: {}, openings: [], parts: [] }; normalizeRoom(room);
     if (shape === 'column') room.parts.push({ id: uid(), type: 'column', x: x + w - 0.45, z, w: 0.45, d: 0.45 });
-    if ($('#nrWin').checked) { let best = null, bl = 0; for (let e = 0; e < room.poly.length; e++) { const f = edgeFrame(room, e); if (f.normal.z > 0.7 && f.L > bl) { best = e; bl = f.L; } } if (best !== null) { const ww = Math.min(1.65, bl - 0.6); if (ww > 0.5) room.openings.push({ id: uid(), edge: best, type: 'window', u: (bl - ww) / 2, w: ww, h: bl > 2 ? 1.8 : 1.1, sill: bl > 2 ? 0.4 : 0.9 }); } }
+    if (shape === 'bay') { const e0 = edgeForCompass(room, 'N') ?? 0; const L = wallLength(room, e0); const bw = Math.min(1.69, L - 0.6); room.openings.push({ id: uid(), edge: e0, type: 'window', u: (L - bw) / 2, w: bw, h: 1.17, sill: 0.9, bay: 'trap', bayDepth: 0.45 }); }
+    else if ($('#nrWin').checked) { let best = null, bl = 0; for (let e = 0; e < room.poly.length; e++) { const f = edgeFrame(room, e); if (f.normal.z > 0.7 && f.L > bl) { best = e; bl = f.L; } } if (best !== null) { const ww = Math.min(1.65, bl - 0.6); if (ww > 0.5) room.openings.push({ id: uid(), edge: best, type: 'window', u: (bl - ww) / 2, w: ww, h: bl > 2 ? 1.8 : 1.1, sill: bl > 2 ? 0.4 : 0.9 }); } }
     const first = !this.project.rooms.length; this.project.rooms.push(room); if (first) { this.project.name = name; this.project.items.push(newItem('ceilingLight', { roomId: room.id, x: x + w / 2, y: h, z: z + d / 2 })); }
     this.load(this.project); this.closeSheets(); this.s3.camera.position.set(x + w / 2, 1.5, z + d * 0.8); this.walk.yaw = 0; this.walk.pitch = 0;
     if (this._afterRoom) { const f = this._afterRoom; this._afterRoom = null; f(); return; }
