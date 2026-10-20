@@ -51,13 +51,22 @@ export class PlanEditor {
       return `<b>${r.name}</b> 内法 ${mm(r.w)}×${mm(r.d)}mm${isRect(r) ? `(芯々 ${mm(shinShin(r.w))}×${mm(shinShin(r.d))})` : ''}・約${roomJo(r)}帖・角${r.poly.length}つ${dims}<div class="row"><button data-act="rename">名前</button><button data-act="stand">👣 ここに立つ</button></div>`;
     }
     if (s.kind === 'vertex') { const [x, z] = r.poly[s.index]; return `<b>角</b>(${r.name})<div class="dims">${this.field('vx', '横の位置(mm)', mmRaw(x))}${this.field('vz', '奥行の位置(mm)', mmRaw(z))}</div><div class="row"><button data-act="chamfer">◢ この角を斜めに</button><button data-act="colhere">▮ ここに柱型</button><button data-act="delv" class="danger">角を消す</button></div>`; }
-    if (s.kind === 'opening') { const o = s.opening; return `<b>${o.type === 'window' ? '窓' : 'ドア'}</b>(${r.name}の${edgeName(r, o.edge)})<div class="dims">${this.field('ow', '幅(mm)', mmRaw(o.w))}${this.field('oh', '高さ(mm)', mmRaw(o.h))}${o.type === 'window' ? this.field('os', '床から(mm)', mmRaw(o.sill ?? 0.9)) : ''}${this.field('ou', '壁の左端から(mm)', mmRaw(o.u))}</div>${o.type === 'door' ? '<div class="row"><button data-act="swing">開き具合</button></div>' : ''}`; }
+    if (s.kind === 'opening') { const o = s.opening; return `<b>${o.type === 'window' ? '窓' : 'ドア'}</b>(${r.name}の${edgeName(r, o.edge)})<div class="dims">${this.field('ow', '幅(mm)', mmRaw(o.w))}${this.field('oh', '高さ(mm)', mmRaw(o.h))}${o.type === 'window' ? this.field('os', '床から(mm)', mmRaw(o.sill ?? 0.9)) : ''}${this.field('ou', '壁の左端から(mm)', mmRaw(o.u))}</div>${o.type === 'door' ? this.doorInfo(r, o) : ''}`; }
     if (s.kind === 'part') { const p = s.part; const b = partBox(p); const name = { column: '柱型', wall: '袖壁(腰壁)', beam: '梁(下がり天井)' }[p.type];
       const dims = p.type === 'wall' ? this.field('pl', '長さ(mm)', mmRaw(b.L)) + this.field('pt', '厚み(mm)', mmRaw(p.t || WALL_T)) + this.field('ph', '高さ(mm)', mmRaw(p.h || r.h), 10)
         : p.type === 'beam' ? this.field('pw', '横(mm)', mmRaw(p.w)) + this.field('pd', '奥行(mm)', mmRaw(p.d)) + this.field('pdrop', '下がり(mm)', mmRaw(p.drop || .3), 10)
         : this.field('pw', '横(mm)', mmRaw(p.w)) + this.field('pd', '奥行(mm)', mmRaw(p.d));
       return `<b>${name}</b>(${r.name})<div class="dims">${dims}</div><div class="row">${p.type !== 'beam' ? '<button data-act="prot">⟳ 90°回す</button>' : ''}<button data-act="pdel" class="danger">消す</button></div>`; }
     return '';
+  }
+  // ドアの持ち主(実際のドアがある側)。となりの部屋から選んだときは、左右と内外が逆に見える
+  doorOwner(room, o) { if (!o.twin) return { owner: o, flip: false }; for (const r of this.app.project.rooms) for (const t of (r.openings || [])) if (t.id === o.twin) return { owner: t, flip: true }; return { owner: o, flip: false }; }
+  doorInfo(room, o) {
+    const { owner, flip } = this.doorOwner(room, o); const swing = (owner.swing === 'out') !== flip ? 'out' : 'in'; const hinge = (owner.hinge === 'right') !== flip ? 'right' : 'left'; const open = owner.open ?? 0.9;
+    const chip = (act, val, label, on) => `<button class="chip text${on ? ' on' : ''}" data-act="${act}" data-v="${val}">${label}</button>`;
+    return `<div class="door-set"><div><span>開く向き</span>${chip('dswing', 'in', '内開き(この部屋へ)', swing === 'in')}${chip('dswing', 'out', '外開き(向こうへ)', swing === 'out')}</div>
+      <div><span>丁番の位置</span>${chip('dhinge', 'left', '左', hinge === 'left')}${chip('dhinge', 'right', '右', hinge === 'right')}<small>この部屋の中から ドアを見て</small></div>
+      <div><span>開き具合</span>${chip('dopen', '0', '閉める', open < 0.05)}${chip('dopen', '0.5', '半分', open > 0.3 && open < 0.7)}${chip('dopen', '1', '全開', open > 0.85)}</div></div>`;
   }
   bindInfo() {
     const app = this.app, s = this.sel;
@@ -78,7 +87,11 @@ export class PlanEditor {
       if (act === 'chamfer') { app.snapshot(); const len = parseFloat(prompt('斜めにする長さ(mm)', '800')) / 1000; if (len > 0.05) { chamferVertex(s.room, s.index, len); this.sel = { kind: 'room', room: s.room }; redo(); } }
       if (act === 'colhere') { const [x, z] = s.room.poly[s.index]; app.addPart(s.room, 'column', { x, z }); this.sel = { kind: 'room', room: s.room }; this.draw(); this.info(null); }
       if (act === 'delv') { app.snapshot(); if (removeVertex(s.room, s.index)) { this.sel = { kind: 'room', room: s.room }; redo(); } else app.toast('角は3つより減らせません'); }
-      if (act === 'swing') { const o = s.opening; app.snapshot(); o.open = ((o.open ?? 0.9) + 0.5) % 1.5; if (o.open > 1) o.open = 0; app.rebuildHouse(); app.touched(); }
+      if (act === 'dswing' || act === 'dhinge' || act === 'dopen') { const { owner, flip } = this.doorOwner(s.room, s.opening); const v = b.dataset.v; app.snapshot();
+        if (act === 'dswing') owner.swing = ((v === 'out') !== flip) ? 'out' : 'in';
+        if (act === 'dhinge') owner.hinge = ((v === 'right') !== flip) ? 'right' : 'left';
+        if (act === 'dopen') owner.open = parseFloat(v);
+        app.rebuildHouse(); app.touched(); this.draw(); this.info(null); app.toast({ dswing: v === 'in' ? '内開きにしました' : '外開きにしました', dhinge: v === 'left' ? '丁番を左にしました' : '丁番を右にしました', dopen: v === '0' ? '閉めました' : v === '1' ? '全開にしました' : '半分開けました' }[act], 1500); }
       if (act === 'prot') { const p = s.part; app.snapshot(); if (p.type === 'wall') { const cx = (p.x1 + p.x2) / 2, cz = (p.z1 + p.z2) / 2; const dx = p.x2 - p.x1, dz = p.z2 - p.z1; p.x1 = cx + dz / 2; p.z1 = cz - dx / 2; p.x2 = cx - dz / 2; p.z2 = cz + dx / 2; } else { const cx = p.x + p.w / 2, cz = p.z + p.d / 2; [p.w, p.d] = [p.d, p.w]; p.x = cx - p.w / 2; p.z = cz - p.d / 2; } app.rebuildHouse(); app.touched(); this.draw(); this.info(null); }
       if (act === 'pdel') this.deleteSel();
     };
@@ -188,7 +201,9 @@ export class PlanEditor {
         if (selected) { if (p.type === 'wall') { for (const [x, z] of [[p.x1, p.z1], [p.x2, p.z2]]) { const [hx, hz] = this.toPx(x, z); g.fillStyle = '#ffcf4d'; g.beginPath(); g.arc(hx, hz, 6, 0, 7); g.fill(); } } else { const [hx, hz] = this.toPx(p.x + p.w, p.z + p.d); g.fillStyle = '#ffcf4d'; g.fillRect(hx - 5, hz - 5, 10, 10); } }
         if (psel) { if (p.type === 'wall') { this.dimLabel(g, cx, cz - 14, `${mm(b.L)} × 厚${mm(p.t || WALL_T)}`); } else { this.dimLabel(g, cx, cz - b.d * s / 2 - 10, mm(p.w)); this.dimLabel(g, cx + b.w * s / 2 + 22, cz, mm(p.d)); } } }
       for (const o of (r.openings || [])) { const [x0, z0, x1, z1] = this.openingSeg(r, o); const [ax, ay] = this.toPx(x0, z0), [bx, by] = this.toPx(x1, z1); const osel = this.sel && this.sel.kind === 'opening' && this.sel.opening === o; g.strokeStyle = osel ? '#ffcf4d' : o.type === 'window' ? '#7fc4ff' : '#c9955a'; g.lineWidth = Math.max(4, WALL_T * s + 2); g.beginPath(); g.moveTo(ax, ay); g.lineTo(bx, by); g.stroke();
-        if (o.type === 'door' && !o.twin) { const f = edgeFrame(r, o.edge); g.strokeStyle = osel ? '#ffcf4d' : 'rgba(201,149,90,.8)'; g.lineWidth = 1.5; const rr = o.w * s; const a0 = Math.atan2(-f.along.z, f.along.x), a1 = Math.atan2(-f.normal.z, f.normal.x); g.beginPath(); g.arc(ax, ay, rr, -a0, -a1, (a1 - a0 + Math.PI * 2) % (Math.PI * 2) > Math.PI); g.stroke(); }
+        if (o.type === 'door' && !o.twin) { const f = edgeFrame(r, o.edge); const right = o.hinge === 'right', out = o.swing === 'out'; const [hx, hy] = right ? [bx, by] : [ax, ay]; const cd = right ? [-f.along.x, -f.along.z] : [f.along.x, f.along.z]; const nd = out ? [-f.normal.x, -f.normal.z] : [f.normal.x, f.normal.z]; const rr = o.w * s; const sA = Math.atan2(cd[1], cd[0]), sN = Math.atan2(nd[1], nd[0]); const acw = ((sN - sA + Math.PI * 4) % (Math.PI * 2)) > Math.PI;
+          g.strokeStyle = osel ? '#ffcf4d' : 'rgba(201,149,90,.8)'; g.lineWidth = 1.5; g.setLineDash([4, 3]); g.beginPath(); g.arc(hx, hy, rr, sA, sN, acw); g.stroke(); g.setLineDash([]);
+          const t = (o.open ?? 0.9) * Math.PI / 2; const lx = cd[0] * Math.cos(t) + nd[0] * Math.sin(t), lz = cd[1] * Math.cos(t) + nd[1] * Math.sin(t); g.lineWidth = 3; g.beginPath(); g.moveTo(hx, hy); g.lineTo(hx + lx * rr, hy + lz * rr); g.stroke(); g.fillStyle = g.strokeStyle; g.beginPath(); g.arc(hx, hy, 3.5, 0, 7); g.fill(); }
         if (osel) { const f = edgeFrame(r, o.edge); const [lx, lz] = this.toPx((x0 + x1) / 2 + f.normal.x * 0.3, (z0 + z1) / 2 + f.normal.z * 0.3); this.dimLabel(g, lx, lz, `幅 ${mm(o.w)}`); } }
       // 選んでいる部屋:角と、各辺の内法寸法
       if (selected) { for (let e = 0; e < r.poly.length; e++) { const f = edgeFrame(r, e); if (f.L * s < 28) continue; const [lx, lz] = this.toPx(f.A[0] + f.along.x * f.L / 2 + f.normal.x * (14 / s), f.A[1] + f.along.z * f.L / 2 + f.normal.z * (14 / s)); this.dimLabel(g, lx, lz, mm(f.L), 'rgba(0,0,0,.45)'); }

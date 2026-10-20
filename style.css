@@ -139,3 +139,4 @@ body.ready #loadingNote { display:none; }
 @media (max-height:760px) { .tb { width:50px; height:50px; font-size:19px; } #tools { gap:5px; } }
 .trim-sec.flash { outline:3px solid var(--accent); }
 #editParams .stepsel { grid-column:1 / -1; } #editParams .stepsel .chips { margin:4px 0 0; } #editParams .stepsel .chip.text { min-height:32px; padding:4px 10px; font-size:13px; }
+.door-set { display:flex; flex-direction:column; gap:6px; margin:6px 0; } .door-set > div { display:flex; flex-wrap:wrap; align-items:center; gap:6px; } .door-set span { font-size:13px; color:var(--muted); width:74px; } .door-set small { font-size:11px; color:var(--muted); width:100%; padding-left:80px; } .door-set .chip.text { min-height:34px; padding:4px 12px; font-size:14px; }

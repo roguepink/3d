@@ -186,11 +186,14 @@ export function buildRoom(room, project, group) {
         const s4 = box(fw, h.h, 0.05, matSash); s4.position.set(-h.w / 2 + fw / 2, h.sill + h.h / 2, -WALL_T / 2); og.add(s4);
         const s5 = s4.clone(); s5.position.x = h.w / 2 - fw / 2; og.add(s5);
       } else if (o.type === 'door' && !o.twin) {
-        const leaf = new THREE.Group(); leaf.position.set(-h.w / 2, 0, -WALL_T / 2); og.add(leaf);
-        const door = box(h.w - 0.01, h.h - 0.01, 0.04, matDoor); door.position.set((h.w - 0.01) / 2, (h.h - 0.01) / 2, 0); leaf.add(door);
-        const knob = new THREE.Mesh(new THREE.SphereGeometry(0.025, 12, 8), matKnob); knob.position.set(h.w - 0.08, 1.0, 0.04); leaf.add(knob);
+        // 丁番:部屋の内側から見て左(left)/右(right)。開く向き:内開き(in=この部屋側)/外開き(out)
+        const sx = o.hinge === 'right' ? -1 : 1, sz = o.swing === 'out' ? -1 : 1;
+        const leaf = new THREE.Group(); leaf.position.set(-sx * h.w / 2, 0, sz > 0 ? -0.022 : -WALL_T + 0.022); og.add(leaf);
+        const door = box(h.w - 0.01, h.h - 0.01, 0.04, matDoor); door.position.set(sx * (h.w - 0.01) / 2, (h.h - 0.01) / 2, 0); leaf.add(door);
+        const knob = new THREE.Mesh(new THREE.SphereGeometry(0.025, 12, 8), matKnob); knob.position.set(sx * (h.w - 0.08), 1.0, 0.04); leaf.add(knob);
         const knob2 = knob.clone(); knob2.position.z = -0.04; leaf.add(knob2);
-        leaf.rotation.y = -(o.open ?? 0.9) * Math.PI / 2;
+        for (let k = 0; k < 2; k++) { const hg = box(0.012, 0.1, 0.03, matKnob); hg.castShadow = false; hg.position.set(0, k ? h.h - 0.25 : 0.25, 0); leaf.add(hg); }
+        leaf.rotation.y = -sx * sz * (o.open ?? 0.9) * Math.PI / 2;
         door.userData = { kind: 'door', roomId: room.id, edge: e, openingId: o.id }; pick.push(door);
       }
     }
