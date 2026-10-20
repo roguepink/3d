@@ -63,30 +63,41 @@
 </div>
 
 <!-- 選んだものの編集 -->
-<section id="edit" class="sheet hidden">
-  <div class="sheet-head"><b id="editName">カーテン</b><button class="ib close" data-close="edit">✕</button></div>
-  <div class="row chips" id="editColors"></div>
-  <div class="row" id="editMats"></div>
-  <div class="row grid3" id="editParams"></div>
-  <div class="row pad">
-    <div class="dpad">
-      <button data-mv="fwd">▲</button>
-      <button data-mv="left">◀</button><button data-mv="back">▼</button><button data-mv="right">▶</button>
-    </div>
-    <div class="col">
-      <button data-mv="up">⬆ 上へ</button>
-      <button data-mv="down">⬇ 下へ</button>
-      <button data-mv="rotl">⟲ 回す</button>
-      <button data-mv="rotr">⟳ 回す</button>
-    </div>
-    <div class="col">
-      <button data-mv="bigger">＋ 大きく</button>
-      <button data-mv="smaller">－ 小さく</button>
-      <button data-mv="dup">⧉ 複製</button>
-      <button data-mv="del" class="danger">🗑 消す</button>
-    </div>
+<section id="edit" class="sheet hidden low">
+  <div class="grab" id="editGrab" title="引っぱると高さが変わります"><span></span></div>
+  <div class="sheet-head"><b id="editName">カーテン</b>
+    <button class="ib peek" id="editPeek" title="押している間だけ欄を消す">👁</button>
+    <button class="ib close" data-close="edit">✕</button></div>
+  <div class="tabs etabs" id="editTabs">
+    <button data-etab="color" class="on">色・素材</button><button data-etab="size">大きさ</button><button data-etab="pos">位置</button>
   </div>
-  <p class="hint">指で引っぱっても動かせます。</p>
+  <div class="epane" data-pane="color">
+    <div class="row chips" id="editColors"></div>
+    <div class="row" id="editMats"></div>
+  </div>
+  <div class="epane hidden" data-pane="size">
+    <div class="row grid3" id="editParams"></div>
+    <div class="row"><button data-mv="smaller">－ 小さく</button><button data-mv="bigger">＋ 大きく</button></div>
+  </div>
+  <div class="epane hidden" data-pane="pos">
+    <div class="row" id="editStep"></div>
+    <div class="row pad">
+      <div class="dpad">
+        <button data-mv="fwd">▲</button>
+        <button data-mv="left">◀</button><button data-mv="back">▼</button><button data-mv="right">▶</button>
+      </div>
+      <div class="col">
+        <button data-mv="up">⬆ 上へ</button>
+        <button data-mv="down">⬇ 下へ</button>
+      </div>
+      <div class="col">
+        <button data-mv="rotl">⟲ 回す</button>
+        <button data-mv="rotr">⟳ 回す</button>
+      </div>
+    </div>
+    <p class="hint">指で引っぱっても動かせます。</p>
+  </div>
+  <div class="row efoot"><button data-mv="dup">⧉ 複製</button><button data-mv="del" class="danger">🗑 消す</button></div>
 </section>
 
 <!-- 言葉で指示 -->

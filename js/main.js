@@ -33,8 +33,8 @@ class App {
   // ---------- 画面の部品 ----------
   toast(msg, ms = 2600) { const t = $('#toast'); t.textContent = msg; t.classList.remove('hidden'); clearTimeout(this._tt); this._tt = setTimeout(() => t.classList.add('hidden'), ms); }
   dialog(html, buttons) { return new Promise(res => { const d = $('#dialog'); $('#dialogBody').innerHTML = html; const b = $('#dialogBtns'); b.innerHTML = ''; for (const btn of buttons) { const el = document.createElement('button'); el.textContent = btn.label; if (btn.primary) el.className = 'primary'; if (btn.danger) el.className = 'danger'; el.onclick = () => { d.classList.add('hidden'); res(btn.value !== undefined ? btn.value : btn.label); }; b.appendChild(el); } d.classList.remove('hidden'); }); }
-  openSheet(id) { for (const s of $$('.sheet')) if (s.id !== id) s.classList.add('hidden'); $('#' + id).classList.remove('hidden'); }
-  closeSheets() { for (const s of $$('.sheet')) s.classList.add('hidden'); }
+  openSheet(id) { for (const s of $$('.sheet')) if (s.id !== id) s.classList.add('hidden'); $('#' + id).classList.remove('hidden'); if (this.s3) setTimeout(() => this.updateInset(), 30); }
+  closeSheets() { for (const s of $$('.sheet')) s.classList.add('hidden'); if (this.s3) this.updateInset(); }
   bindUI() {
     for (const b of $$('[data-close]')) b.onclick = () => $('#' + b.dataset.close).classList.add('hidden');
     for (const b of $$('#modes .mode')) b.onclick = () => this.setMode(b.dataset.mode);
@@ -50,6 +50,12 @@ class App {
     $('#cmd').addEventListener('keydown', e => { if (e.key === 'Enter') { this.runCommand($('#cmd').value); $('#cmd').blur(); } });
     $('#btnMic').onclick = () => this.mic();
     for (const b of $$('#edit [data-mv]')) b.onclick = () => this.editMove(b.dataset.mv);
+    for (const b of $$('#editTabs [data-etab]')) b.onclick = () => this.editTab(b.dataset.etab);
+    { const grab = $('#editGrab'); let y0 = null, h0 = 0; grab.addEventListener('pointerdown', e => { y0 = e.clientY; h0 = $('#edit').getBoundingClientRect().height; grab.setPointerCapture(e.pointerId); }); grab.addEventListener('pointermove', e => { if (y0 === null) return; const dy = y0 - e.clientY; if (Math.abs(dy) > 30) { this.editHeight(dy > 0 ? 'high' : 'low'); y0 = null; } }); grab.addEventListener('pointerup', e => { if (y0 !== null && Math.abs(y0 - e.clientY) < 8) this.editHeight($('#edit').classList.contains('high') ? 'low' : 'high'); y0 = null; }); }
+    { const pk = $('#editPeek'); const on = e => { e.preventDefault(); try { pk.setPointerCapture(e.pointerId); } catch {} document.body.classList.add('peeking'); this.updateInset(); }; const off = () => { if (!document.body.classList.contains('peeking')) return; document.body.classList.remove('peeking'); this.updateInset(); }; pk.addEventListener('pointerdown', on); pk.addEventListener('pointerup', off); pk.addEventListener('pointercancel', off); pk.addEventListener('pointerleave', off); pk.addEventListener('contextmenu', e => e.preventDefault()); }
+    $('#edit [data-close=edit]').onclick = () => this.select(null);
+    if (window.ResizeObserver) new ResizeObserver(() => this.updateInset()).observe($('#edit'));
+    window.addEventListener('resize', () => this.updateInset());
     $('#mSave').onclick = () => this.saveAs();
     $('#mOpen').onclick = () => this.openList();
     $('#mExport').onclick = () => { const blob = new Blob([JSON.stringify(this.project)], { type: 'application/json' }); download(blob, (this.project.name || 'oheya') + '.json'); this.toast('ファイルに書き出しました'); };
@@ -143,6 +149,7 @@ class App {
   // ---------- 毎フレーム ----------
   frame(dt) {
     if (!this.project) return;
+    if (this._anim) this._anim(performance.now());
     if (this.spin) { this.walk.yaw += dt * (Math.PI * 2 / 14); this.spin -= dt; if (this.spin <= 0) { this.spin = 0; this.toast('一周しました'); } }
     this.walk.update(dt);
     if (this.mode === 'walk') { this._ct = (this._ct || 0) + dt; if (this._ct > 0.12) { this._ct = 0; this.center = this.hitAt(0.5, 0.5); $('#crosshair').classList.toggle('hit', !!(this.center && this.center.kind)); } }
@@ -230,8 +237,8 @@ class App {
 
   // ---------- 選ぶ・直す ----------
   select(id) {
-    this.selectedId = id; this.updateSelHelper(); if (!id) { $('#edit').classList.add('hidden'); return; }
-    const it = this.item(id), c = catalogEntry(it.type); this.openSheet('edit'); $('#editName').textContent = c.name;
+    const prev = this.selectedId; this.selectedId = id; this.updateSelHelper(); if (!id) { $('#edit').classList.add('hidden'); this.updateInset(); this.restoreView(); return; }
+    const it = this.item(id), c = catalogEntry(it.type); const wasOpen = !$('#edit').classList.contains('hidden'); this.openSheet('edit'); $('#editName').textContent = c.name; if (!wasOpen) this.editTab(this._etab || 'color', true);
     const colors = $('#editColors'); colors.innerHTML = '';
     for (const [n, hex] of Object.entries(COLORS)) { const b = document.createElement('button'); b.className = 'chip' + (it.color === hex ? ' on' : ''); b.style.background = hex; b.title = n; b.onclick = () => { it.color = hex; this.rebuildItem(it); this.select(id); }; colors.appendChild(b); }
     const mats = $('#editMats'); mats.innerHTML = '';
@@ -241,7 +248,7 @@ class App {
     const params = $('#editParams'); params.innerHTML = '';
     for (const [key, name, a, b] of (c.params || [])) { const lab = document.createElement('label'); lab.textContent = name; if (a === 'bool') { const i = document.createElement('input'); i.type = 'checkbox'; i.checked = !!it.opts[key]; i.onchange = () => { it.opts[key] = i.checked; this.rebuildItem(it); }; lab.appendChild(i); } else { const i = document.createElement('input'); i.type = 'range'; i.min = a; i.max = b; i.step = (b - a) > 5 ? 1 : 0.01; i.value = it.opts[key] ?? a; let armed = false; i.addEventListener('pointerdown', () => { if (!armed) { armed = true; this.snapshot(); } }); i.addEventListener('change', () => { armed = false; }); i.oninput = () => { it.opts[key] = parseFloat(i.value); clearTimeout(this._pt); this._pt = setTimeout(() => this.rebuildItem(it, true), 60); }; lab.appendChild(i); } params.appendChild(lab); }
     const kind = c.kind; const rng = c.range || {};
-    { const lab = document.createElement('label'); lab.className = 'stepsel'; lab.textContent = '矢印で動かす幅'; const wrap = document.createElement('div'); wrap.className = 'row chips'; const cur = this.moveStep || (c.equip ? 10 : 100); for (const v of [5, 10, 50, 100]) { const b = document.createElement('button'); b.className = 'chip text' + (v === cur ? ' on' : ''); b.textContent = v + 'mm'; b.onclick = () => { this.moveStep = v; this.select(id); }; wrap.appendChild(b); } lab.appendChild(wrap); params.appendChild(lab); }
+    { const st = $('#editStep'); st.innerHTML = ''; const lab = document.createElement('span'); lab.className = 'hint'; lab.style.margin = '0 4px 0 0'; lab.textContent = '動かす幅'; st.appendChild(lab); const cur = this.moveStep || (c.equip ? 10 : 100); for (const v of [5, 10, 50, 100]) { const b = document.createElement('button'); b.className = 'chip text' + (v === cur ? ' on' : ''); b.textContent = v + 'mm'; b.onclick = () => { this.moveStep = v; this.select(id); }; st.appendChild(b); } }
     const sizeField = (key, label, def) => { const [mn, mx] = rng[key] || def; const lab = document.createElement('label'); lab.className = 'sizef'; const span = document.createElement('span'); span.textContent = label; lab.appendChild(span);
       const num = document.createElement('input'); num.type = 'number'; num.step = 5; num.min = Math.round(mn * 1000); num.max = Math.round(mx * 1000); num.value = Math.round(it[key] * 1000); num.className = 'mmin';
       const sl = document.createElement('input'); sl.type = 'range'; sl.min = mn; sl.max = mx; sl.step = (mx - mn) > 2 ? 0.01 : 0.005; sl.value = it[key];
@@ -251,7 +258,52 @@ class App {
     sizeField('w', kind === 'ceiling' ? '直径 mm' : '幅 mm', [0.2, 6]);
     if (!(kind === 'ceiling' && c.range && !c.range.h)) sizeField('h', kind === 'wall' && ['curtain', 'lace', 'roller', 'blind', 'vblind', 'shade', 'pleats', 'shoji'].includes(it.type) ? '丈 mm' : '高さ mm', [0.05, 3]);
     if (kind === 'floor' || (kind === 'ceiling' && c.range && c.range.d)) sizeField('d', '奥行 mm', [0.2, 4]);
+    // 色・素材タブが空の物はない(色は全部にある)。選んだ物に寄る
+    setTimeout(() => { this.updateInset(); if (id !== prev) this.frameItem(id); }, 30);
   }
+  editTab(name, quiet) { this._etab = name; for (const b of $$('#editTabs [data-etab]')) b.classList.toggle('on', b.dataset.etab === name); for (const p of $$('#edit .epane')) p.classList.toggle('hidden', p.dataset.pane !== name); if (!quiet) setTimeout(() => this.updateInset(), 30); }
+  editHeight(h) { $('#edit').classList.toggle('high', h === 'high'); $('#edit').classList.toggle('low', h !== 'high'); setTimeout(() => { this.updateInset(); if (this.selectedId) this.frameItem(this.selectedId, true); }, 230); }
+  // 編集欄でおおわれていない部分を3Dの表示の中心にする
+  updateInset() {
+    const ed = $('#edit'); const open = !ed.classList.contains('hidden') && !document.body.classList.contains('peeking');
+    if (!open) { this.s3.setInset(null); $('#crosshair').classList.remove('hidden'); return; }
+    const r = ed.getBoundingClientRect(), W = window.innerWidth, H = window.innerHeight; const top = 56;
+    const side = r.left > W * 0.3; // 横向き・タブレットは右側の欄
+    this.s3.setInset(side ? { left: 0, top, right: W - r.left, bottom: 0 } : { left: 0, top, right: 0, bottom: H - r.top });
+    $('#crosshair').classList.add('hidden');
+  }
+  // 選んだ物が見える部分にちょうど収まるように、カメラを向けて寄る(閉じたら戻る)
+  frameItem(id, keepSaved) {
+    const g = this.itemGroups.get(id), it = this.item(id); if (!g || !it) return;
+    const box = new THREE.Box3().setFromObject(g, true); const c = box.getCenter(new THREE.Vector3()), sz = box.getSize(new THREE.Vector3());
+    const vr = this.s3.visibleRect(); const cam = this.s3.camera;
+    if (this.mode === 'walk') {
+      if (!this._savedView) this._savedView = { x: cam.position.x, z: cam.position.z, yaw: this.walk.yaw, pitch: this.walk.pitch, eye: this.walk.eye };
+      const vf = 2 * Math.atan(Math.tan(cam.fov * Math.PI / 360) * vr.h / vr.H), hf = 2 * Math.atan(Math.tan(cam.fov * Math.PI / 360) * cam.aspect * vr.w / vr.W);
+      const r = Math.max(sz.x, sz.y, sz.z, 0.08) * 0.5; let d = Math.max(r / Math.tan(Math.min(vf, hf) / 2) * 1.5, 0.45); d = Math.min(d, 4);
+      // 低い所の小さい物は、しゃがんで見る(目の高さを下げる)
+      const eyeT = (c.y < 1.0 && r < 0.4) ? Math.max(0.85, Math.min(1.5, c.y + 0.35)) : this._savedView.eye; const hd = Math.sqrt(Math.max(d * d - (eyeT - c.y) ** 2, 0.3 * 0.3)); d = hd;
+      // 目より高い物は、見上げすぎない距離まで下がる(天井の物は約35°、壁の高い所の物は約30°の見上げ)
+      const ecK = catalogEntry(it.type).kind, rise = c.y - eyeT; if (rise > 0.15) d = Math.max(d, rise / Math.tan(ecK === 'ceiling' ? 0.62 : 0.52), 0.8);
+      const ec = catalogEntry(it.type); let dir; const rm = this.room(it.roomId); const nearWall = rm && ec.kind === 'floor' && it.type !== 'rug' && edgeDistance(rm, nearestEdge(rm, new THREE.Vector3(it.x, 0, it.z)), it.x, it.z) < 1.0;
+      if (ec.kind === 'wall' || nearWall) { dir = new THREE.Vector3(-Math.sin(it.rot || 0), 0, -Math.cos(it.rot || 0)); } else { dir = new THREE.Vector3(c.x - cam.position.x, 0, c.z - cam.position.z); if (dir.lengthSq() < 1e-4) dir.set(-Math.sin(this.walk.yaw), 0, -Math.cos(this.walk.yaw)); dir.normalize(); }
+      // 正面から順に、角度と距離を少しずつ変えて、立てる場所を探す(柱や袖壁でふさがれていたら、ななめから見る)
+      const rooms = this.project.rooms; let pos = null; const up = new THREE.Vector3(0, 1, 0);
+      search: for (const a of [0, 0.3, -0.3, 0.6, -0.6, 0.9, -0.9, 1.2, -1.2]) { const dr = dir.clone().applyAxisAngle(up, a); for (const k of [1, 0.85, 0.7, 1.2, 1.45, 0.55]) { const dd = d * k; const p = new THREE.Vector3(c.x - dr.x * dd, cam.position.y, c.z - dr.z * dd); if (walkable(p, rooms, 0.15)) { pos = p; break search; } } }
+      if (!pos) pos = cam.position.clone();
+      const to = new THREE.Vector3(c.x - pos.x, c.y - eyeT, c.z - pos.z); const yaw = Math.atan2(-to.x, -to.z), pitch = Math.max(-1.25, Math.min(1.25, Math.atan2(to.y, Math.hypot(to.x, to.z))));
+      this.animateView({ x: pos.x, z: pos.z, yaw, pitch, eye: eyeT });
+    } else if (this.mode === 'orbit') {
+      if (!this._savedOrbit) this._savedOrbit = { pos: this.s3.orbitCam.position.clone(), target: this.s3.orbit.target.clone() };
+      const r = Math.max(sz.x, sz.y, sz.z, 0.3); const off = this.s3.orbitCam.position.clone().sub(this.s3.orbit.target).normalize().multiplyScalar(Math.max(1.6, r * 3.2)); this.s3.orbit.target.copy(c); this.s3.orbitCam.position.copy(c.clone().add(off)); this.s3.orbit.update();
+    }
+  }
+  restoreView() {
+    if (this._savedView && this.mode === 'walk') { const v = this._savedView; const cam = this.s3.camera; const moved = this._framedAt && Math.hypot(cam.position.x - this._framedAt.x, cam.position.z - this._framedAt.z) > 0.15; if (!moved) this.animateView(v); else this.walk.eye = v.eye; }
+    if (this._savedOrbit && this.mode === 'orbit') { this.s3.orbitCam.position.copy(this._savedOrbit.pos); this.s3.orbit.target.copy(this._savedOrbit.target); this.s3.orbit.update(); }
+    this._savedView = null; this._savedOrbit = null; this._framedAt = null;
+  }
+  animateView(to) { const cam = this.s3.camera; const from = { x: cam.position.x, z: cam.position.z, yaw: this.walk.yaw, pitch: this.walk.pitch, eye: this.walk.eye }; if (to.eye === undefined) to.eye = from.eye; let dyaw = to.yaw - from.yaw; dyaw = Math.atan2(Math.sin(dyaw), Math.cos(dyaw)); const t0 = performance.now(), T = 450; this._anim = t => { const k = Math.min(1, (t - t0) / T), e = k < .5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2; cam.position.x = from.x + (to.x - from.x) * e; cam.position.z = from.z + (to.z - from.z) * e; this.walk.yaw = from.yaw + dyaw * e; this.walk.pitch = from.pitch + (to.pitch - from.pitch) * e; this.walk.eye = from.eye + (to.eye - from.eye) * e; if (k >= 1) { this._anim = null; this._framedAt = { x: to.x, z: to.z }; } }; }
   updateSelHelper() { const g = this.selectedId && this.itemGroups.get(this.selectedId); if (!g) { this.selHelper.visible = false; return; } this.selHelper.box.setFromObject(g, true); this.selHelper.visible = true; }
   editMove(op) {
     const it = this.item(this.selectedId); if (!it) return; const c = catalogEntry(it.type), room = this.room(it.roomId) || this.currentRoom(), step = (this.moveStep || (c.equip ? 10 : 100)) / 1000; if (!['del', 'dup', 'bigger', 'smaller'].includes(op)) this.snapshot();

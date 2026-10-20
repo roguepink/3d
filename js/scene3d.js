@@ -45,7 +45,11 @@ export class Scene3D {
     this.renderer.setPixelRatio(scale); this.renderer.shadowMap.enabled = this.quality !== 'low';
     this.scene && this.scene.traverse(o => { if (o.material) o.material.needsUpdate = true; });
   }
-  resize() { const w = this.canvas.clientWidth || window.innerWidth, h = this.canvas.clientHeight || window.innerHeight; this.renderer.setSize(w, h, false); for (const c of [this.camera, this.orbitCam]) { c.aspect = w / h; c.updateProjectionMatrix(); } this.applyFov(); }
+  resize() { const w = this.canvas.clientWidth || window.innerWidth, h = this.canvas.clientHeight || window.innerHeight; this.renderer.setSize(w, h, false); for (const c of [this.camera, this.orbitCam]) { c.aspect = w / h; c.updateProjectionMatrix(); } this.applyFov(); this.applyInset(); }
+  // 画面の一部が欄でおおわれているとき、残りの見えている部分の真ん中に描く(inset = {left, top, right, bottom} px)
+  setInset(inset) { this.inset = inset; this.applyInset(); }
+  applyInset() { const W = this.canvas.clientWidth || window.innerWidth, H = this.canvas.clientHeight || window.innerHeight; const i = this.inset; for (const c of [this.camera, this.orbitCam]) { if (!i) { c.clearViewOffset(); continue; } const cx = (i.left + W - i.right) / 2, cy = (i.top + H - i.bottom) / 2; c.setViewOffset(W, H, W / 2 - cx, H / 2 - cy, W, H); } }
+  visibleRect() { const W = this.canvas.clientWidth || window.innerWidth, H = this.canvas.clientHeight || window.innerHeight; const i = this.inset || { left: 0, top: 0, right: 0, bottom: 0 }; return { w: W - i.left - i.right, h: H - i.top - i.bottom, W, H }; }
   // 基準の画角:縦画面は横62°(人の目で部屋を見渡した感じ)、横画面は縦70°。zoom 1 が標準、2 でアップ、0.6 で広く
   applyFov() { const a = this.camera.aspect || 1; let v0; if (a < 1) { const h0 = 62 * Math.PI / 180; v0 = 2 * Math.atan(Math.tan(h0 / 2) / a); } else v0 = 70 * Math.PI / 180; const v = 2 * Math.atan(Math.tan(v0 / 2) / this.zoom); this.camera.fov = Math.min(118, Math.max(12, v * 180 / Math.PI)); this.camera.updateProjectionMatrix(); }
   setZoom(z) { this.zoom = Math.min(3, Math.max(0.55, z)); try { localStorage.setItem('oheya-zoom', String(Math.round(this.zoom * 100) / 100)); } catch {} this.applyFov(); return this.zoom; }
