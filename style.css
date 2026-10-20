@@ -149,3 +149,15 @@ body.ready #loadingNote { display:none; }
 .trim-sec.flash { outline:3px solid var(--accent); }
 #editParams .stepsel { grid-column:1 / -1; } #editParams .stepsel .chips { margin:4px 0 0; } #editParams .stepsel .chip.text { min-height:32px; padding:4px 10px; font-size:13px; }
 .door-set { display:flex; flex-direction:column; gap:6px; margin:6px 0; } .door-set > div { display:flex; flex-wrap:wrap; align-items:center; gap:6px; } .door-set span { font-size:13px; color:var(--muted); width:74px; } .door-set small { font-size:11px; color:var(--muted); width:100%; padding-left:80px; } .door-set .chip.text { min-height:34px; padding:4px 12px; font-size:14px; }
+
+.posgrid { display:flex; gap:14px; align-items:center; margin:2px 0 4px; }
+.cross { display:grid; grid-template-columns:repeat(3,58px); grid-template-rows:repeat(3,46px); gap:4px; flex:none; }
+.cross button { width:58px; height:46px; padding:0; font-size:20px; display:flex; flex-direction:column; align-items:center; justify-content:center; line-height:1.05; }
+.cross button small { font-size:11px; color:var(--muted); }
+#mvU { grid-column:2; grid-row:1; } #mvL { grid-column:1; grid-row:2; } #mvMode { grid-column:2; grid-row:2; display:flex; align-items:center; justify-content:center; text-align:center; font-size:11px; color:var(--muted); } #mvR { grid-column:3; grid-row:2; } #mvD { grid-column:2; grid-row:3; }
+#posNums { margin-top:4px; }
+.posside { display:flex; flex-direction:column; gap:6px; min-width:0; }
+.stepgrid { display:grid; grid-template-columns:repeat(2, auto); gap:4px; justify-content:start; }
+.stepgrid .chip.text { min-height:32px; padding:4px 10px; font-size:13px; }
+.rotrow { display:flex; gap:4px; align-items:center; } .rotrow button { width:46px; height:40px; padding:0; font-size:20px; }
+#edit.sheet.low { height:42vh; }
