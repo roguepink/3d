@@ -9,6 +9,7 @@
 - 寸法: 画面は mm 表示。部屋の多角形は内法。芯々 = 内法 + WALL_T(120)。モジュールは `settings.module`('shaku' 910 / 'meter' 1000、localStorage 'oheya-module' が既定)。芯グリッドは k*g − 0.06 の位置。帖数は壁芯面積(内法+周囲×0.06)÷1.62。吸いつき(snap)は plan.js(tolM = 12px)。
 - 仕上げ: `room.trim = {crown:{on,h(mm),finish}, base:{...}, casing:{on,w,finish}, door:{finish}}`(roomTrim で既定を補う)。finish は textures.js の TRIM_FINISHES。窓の枠なし=ジャンブに壁材(クロス巻き込み)。
 - 設備: items.js で `equip:true`、`attachY`(数値 or 'top')が標準の取付高さ、`range` が寸法の範囲。「🔌設備」は openCatalog(true)。
+- つかむ: 選んでいない物は長押し 0.4 秒でつかむ(controls.js の lp)、選んである物はすぐ引っぱれる。hitTest は point を返す(drag の起点)。つかんでいる間は updateInset を止める(_dragging)。
 - 操作: ダブルタップ(controls.js の onTap で判定 → main.onDoubleTap)。縁・枠のメッシュは userData.kind='trim' + mergeKey で部位ごとに結合。もどす/進むは snapshot() 単位(矢印1押し・引っぱり開始・スライダー1回の操作・色変更 = 1段階)。
 - ドア: opening に `swing`('in'=その部屋側へ開く/'out')・`hinge`('left'/'right'、部屋の内側から見て)・`open`(0〜1)。共有ドアの片側(twin)から選んだときは plan.doorOwner で持ち主に読みかえ、左右・内外を反転して表示。
 - 編集欄: タブ(色・素材/大きさ/位置)、高さ low/high(つまみ)、👁 押している間だけ消す。開いている間は scene3d.setInset で見えている部分の中心に描き(setViewOffset)、frameItem で選んだ物に寄る(低い小物はしゃがむ、高い物は見上げすぎない距離、ふさがれていたら斜めから)。閉じると restoreView で元の視点へ。

@@ -19,9 +19,14 @@ export class WalkControls {
   down(e) {
     if (this.enabled) { this.active.set(e.pointerId, { x: e.clientX, y: e.clientY }); if (this.active.size === 2 && this.onZoom) { const [a, b] = [...this.active.values()]; this.pinchZ = { d0: Math.hypot(a.x - b.x, a.y - b.y), ids: [...this.active.keys()] }; if (this.look.active) this.look.active = false; if (this.joy.active) { this.joy.active = false; this.move.set(0, 0); this.placeJoy(0, 0, false, true); } this.drag.active = false; return; } }
     if (!this.enabled) { this.tapOnly = { x: e.clientX, y: e.clientY, t0: performance.now(), moved: 0, id: e.pointerId }; return; } const w = this.dom.clientWidth;
-    this.dom.setPointerCapture && this.dom.setPointerCapture(e.pointerId);
+    try { this.dom.setPointerCapture && this.dom.setPointerCapture(e.pointerId); } catch {}
     // 選んだアイテムの上なら引っぱって動かす
-    if (this.onDragItem && !this.joy.active && !this.look.active) { const h = this.hitTest(e.clientX / this.dom.clientWidth, e.clientY / this.dom.clientHeight); if (h && h.itemId && h.selected) { this.drag = { active: true, id: e.pointerId, itemId: h.itemId }; this.onDragItem('start', e, h); return; } }
+    // 物の上を押したとき:選んである物ならすぐ引っぱれる。選んでいない物は、長押し(0.4秒)でつかむ
+    if (this.onDragItem && !this.joy.active && !this.look.active) { const h = this.hitTest(e.clientX / this.dom.clientWidth, e.clientY / this.dom.clientHeight);
+      if (h && h.itemId && h.selected) { this.drag = { active: true, id: e.pointerId, itemId: h.itemId }; this.onDragItem('start', e, h); return; }
+      if (h && h.itemId) { clearTimeout(this.lp && this.lp.timer); const lp = this.lp = { id: e.pointerId, x: e.clientX, y: e.clientY, moved: 0, h, ev: e };
+        lp.timer = setTimeout(() => { if (this.lp !== lp || lp.moved > 10) return; this.lp = null; this.look.active = false; this.drag = { active: true, id: lp.id, itemId: h.itemId }; this.onDragItem('grab', lp.ev, h); }, 420);
+        this.look = { active: true, id: e.pointerId, x: e.clientX, y: e.clientY, moved: 0, t0: performance.now(), sx: e.clientX, sy: e.clientY }; return; } }
     if (e.pointerType === 'touch' && e.clientX < w * 0.45 && e.clientY > this.dom.clientHeight * 0.45 && !this.joy.active) { this.joy = { active: true, id: e.pointerId, cx: e.clientX, cy: e.clientY, t0: performance.now() }; this.placeJoy(e.clientX, e.clientY, true); return; }
     if (!this.look.active) { this.look = { active: true, id: e.pointerId, x: e.clientX, y: e.clientY, moved: 0, t0: performance.now(), sx: e.clientX, sy: e.clientY }; }
   }
@@ -29,6 +34,7 @@ export class WalkControls {
     if (this.active.has(e.pointerId)) this.active.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (this.pinchZ) { if (this.active.size >= 2) { const [a, b] = [...this.active.values()]; const d = Math.hypot(a.x - b.x, a.y - b.y); if (this.pinchZ.d0 > 10) { this.onZoom(d / this.pinchZ.d0, false, this.pinchZ); } } return; }
     if (this.tapOnly && e.pointerId === this.tapOnly.id) { this.tapOnly.moved += Math.abs(e.clientX - this.tapOnly.x) + Math.abs(e.clientY - this.tapOnly.y); this.tapOnly.x = e.clientX; this.tapOnly.y = e.clientY; return; }
+    if (this.lp && e.pointerId === this.lp.id) { this.lp.moved = Math.max(this.lp.moved, Math.hypot(e.clientX - this.lp.x, e.clientY - this.lp.y)); this.lp.ev = e; if (this.lp.moved > 10) { clearTimeout(this.lp.timer); this.lp = null; } }
     if (this.drag.active && e.pointerId === this.drag.id) { this.onDragItem('move', e); return; }
     if (this.joy.active && e.pointerId === this.joy.id) { const dx = e.clientX - this.joy.cx, dy = e.clientY - this.joy.cy, R = 50; const l = Math.hypot(dx, dy), k = l > R ? R / l : 1; this.move.set(dx * k / R, -dy * k / R); this.placeJoy(this.joy.cx + dx * k, this.joy.cy + dy * k, false); return; }
     if (this.look.active && e.pointerId === this.look.id) { const dx = e.clientX - this.look.x, dy = e.clientY - this.look.y; this.look.x = e.clientX; this.look.y = e.clientY; this.look.moved += Math.abs(dx) + Math.abs(dy); const k = 0.0045 * (e.pointerType === 'mouse' ? 0.7 : 1); this.yaw -= dx * k; this.pitch = Math.max(-1.3, Math.min(1.3, this.pitch - dy * k)); }
@@ -36,6 +42,7 @@ export class WalkControls {
   up(e) {
     this.active.delete(e.pointerId); if (this.pinchZ) { if (this.active.size < 2) { this.pinchZ = null; if (this.onZoom) this.onZoom(1, false, null); } return; }
     if (this.tapOnly && e.pointerId === this.tapOnly.id) { const t = this.tapOnly; this.tapOnly = null; if (t.moved < 8 && performance.now() - t.t0 < 400 && this.onTap) this.onTap(e.clientX / this.dom.clientWidth, e.clientY / this.dom.clientHeight, e); return; }
+    if (this.lp && e.pointerId === this.lp.id) { clearTimeout(this.lp.timer); this.lp = null; }
     if (this.drag.active && e.pointerId === this.drag.id) { this.onDragItem('end', e); this.drag = { active: false, id: null }; return; }
     if (this.joy.active && e.pointerId === this.joy.id) { const quick = performance.now() - this.joy.t0 < 250 && Math.hypot(e.clientX - this.joy.cx, e.clientY - this.joy.cy) < 8; this.joy.active = false; this.move.set(0, 0); this.placeJoy(0, 0, false, true); if (quick && this.onTap) this.onTap(e.clientX / this.dom.clientWidth, e.clientY / this.dom.clientHeight, e); return; }
     if (this.look.active && e.pointerId === this.look.id) { const tap = this.look.moved < 8 && performance.now() - this.look.t0 < 400; this.look.active = false; if (tap && this.onTap) this.onTap(e.clientX / this.dom.clientWidth, e.clientY / this.dom.clientHeight, e); }

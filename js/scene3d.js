@@ -80,11 +80,12 @@ export class Scene3D {
   activeCamera() { return this.mode === 'walk' ? this.camera : this.orbitCam; }
   // 画面の点(0..1)からの当たり判定
   pick(nx, ny, objects = this.pickables) {
+    this.scene.updateMatrixWorld(); this.activeCamera().updateMatrixWorld();
     this.raycaster.setFromCamera(new THREE.Vector2(nx * 2 - 1, -(ny * 2 - 1)), this.activeCamera());
     const hits = this.raycaster.intersectObjects(objects, true);
     return hits.find(h => (h.object.visible || h.object.userData.ghost) && h.object.userData.kind !== 'pano') || null;
   }
-  pickAll(nx, ny, objects) { this.raycaster.setFromCamera(new THREE.Vector2(nx * 2 - 1, -(ny * 2 - 1)), this.activeCamera()); return this.raycaster.intersectObjects(objects, true); }
+  pickAll(nx, ny, objects) { this.scene.updateMatrixWorld(); this.raycaster.setFromCamera(new THREE.Vector2(nx * 2 - 1, -(ny * 2 - 1)), this.activeCamera()); return this.raycaster.intersectObjects(objects, true); }
   _loop() {
     requestAnimationFrame(this._loop);
     const dt = Math.min(0.05, this.clock.getDelta());

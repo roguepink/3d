@@ -21,7 +21,7 @@ class App {
     this.canvas = $('#gl'); this.s3 = new Scene3D(this.canvas);
     this.project = null; this.selectedId = null; this.pin = null; this.mode = 'walk'; this.dirty = false; this.itemGroups = new Map(); this.currentRoomId = null;
     this.walk = new WalkControls(this.s3.camera, this.canvas, { canWalk: p => this.project ? walkable(p, this.project.rooms) : true, onTap: (x, y, e) => this.onTap(x, y, e), joyEl: $('#joy'), knobEl: $('#joyKnob'),
-      hitTest: (x, y) => { const h = this.hitAt(x, y); return h && h.itemId ? { itemId: h.itemId, selected: h.itemId === this.selectedId } : null; }, onDragItem: (ph, e, h) => this.dragItem(ph, e, h),
+      hitTest: (x, y) => { const h = this.hitAt(x, y); return h && h.itemId ? { itemId: h.itemId, selected: h.itemId === this.selectedId, point: h.point } : null; }, onDragItem: (ph, e, h) => this.dragItem(ph, e, h),
       onDoubleTap: (x, y, e) => this.onDoubleTap(x, y, e), onZoom: (k, step, pinch) => { if (step) { this.setZoom(this.s3.zoom * k); return; } if (pinch) { if (!pinch.z0) pinch.z0 = this.s3.zoom; this.setZoom(pinch.z0 * k, true); } else this.zoomLabel(true); } });
     this.plan = new PlanEditor(this, $('#planCanvas'));
     this.selHelper = new THREE.Box3Helper(new THREE.Box3(), 0xffcf4d); this.selHelper.visible = false; this.s3.helperGroup.add(this.selHelper);
@@ -51,7 +51,7 @@ class App {
     $('#btnMic').onclick = () => this.mic();
     for (const b of $$('#edit [data-mv]')) b.onclick = () => this.editMove(b.dataset.mv);
     for (const b of $$('#editTabs [data-etab]')) b.onclick = () => this.editTab(b.dataset.etab);
-    { const grab = $('#editGrab'); let y0 = null, h0 = 0; grab.addEventListener('pointerdown', e => { y0 = e.clientY; h0 = $('#edit').getBoundingClientRect().height; grab.setPointerCapture(e.pointerId); }); grab.addEventListener('pointermove', e => { if (y0 === null) return; const dy = y0 - e.clientY; if (Math.abs(dy) > 30) { this.editHeight(dy > 0 ? 'high' : 'low'); y0 = null; } }); grab.addEventListener('pointerup', e => { if (y0 !== null && Math.abs(y0 - e.clientY) < 8) this.editHeight($('#edit').classList.contains('high') ? 'low' : 'high'); y0 = null; }); }
+    { const grab = $('#editGrab'); let y0 = null, h0 = 0; grab.addEventListener('pointerdown', e => { y0 = e.clientY; h0 = $('#edit').getBoundingClientRect().height; try { grab.setPointerCapture(e.pointerId); } catch {} }); grab.addEventListener('pointermove', e => { if (y0 === null) return; const dy = y0 - e.clientY; if (Math.abs(dy) > 30) { this.editHeight(dy > 0 ? 'high' : 'low'); y0 = null; } }); grab.addEventListener('pointerup', e => { if (y0 !== null && Math.abs(y0 - e.clientY) < 8) this.editHeight($('#edit').classList.contains('high') ? 'low' : 'high'); y0 = null; }); }
     { const pk = $('#editPeek'); const on = e => { e.preventDefault(); try { pk.setPointerCapture(e.pointerId); } catch {} document.body.classList.add('peeking'); this.updateInset(); }; const off = () => { if (!document.body.classList.contains('peeking')) return; document.body.classList.remove('peeking'); this.updateInset(); }; pk.addEventListener('pointerdown', on); pk.addEventListener('pointerup', off); pk.addEventListener('pointercancel', off); pk.addEventListener('pointerleave', off); pk.addEventListener('contextmenu', e => e.preventDefault()); }
     $('#edit [data-close=edit]').onclick = () => this.select(null);
     if (window.ResizeObserver) new ResizeObserver(() => this.updateInset()).observe($('#edit'));
@@ -236,7 +236,7 @@ class App {
   }
 
   // ---------- 選ぶ・直す ----------
-  select(id) {
+  select(id, opts = {}) {
     const prev = this.selectedId; this.selectedId = id; this.updateSelHelper(); if (!id) { $('#edit').classList.add('hidden'); this.updateInset(); this.restoreView(); return; }
     const it = this.item(id), c = catalogEntry(it.type); const wasOpen = !$('#edit').classList.contains('hidden'); this.openSheet('edit'); $('#editName').textContent = c.name; if (!wasOpen) this.editTab(this._etab || 'color', true);
     const colors = $('#editColors'); colors.innerHTML = '';
@@ -260,12 +260,13 @@ class App {
     if (!(kind === 'ceiling' && c.range && !c.range.h)) sizeField('h', kind === 'wall' && ['curtain', 'lace', 'roller', 'blind', 'vblind', 'shade', 'pleats', 'shoji'].includes(it.type) ? '丈 mm' : '高さ mm', [0.05, 3]);
     if (kind === 'floor' || (kind === 'ceiling' && c.range && c.range.d)) sizeField('d', '奥行 mm', [0.2, 4]);
     // 色・素材タブが空の物はない(色は全部にある)。選んだ物に寄る
-    setTimeout(() => { this.updateInset(); if (id !== prev) this.frameItem(id); }, 30);
+    setTimeout(() => { this.updateInset(); if (id !== prev && !opts.noFrame) this.frameItem(id); }, 30);
   }
   editTab(name, quiet) { this._etab = name; for (const b of $$('#editTabs [data-etab]')) b.classList.toggle('on', b.dataset.etab === name); for (const p of $$('#edit .epane')) p.classList.toggle('hidden', p.dataset.pane !== name); if (!quiet) setTimeout(() => this.updateInset(), 30); }
   editHeight(h) { $('#edit').classList.toggle('high', h === 'high'); $('#edit').classList.toggle('low', h !== 'high'); setTimeout(() => { this.updateInset(); if (this.selectedId) this.frameItem(this.selectedId, true); }, 230); }
   // 編集欄でおおわれていない部分を3Dの表示の中心にする
   updateInset() {
+    if (this._dragging) return; // つかんで動かしている間は、画面をずらさない
     const ed = $('#edit'); const open = !ed.classList.contains('hidden') && !document.body.classList.contains('peeking');
     if (!open) { this.s3.setInset(null); $('#crosshair').classList.remove('hidden'); return; }
     const r = ed.getBoundingClientRect(), W = window.innerWidth, H = window.innerHeight; const top = 56;
@@ -353,10 +354,12 @@ class App {
   removeItem(id) { const i = this.project.items.findIndex(x => x.id === id); if (i < 0) return; this.snapshot(); const g = this.itemGroups.get(id); if (g) this.s3.itemGroup.remove(g); this.itemGroups.delete(id); this.project.items.splice(i, 1); if (this.selectedId === id) this.select(null); this.touched(); }
   // 指で引っぱって動かす
   dragItem(phase, e, h) {
+    if (phase === 'grab') { this._dragging = true; this.select(h.itemId, { noFrame: true }); try { navigator.vibrate && navigator.vibrate(20); } catch {} this.toast('つかみました。指を動かすと動きます', 1500); phase = 'start'; }
     const it = this.item(this.selectedId); if (!it) return; const c = catalogEntry(it.type), room = this.room(it.roomId) || this.currentRoom();
     const nx = e.clientX / this.canvas.clientWidth, ny = e.clientY / this.canvas.clientHeight;
-    if (phase === 'start') { this.snapshot(); this._drag = { off: new THREE.Vector3(it.x - h.point.x, 0, it.z - h.point.z) }; return; }
-    if (phase === 'end') { this.touched(); this.refreshPosNums(); return; }
+    if (phase === 'start') { this.snapshot(); const p0 = (h && h.point) || new THREE.Vector3(it.x, it.y, it.z); this._drag = { off: new THREE.Vector3(it.x - p0.x, 0, it.z - p0.z) }; return; }
+    if (!this._drag) return;
+    if (phase === 'end') { this.touched(); this.refreshPosNums(); if (this._dragging) { this._dragging = false; this.updateInset(); } return; }
     if (c.kind === 'wall') { const hit = this.s3.pick(nx, ny, [this.s3.houseGroup]); if (!hit) return; const u = hit.object.userData; const r = this.room(u.roomId); if (!r) return; if (u.kind === 'part') { const n = hit.face ? hit.face.normal.clone().transformDirection(hit.object.matrixWorld) : null; if (!n || Math.abs(n.y) > 0.5) return; it.rot = Math.atan2(n.x, n.z); it.x = hit.point.x + n.x * 0.004; it.z = hit.point.z + n.z * 0.004; it.y = Math.min(r.h - it.h / 2, Math.max(it.h / 2, hit.point.y)); it.edge = null; it.roomId = r.id; this.updateItemPose(it); return; } if (!(u.kind === 'wall' || u.kind === 'window')) return; const f = edgeFrame(r, u.edge); const { u: uu, v } = wallUV(r, u.edge, hit.point); const L = f.L; const cu = Math.min(L - it.w / 2, Math.max(it.w / 2, uu)); const wp = wallPoint(r, u.edge, cu, 0, 0); it.x = wp.x; it.z = wp.z; it.y = Math.min(r.h - it.h / 2, Math.max(it.h / 2, v)); it.rot = f.rotY; it.edge = u.edge; it.roomId = r.id; this.updateItemPose(it); return; }
     const y = c.kind === 'ceiling' ? room.h : it.y; const ray = this.s3.raycaster; ray.setFromCamera(new THREE.Vector2(nx * 2 - 1, -(ny * 2 - 1)), this.s3.activeCamera()); const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -y); const p = new THREE.Vector3(); if (!ray.ray.intersectPlane(plane, p)) return;
     p.add(this._drag.off); const r2 = roomAt(p, this.project.rooms) || room; it.roomId = r2.id; const [cx, cz] = clampIntoRoom(r2, p.x, p.z, Math.min(0.3, Math.min(it.w, it.d) / 2)); it.x = cx; it.z = cz; this.updateItemPose(it);
@@ -543,7 +546,7 @@ class App {
     const text = lines.join('\n') || 'まだ何も置いていません'; this.dialog(`<p><b>置いたものの一覧</b></p><textarea readonly style="height:220px">${text.replace(/</g, '&lt;')}</textarea>`, [{ label: 'とじる', value: null }, { label: 'コピー', value: 'copy' }, { label: '送る', value: 'share', primary: true }]).then(async r => { if (r === 'copy') { await navigator.clipboard.writeText(text); this.toast('コピーしました'); } if (r === 'share') { if (navigator.share) { try { await navigator.share({ title: 'おへや3D 一覧', text }); } catch {} } else { await navigator.clipboard.writeText(text); this.toast('コピーしました'); } } });
   }
   installNote() { const standalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone; const el = $('#installNote'); if (!el) return; el.textContent = standalone ? '📲 いまはホーム画面のアプリとして開いています。' : this._install ? '📲 まだ入れていません。上のボタンで入れられます。' : '📲 ブラウザで開いています。「すでにインストールされています」と出るときは、スマホのアプリ一覧(全アプリ)に「おへや3D」が入っています。長押しでホーム画面に置けます。'; }
-  help() { this.dialog(`<p><b>使い方</b></p><p>👣 <b>歩く</b>:画面の左側を指でなぞると歩き、右側で見回します。PCは W A S D とマウス。</p><p>＋ <b>置く</b>:見ている場所(中央の○)に置きます。床をタップして場所を決めてから置いてもOK。</p><p>🎤 <b>言葉で</b>:「ここにカーテンをつけて」「床をフローリングに」「壁を白に」「シャンデリアを消して」「夜にして」「窓をつけて」など。</p><p>🧱 <b>床・壁</b>:見ている面の素材を変えます。見本帳の写真も貼れます。</p><p>📷 <b>写真</b>:部屋の写真を壁に貼って、本物そっくりの部屋を作ります。</p><p>📐 <b>間取り</b>:部屋を足して ドアでつなぐと、家全体を歩けます。</p><p>☰ メニュー:置いたものの寸法一覧(見積りの下書き)、ぐるっと一周見回す(紹介動画用)、昼・夕方・夜、立つ/座る、保存・書き出し。↶ でひとつ前にもどせます。</p><p>保存は自動です(「前回のつづき」)。</p>`, [{ label: 'とじる', primary: true }]); }
+  help() { this.dialog(`<p><b>使い方</b></p><p>👣 <b>歩く</b>:画面の左側を指でなぞると歩き、右側で見回します。PCは W A S D とマウス。</p><p>✊ <b>つかむ</b>:置いた物を長押しすると、つかんで指で動かせます。ダブルタップで選ぶと、色・大きさ・位置を直せます。</p><p>＋ <b>置く</b>:見ている場所(中央の○)に置きます。床をタップして場所を決めてから置いてもOK。</p><p>🎤 <b>言葉で</b>:「ここにカーテンをつけて」「床をフローリングに」「壁を白に」「シャンデリアを消して」「夜にして」「窓をつけて」など。</p><p>🧱 <b>床・壁</b>:見ている面の素材を変えます。見本帳の写真も貼れます。</p><p>📷 <b>写真</b>:部屋の写真を壁に貼って、本物そっくりの部屋を作ります。</p><p>📐 <b>間取り</b>:部屋を足して ドアでつなぐと、家全体を歩けます。</p><p>☰ メニュー:置いたものの寸法一覧(見積りの下書き)、ぐるっと一周見回す(紹介動画用)、昼・夕方・夜、立つ/座る、保存・書き出し。↶ でひとつ前にもどせます。</p><p>保存は自動です(「前回のつづき」)。</p>`, [{ label: 'とじる', primary: true }]); }
 }
 
 function require_area(r) { let a = 0; const p = r.poly || []; for (let i = 0; i < p.length; i++) { const [x1, z1] = p[i], [x2, z2] = p[(i + 1) % p.length]; a += x1 * z2 - x2 * z1; } return a / 2; }
