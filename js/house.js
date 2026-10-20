@@ -272,12 +272,39 @@ export function houseBounds(rooms) {
 }
 
 // ---------- 形のひな型・形の操作 ----------
-export function shapePoly(kind, x, z, w, d) {
+// 部屋の形のひな型。g = モジュールの半グリッド(尺 0.455 / メーター 0.5)。切り欠きの寸法は g の倍数にそろえる
+export const ROOM_SHAPES = [
+  ['rect', '長方形', 'ふつうの四角い部屋'],
+  ['L', 'L字', '角がひとつ欠けた形(LDKに多い)'],
+  ['U', 'コの字', '手前の真ん中がへこんだ形'],
+  ['T', '凸型', '奥に出っぱり(床の間・収納・カウンター)'],
+  ['notch', '角欠け', '角に押入れや階段がくい込んだ形'],
+  ['trap', '台形', '片側の壁が斜め'],
+  ['Z', 'クランク', '段ちがいにずれた形'],
+  ['chamfer', '角を斜めに', '角が斜めに切れた形'],
+  ['bay', '出窓つき', '奥の壁に出窓の出っぱり'],
+  ['column', '柱型つき', '角に柱の出っぱり'],
+];
+export function shapePoly(kind, x, z, w, d, g = 0.455) {
+  const sn = (v, min = g) => Math.max(min, Math.round(v / g) * g); // g の倍数に
   const p = rectPoly(x, z, w, d);
-  if (kind === 'L') { const cw = Math.min(w * 0.45, 2.0), cd = Math.min(d * 0.45, 2.0); return [[x, z], [x + w, z], [x + w, z + d - cd], [x + w - cw, z + d - cd], [x + w - cw, z + d], [x, z + d]]; }
+  if (kind === 'L') { const cw = Math.min(sn(w * 0.45), w - g), cd = Math.min(sn(d * 0.45), d - g); return [[x, z], [x + w, z], [x + w, z + d - cd], [x + w - cw, z + d - cd], [x + w - cw, z + d], [x, z + d]]; }
+  if (kind === 'U') { const ow = Math.min(sn(w * 0.4), w - 2 * g), od = Math.min(sn(d * 0.4), d - g); const a = (w - ow) / 2; return [[x, z], [x + w, z], [x + w, z + d], [x + w - a, z + d], [x + w - a, z + d - od], [x + a, z + d - od], [x + a, z + d], [x, z + d]]; }
+  if (kind === 'T') { const aw = Math.min(sn(w * 0.4), w - g), ad = sn(Math.min(0.91, d * 0.3)); const s0 = (w - aw) / 2; return [[x, z], [x + s0, z], [x + s0, z - ad], [x + s0 + aw, z - ad], [x + s0 + aw, z], [x + w, z], [x + w, z + d], [x, z + d]]; }
+  if (kind === 'notch') { const n = Math.min(sn(0.91), w - g, d - g); return [[x, z], [x + w - n, z], [x + w - n, z + n], [x + w, z + n], [x + w, z + d], [x, z + d]]; }
+  if (kind === 'trap') { const t = Math.min(sn(w * 0.25), w - g); return [[x, z], [x + w - t, z], [x + w, z + d], [x, z + d]]; }
+  if (kind === 'Z') { const sx = Math.min(sn(w * 0.4), w - g), sz = Math.min(sn(d * 0.4), d - g); return [[x, z], [x + w - sx, z], [x + w - sx, z + sz], [x + w, z + sz], [x + w, z + d], [x + sx, z + d], [x + sx, z + d - sz], [x, z + d - sz]]; }
   if (kind === 'chamfer') { const c = Math.min(1.0, w * 0.3, d * 0.3); return [[x, z], [x + w - c, z], [x + w, z + c], [x + w, z + d], [x, z + d]]; }
-  if (kind === 'bay') { const bw = Math.min(1.8, w * 0.5), bd = 0.6; const s = x + (w - bw) / 2; return [[x, z], [s, z], [s + bd * 0.5, z - bd], [s + bw - bd * 0.5, z - bd], [s + bw, z], [x + w, z], [x + w, z + d], [x, z + d]]; }
+  if (kind === 'bay') { const bw = Math.min(1.8, w * 0.5), bd = 0.6; const s0 = x + (w - bw) / 2; return [[x, z], [s0, z], [s0 + bd * 0.5, z - bd], [s0 + bw - bd * 0.5, z - bd], [s0 + bw, z], [x + w, z], [x + w, z + d], [x, z + d]]; }
   return p;
+}
+// 形の小さな絵(SVG)
+export function shapeIconSVG(kind) {
+  const poly = shapePoly(kind, 0, 0, 4.43, 3.52, 0.455); let pts = poly; const xs = pts.map(p => p[0]), zs = pts.map(p => p[1]); const minX = Math.min(...xs), maxX = Math.max(...xs), minZ = Math.min(...zs), maxZ = Math.max(...zs);
+  const W = 40, H = 30, pad = 3, k = Math.min((W - pad * 2) / (maxX - minX), (H - pad * 2) / (maxZ - minZ)); const ox = (W - (maxX - minX) * k) / 2, oz = (H - (maxZ - minZ) * k) / 2;
+  const path = pts.map(([px, pz]) => `${(ox + (px - minX) * k).toFixed(1)},${(oz + (pz - minZ) * k).toFixed(1)}`).join(' ');
+  const col = kind === 'column' ? `<rect x="${(ox + (4.43 - 0.6 - minX) * k).toFixed(1)}" y="${(oz + (0 - minZ) * k).toFixed(1)}" width="${(0.6 * k).toFixed(1)}" height="${(0.6 * k).toFixed(1)}" fill="currentColor"/>` : '';
+  return `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" aria-hidden="true"><polygon points="${path}" fill="rgba(255,255,255,.12)" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>${col}</svg>`;
 }
 // 角を斜めに落とす(頂点 i を、両どなりの辺に沿って len だけ下がった2点に置きかえる)
 export function chamferVertex(room, i, len = 0.6) {
@@ -301,8 +328,8 @@ export function resizeRect(room, w, d) { room.poly = rectPoly(room.x, room.z, w,
 // ---------- モジュール(尺 910 / メーター 1000)と寸法の表示 ----------
 // 部屋の多角形は「内法(うちのり)」。壁の中心(芯)は内法から WALL_T/2 外側。芯々 = 内法 + WALL_T。
 export const MODULES = {
-  shaku: { name: '尺モジュール', grid: 0.91, half: 0.455, note: '910mm(3尺)の芯々グリッド。1間=1,820mm' },
-  meter: { name: 'メーターモジュール', grid: 1.0, half: 0.5, note: '1,000mmの芯々グリッド。廊下や階段がゆったり' },
+  shaku: { name: '尺モジュール', badge: '一般的な住宅', grid: 0.91, half: 0.455, note: '910mm(3尺)の芯々グリッド。1間=1,820mm', desc: '日本の一般的な住宅の寸法です。910mm きざみ(6畳=2,730×3,640)。迷ったらこちら。' },
+  meter: { name: 'メーターモジュール', badge: '一部のハウスメーカー', grid: 1.0, half: 0.5, note: '1,000mmの芯々グリッド。廊下や階段がゆったり', desc: '1,000mm きざみの寸法です。一部のハウスメーカーの家で使われ、廊下や階段が少し広めです。' },
 };
 // 部屋のひな型(芯々 mm)。帖数は 不動産表示の基準(1畳=1.62㎡)で内法面積から
 export const ROOM_PRESETS = {

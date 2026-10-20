@@ -174,9 +174,11 @@
 <section id="newroom" class="sheet hidden">
   <div class="sheet-head"><b>新しい部屋</b><button class="ib close" data-close="newroom">✕</button></div>
   <div class="row chips" id="roomModules"></div>
+  <p class="hint" id="moduleNote" style="margin:0 0 4px"></p>
   <div class="row chips" id="roomPresets"></div>
-  <p class="hint" style="margin:4px 0 0">形(あとで間取りで角を動かして自由に変えられます)</p>
-  <div class="row chips" id="roomShapes"></div>
+  <p class="hint" style="margin:6px 0 2px"><b style="color:#fff">部屋の形</b>(あとで間取りで角を動かして自由に変えられます)</p>
+  <div class="shape-grid" id="roomShapes"></div>
+  <p class="hint" id="shapeNote" style="margin:2px 0 0">ふつうの四角い部屋</p>
   <div class="row grid3">
     <label>横 芯々(mm)<input id="nrW" type="number" step="5" value="3640"></label>
     <label>奥行 芯々(mm)<input id="nrD" type="number" step="5" value="2730"></label>

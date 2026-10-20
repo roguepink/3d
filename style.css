@@ -162,3 +162,10 @@ body.ready #loadingNote { display:none; }
 .rotrow { display:flex; gap:4px; align-items:center; } .rotrow button { width:46px; height:40px; padding:0; font-size:20px; }
 #edit.sheet.low { height:42vh; }
 #walkHint { max-width:62vw; text-align:right; line-height:1.4; }
+.shape-grid { display:grid; grid-template-columns:repeat(5, 1fr); gap:6px; margin:4px 0; }
+.shape-chip { display:flex; flex-direction:column; align-items:center; gap:2px; padding:6px 2px 5px; border-radius:12px; color:var(--muted); font-size:12px; line-height:1.1; }
+.shape-chip svg { display:block; }
+.shape-chip.on { background:var(--accent); color:#1a1a1a; border-color:transparent; font-weight:700; }
+#roomModules .chip.text small { display:block; font-size:11px; color:var(--muted); }
+#roomModules .chip.text.on small { color:var(--accent); }
+@media (max-width:360px) { .shape-grid { grid-template-columns:repeat(4, 1fr); } }
