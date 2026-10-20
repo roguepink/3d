@@ -154,29 +154,29 @@ export function buildRoom(room, project, group) {
     const outer = new THREE.Mesh(wallGeometry(L, H, holes), matOuter);
     outer.position.copy(wallPoint(room, e, 0, 0, -WALL_T)); outer.rotation.y = f.rotY; outer.receiveShadow = true; outer.userData.keep = true; roomGroup.add(outer);
     // 廻り縁(あり/なし・高さ・仕上げ)
-    if (trim.crown.on) { const crown = box(L, crownH, Math.min(0.03, crownH * 0.6)); crown.material = matCrown; crown.castShadow = false; crown.position.copy(wallPoint(room, e, L / 2, H - crownH / 2, Math.min(0.03, crownH * 0.6) / 2)); crown.rotation.y = f.rotY; roomGroup.add(crown); }
+    if (trim.crown.on) { const crown = box(L, crownH, Math.min(0.03, crownH * 0.6)); crown.material = matCrown; crown.castShadow = false; crown.userData = { kind: 'trim', part: 'crown', roomId: room.id, mergeKey: 'crown' }; crown.position.copy(wallPoint(room, e, L / 2, H - crownH / 2, Math.min(0.03, crownH * 0.6) / 2)); crown.rotation.y = f.rotY; roomGroup.add(crown); }
     // 巾木(ドアのところは切る)
     if (trim.base.on) { const doors = holes.filter(h => h.op.type !== 'window').sort((a, b) => a.u - b.u);
       let u0 = 0; const segs = [];
       for (const d of doors) { if (d.u > u0) segs.push([u0, d.u]); u0 = d.u + d.w; } if (u0 < L) segs.push([u0, L]);
-      for (const [a, b] of segs) { const bb = box(b - a, baseH, 0.012); bb.material = matBase; bb.position.copy(wallPoint(room, e, (a + b) / 2, baseH / 2, 0.006)); bb.rotation.y = f.rotY; roomGroup.add(bb); } }
+      for (const [a, b] of segs) { const bb = box(b - a, baseH, 0.012); bb.material = matBase; bb.userData = { kind: 'trim', part: 'base', roomId: room.id, mergeKey: 'base' }; bb.position.copy(wallPoint(room, e, (a + b) / 2, baseH / 2, 0.006)); bb.rotation.y = f.rotY; roomGroup.add(bb); } }
     // 開口の枠・窓・ドア
     for (const h of holes) {
       const o = h.op, cu = h.u + h.w / 2, isWin = o.type === 'window';
-      const og = new THREE.Group(); og.position.copy(wallPoint(room, e, cu, 0, 0)); og.rotation.y = f.rotY; roomGroup.add(og);
+      const og = new THREE.Group(); og.position.copy(wallPoint(room, e, cu, 0, 0)); og.rotation.y = f.rotY; roomGroup.add(og); const tagTrim = m => { m.userData = { kind: 'trim', part: isWin ? 'casing' : 'door', roomId: room.id, openingId: o.id, mergeKey: isWin ? 'casing' : 'door' }; return m; };
       const casingOn = isWin ? trim.casing.on : true; const mFrame = isWin ? matCase : matDoorFrame; const wallMat = wall.material;
       if (!o.twin) {
         // 壁の厚み分の側面。窓で枠なしのときは、壁紙を巻き込む(クロス巻き込み)
         const jd = WALL_T + 0.02; const jm = casingOn ? mFrame : wallMat;
-        const jl = box(0.03, h.h, jd, jm); jl.position.set(-h.w / 2 - 0.015, h.sill + h.h / 2, -WALL_T / 2 + 0.01); og.add(jl);
+        const jl = tagTrim(box(0.03, h.h, jd, jm)); jl.position.set(-h.w / 2 - 0.015, h.sill + h.h / 2, -WALL_T / 2 + 0.01); og.add(jl);
         const jr = jl.clone(); jr.position.x = h.w / 2 + 0.015; og.add(jr);
-        const jt = box(h.w + 0.06, 0.03, jd, jm); jt.position.set(0, h.sill + h.h + 0.015, -WALL_T / 2 + 0.01); og.add(jt);
+        const jt = tagTrim(box(h.w + 0.06, 0.03, jd, jm)); jt.position.set(0, h.sill + h.h + 0.015, -WALL_T / 2 + 0.01); og.add(jt);
         if (isWin) { const js = box(h.w + 0.06, 0.03, jd + 0.03, casingOn ? mFrame : matFrame); js.position.set(0, h.sill - 0.015, -WALL_T / 2 + 0.02); og.add(js); }
       }
-      if (casingOn) { const cw = caseW, cd = 0.014; const cl = box(cw, h.h + (isWin ? cw * 2 : cw), cd, mFrame); cl.position.set(-h.w / 2 - cw / 2, h.sill + h.h / 2 + (isWin ? 0 : cw / 2), cd / 2); og.add(cl); const cr = cl.clone(); cr.position.x = h.w / 2 + cw / 2; og.add(cr);
-        const ct = box(h.w + cw * 2, cw, cd, mFrame); ct.position.set(0, h.sill + h.h + cw / 2, cd / 2); og.add(ct); if (isWin) { const cb = box(h.w + cw * 2, cw, cd * 2.2, mFrame); cb.position.set(0, h.sill - cw / 2, cd); og.add(cb); } }
+      if (casingOn) { const cw = caseW, cd = 0.014; const cl = tagTrim(box(cw, h.h + (isWin ? cw * 2 : cw), cd, mFrame)); cl.position.set(-h.w / 2 - cw / 2, h.sill + h.h / 2 + (isWin ? 0 : cw / 2), cd / 2); og.add(cl); const cr = cl.clone(); cr.position.x = h.w / 2 + cw / 2; og.add(cr);
+        const ct = tagTrim(box(h.w + cw * 2, cw, cd, mFrame)); ct.position.set(0, h.sill + h.h + cw / 2, cd / 2); og.add(ct); if (isWin) { const cb = tagTrim(box(h.w + cw * 2, cw, cd * 2.2, mFrame)); cb.position.set(0, h.sill - cw / 2, cd); og.add(cb); } }
       if (isWin) {
-        const sillBoard = box(h.w + (casingOn ? 0.16 : 0.0), 0.025, 0.09, casingOn ? mFrame : matFrame); sillBoard.position.set(0, h.sill - 0.0125, 0.045); og.add(sillBoard);
+        const sillBoard = tagTrim(box(h.w + (casingOn ? 0.16 : 0.0), 0.025, 0.09, casingOn ? mFrame : matFrame)); sillBoard.position.set(0, h.sill - 0.0125, 0.045); og.add(sillBoard);
         const glass = new THREE.Mesh(new THREE.PlaneGeometry(h.w, h.h), matGlass); glass.position.set(0, h.sill + h.h / 2, -WALL_T / 2); og.add(glass);
         glass.userData = { kind: 'window', roomId: room.id, edge: e, openingId: o.id, keep: true }; pick.push(glass);
         const fw = 0.04;

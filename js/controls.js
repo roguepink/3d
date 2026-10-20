@@ -5,7 +5,7 @@ export class WalkControls {
   constructor(camera, dom, opts = {}) {
     this.camera = camera; this.dom = dom; this.yaw = 0; this.pitch = 0; this.speed = 1.6; this.eye = 1.5;
     this.move = new THREE.Vector2(); this.keys = {}; this.enabled = true; this.canWalk = opts.canWalk || (() => true);
-    this.onTap = opts.onTap || null; this.onDragItem = opts.onDragItem || null; this.hitTest = opts.hitTest || (() => null); this.onZoom = opts.onZoom || null; this.active = new Map(); this.pinchZ = null;
+    this.onDoubleTap = opts.onDoubleTap || null; this._lastTap = null; const rawTap = opts.onTap || null; this.onTap = (x, y, e) => { const now = performance.now(); const lt = this._lastTap; if (lt && now - lt.t < 380 && Math.hypot(x - lt.x, y - lt.y) < 0.06) { this._lastTap = null; if (this.onDoubleTap) { this.onDoubleTap(x, y, e); return; } } this._lastTap = { t: now, x, y }; if (rawTap) rawTap(x, y, e); }; this.onDragItem = opts.onDragItem || null; this.hitTest = opts.hitTest || (() => null); this.onZoom = opts.onZoom || null; this.active = new Map(); this.pinchZ = null;
     dom.addEventListener('wheel', e => { if (!this.enabled || !this.onZoom) return; e.preventDefault(); this.onZoom(e.deltaY < 0 ? 1.08 : 1 / 1.08, true); }, { passive: false });
     this.joy = { active: false, id: null, cx: 0, cy: 0 }; this.look = { active: false, id: null, x: 0, y: 0, moved: 0, t0: 0 };
     this.drag = { active: false, id: null };

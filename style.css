@@ -137,3 +137,5 @@ body.ready #loadingNote { display:none; }
 #editParams .sizef { grid-column:span 1; } #editParams .sizef span { display:block; }
 #editParams .mmin { width:100%; height:34px; border-radius:8px; border:1px solid var(--line); background:#111318; color:#fff; padding:0 6px; font-size:15px; margin:2px 0; }
 @media (max-height:760px) { .tb { width:50px; height:50px; font-size:19px; } #tools { gap:5px; } }
+.trim-sec.flash { outline:3px solid var(--accent); }
+#editParams .stepsel { grid-column:1 / -1; } #editParams .stepsel .chips { margin:4px 0 0; } #editParams .stepsel .chip.text { min-height:32px; padding:4px 10px; font-size:13px; }

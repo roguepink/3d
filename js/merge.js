@@ -14,7 +14,7 @@ export function mergeGroup(root, filter) {
     const m = new THREE.Matrix4().multiplyMatrices(inv, o.matrixWorld);
     const geo = g.index ? g.toNonIndexed() : g.clone(); geo.applyMatrix4(m);
     for (const k of Object.keys(geo.attributes)) if (!['position', 'normal', 'uv'].includes(k)) geo.deleteAttribute(k);
-    const key = o.material.uuid; if (!buckets.has(key)) buckets.set(key, { mat: o.material, geos: [], cast: o.castShadow, recv: o.receiveShadow, ud: o.userData });
+    const key = o.material.uuid + '|' + (o.userData.mergeKey || ''); if (!buckets.has(key)) buckets.set(key, { mat: o.material, geos: [], cast: o.castShadow, recv: o.receiveShadow, ud: o.userData });
     buckets.get(key).geos.push(geo); remove.push(o);
   });
   if (remove.length < 2) return root;
