@@ -8,7 +8,7 @@
 - 柱型・袖壁・梁は `room.parts`:`{type:'column',x,z,w,d}` / `{type:'wall',x1,z1,x2,z2,h,t}` / `{type:'beam',x,z,w,d,drop}`。歩ける判定(walkable)は多角形+ドアの通り道−柱・袖壁。
 - 寸法: 画面は mm 表示。部屋の多角形は内法。芯々 = 内法 + WALL_T(120)。モジュールは `settings.module`('shaku' 910 / 'meter' 1000、localStorage 'oheya-module' が既定)。芯グリッドは k*g − 0.06 の位置。帖数は壁芯面積(内法+周囲×0.06)÷1.62。吸いつき(snap)は plan.js(tolM = 12px)。
 - 仕上げ: `room.trim = {crown:{on,h(mm),finish}, base:{...}, casing:{on,w,finish}, door:{finish}}`(roomTrim で既定を補う)。finish は textures.js の TRIM_FINISHES。窓の枠なし=ジャンブに壁材(クロス巻き込み)。
-- 窓の枠: 既定は見付 20mm の四方枠(下も上と同じ)。枠なし=クロス巻き込み+窓台だけ左右 20mm・室内側 20mm 出す。出窓は opening.bay='trap'|'box'、bayDepth(既定 450)。house.js の buildBay が天板(左右20mm出し)・天井板・外の腰と屋根を作る。台形=左右に斜めのはめ殺し窓+正面は引き違い2枚(計4枚)、角(箱型)=左右は壁(クロス巻き込み)+正面は引き違い2枚。部屋の形「出窓つき」は長方形+奥の壁に台形出窓。
+- 窓の枠: 既定は見付 20mm の四方枠(下も上と同じ)。枠なし=クロス巻き込み+窓台だけ左右 20mm・室内側 20mm 出す。出窓は opening.bay='trap'|'box'、bayDepth(台形の既定 230 = 斜め窓 約325mm、箱型 450)。下の板(天板)は厚み30mm、左右は枠(なければ開口)から20mm出す。house.js の buildBay が天板(左右20mm出し)・天井板・外の腰と屋根を作る。台形=左右に斜めのはめ殺し窓+正面は引き違い2枚(計4枚)、角(箱型)=左右は壁(クロス巻き込み)+正面は引き違い2枚。部屋の形「出窓つき」は長方形+奥の壁に台形出窓。
 - 設備: items.js で `equip:true`、`attachY`(数値 or 'top')が標準の取付高さ、`range` が寸法の範囲。「🔌設備」は openCatalog(true)。
 - つかむ: 選んでいない物は長押し 0.4 秒でつかむ(controls.js の lp)、選んである物はすぐ引っぱれる。hitTest は point を返す(drag の起点)。つかんでいる間は updateInset を止める(_dragging)。
 - 操作: ダブルタップ(controls.js の onTap で判定 → main.onDoubleTap)。縁・枠のメッシュは userData.kind='trim' + mergeKey で部位ごとに結合。もどす/進むは snapshot() 単位(矢印1押し・引っぱり開始・スライダー1回の操作・色変更 = 1段階)。

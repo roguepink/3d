@@ -30,6 +30,7 @@ export function normalizeRoom(room) {
   for (const o of room.openings) {
     if (o.edge === undefined && o.side) { o.edge = SIDE_IDX[o.side]; const L = edgeFrame(room, o.edge).L; o.u = (o.side === 'N' || o.side === 'E') ? o.pos : L - o.pos - o.w; delete o.side; delete o.pos; }
     if (o.edge === undefined) o.edge = 0; if (o.u === undefined) o.u = 0;
+    if (o.bay === 'trap' && o.bayDepth === 0.45 && Math.abs(o.w - 1.69) < 1e-6) { const L = edgeFrame(room, o.edge).L; const nw = Math.min(2.03, L - 0.2); o.u = Math.max(0.1, o.u - (nw - o.w) / 2); o.w = nw; o.bayDepth = 0.23; }
   }
   return room;
 }
@@ -128,7 +129,7 @@ const matBayRoof = new THREE.MeshStandardMaterial({ color: '#6f747b', roughness:
 function footprint(pts) { const sh = new THREE.Shape(); pts.forEach(([x, z], i) => i ? sh.lineTo(x, z) : sh.moveTo(x, z)); sh.closePath(); return sh; }
 function slab(pts, thick, mat, topY) { const g = new THREE.ExtrudeGeometry(footprint(pts), { depth: thick, bevelEnabled: false }); g.rotateX(Math.PI / 2); const m = new THREE.Mesh(g, mat); m.position.y = topY; m.castShadow = true; m.receiveShadow = true; return m; }
 function buildBay(og, o, h, ctx) {
-  const D = Math.max(0.2, o.bayDepth ?? 0.45), w = h.w, EAR = 0.02, zo = -WALL_T, zf = -WALL_T - D, trap = o.bay === 'trap';
+  const trap = o.bay === 'trap'; const D = Math.max(0.12, o.bayDepth ?? (trap ? 0.23 : 0.45)), w = h.w, EAR = ctx.ear ?? 0.02, zo = -WALL_T, zf = -WALL_T - D;
   const wf = trap ? Math.max(0.4, w - 2 * D) : w; // 台形は両わきが45°、角(箱型)は正面が開口と同じ幅
   const inner = [[-w / 2 - EAR, EAR], [w / 2 + EAR, EAR], [w / 2 + EAR, zo], [w / 2, zo], [wf / 2, zf], [-wf / 2, zf], [-w / 2, zo], [-w / 2 - EAR, zo]];
   const outer = [[-w / 2, zo], [w / 2, zo], [wf / 2, zf], [-wf / 2, zf]];
@@ -219,7 +220,7 @@ export function buildRoom(room, project, group) {
         if (isWin && !bay) { const cb = tagTrim(box(h.w + cw * 2, cw, cd, mFrame)); cb.position.set(0, h.sill - cw / 2, cd / 2); og.add(cb); } }
       if (isWin && !casingOn && !bay) {
         // 枠なし(クロス巻き込み)でも、窓台だけはある:左右に 20mm ずつ出す
-        const sb = tagTrim(box(h.w + EAR * 2, 0.02, WALL_T + EAR, mFrame)); sb.position.set(0, h.sill - 0.01, -WALL_T / 2 + EAR / 2); og.add(sb);
+        const sb = tagTrim(box(h.w + EAR * 2, 0.03, WALL_T + EAR, mFrame)); sb.position.set(0, h.sill - 0.015, -WALL_T / 2 + EAR / 2); og.add(sb);
       }
       if (isWin && !bay) {
         const glass = new THREE.Mesh(new THREE.PlaneGeometry(h.w, h.h), matGlass); glass.position.set(0, h.sill + h.h / 2, -WALL_T / 2); og.add(glass);
@@ -231,7 +232,7 @@ export function buildRoom(room, project, group) {
         const s4 = box(fw, h.h, 0.05, matSash); s4.position.set(-h.w / 2 + fw / 2, h.sill + h.h / 2, -WALL_T / 2); og.add(s4);
         const s5 = s4.clone(); s5.position.x = h.w / 2 - fw / 2; og.add(s5);
       } else if (bay) {
-        buildBay(og, o, h, { mFrame, matGlass, matSash, matOuter, wallMat, roomId: room.id, edge: e, pick, tagTrim });
+        buildBay(og, o, h, { mFrame, matGlass, matSash, matOuter, wallMat, roomId: room.id, edge: e, pick, tagTrim, ear: (casingOn ? caseW : 0) + 0.02 });
       } else if (o.type === 'door' && !o.twin) {
         // 丁番:部屋の内側から見て左(left)/右(right)。開く向き:内開き(in=この部屋側)/外開き(out)
         const sx = o.hinge === 'right' ? -1 : 1, sz = o.swing === 'out' ? -1 : 1;
