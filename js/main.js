@@ -138,7 +138,8 @@ class App {
   updateItemPose(it) { const m = this.itemGroups.get(it.id); if (m) { m.position.set(it.x, it.y + this.base(it.roomId), it.z); m.rotation.y = it.rot || 0; } this.updateSelHelper(); this.touched(); }
   updateShadowLights() {
     const cam = this.s3.camera.position; let n = 0;
-    const cands = this.project.items.filter(it => ['ceilingLight', 'pendant', 'chandelier'].includes(it.type)).map(it => ({ it, d: Math.hypot(it.x - cam.x, it.z - cam.z) })).sort((a, b) => a.d - b.d);
+    const lvNow = this.walkLevel(); const cands = this.project.items.filter(it => ['ceilingLight', 'pendant', 'chandelier'].includes(it.type) && (this.mode === 'orbit' || levelOf(this.room(it.roomId)) === lvNow)).map(it => ({ it, d: Math.hypot(it.x - cam.x, it.z - cam.z) })).sort((a, b) => a.d - b.d);
+    for (const it of this.project.items) { const g = this.itemGroups.get(it.id); if (g) for (const l of g.userData.lights || []) l.castShadow = false; }
     for (const { it } of cands) { const g = this.itemGroups.get(it.id); if (!g) continue; for (const l of g.userData.lights || []) { l.castShadow = n < (this.s3.quality === 'high' ? 2 : 1) && this.s3.quality !== 'low'; } n++; }
   }
   applyCeilingVisibility() { const hide = this.mode === 'orbit'; if (this.labels) this.labels.visible = hide; this.s3.houseGroup.traverse(o => { if (o.userData && o.userData.kind === 'ceiling') o.visible = !hide; }); this.s3.itemGroup.traverse(o => { if (o.userData && o.userData.itemId) { const it = this.item(o.userData.itemId); if (it && catalogEntry(it.type).kind === 'ceiling' && o.parent === this.s3.itemGroup) o.visible = true; } }); }
@@ -161,7 +162,7 @@ class App {
     const showTo = this.mode === 'orbit' && this.levelView != null ? this.levelView : 9;
     for (const g of this.s3.houseGroup.children) for (const rg of (g.children || [])) { if (rg.userData && rg.userData.level !== undefined) { const r = this.room(rg.userData.roomId); rg.visible = !r || levelOf(r) <= showTo || !!r.stair; } }
     for (const it of this.project.items) { const g = this.itemGroups.get(it.id); if (!g) continue; const r = this.room(it.roomId); const lv = levelOf(r); g.visible = lv <= showTo;
-      const on = this.mode === 'orbit' ? lv <= showTo : (lv === lvWalk || (r && r.stair)); for (const l of g.userData.lights || []) l.visible = on; }
+      const on = this.mode === 'orbit' ? lv <= showTo : (lv === lvWalk || !!(r && r.stair)); for (const l of g.userData.lights || []) l.visible = on; }
     const topLv = Math.min(showTo, Math.max(0, ...this.project.rooms.map(r => levelOf(r)))); if (this.labels) for (const sp of this.labels.children) sp.visible = sp.userData.level === topLv;
     const bar = $('#levelBar'); if (bar) { bar.classList.toggle('hidden', !(upper && this.mode !== 'plan')); for (const b of bar.querySelectorAll('button')) b.classList.toggle('on', this.mode === 'orbit' ? String(this.levelView ?? 'all') === b.dataset.lv : String(lvWalk) === b.dataset.lv); }
     this._lvShown = lvWalk;

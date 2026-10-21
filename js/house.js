@@ -114,7 +114,8 @@ const matKnob = new THREE.MeshStandardMaterial({ color: '#c9b37a', roughness: .3
 const matGlass = new THREE.MeshStandardMaterial({ color: '#dbe9f6', roughness: .04, metalness: .15, transparent: true, opacity: .16, side: THREE.DoubleSide, envMapIntensity: .6, depthWrite: false });
 const matCap = new THREE.MeshStandardMaterial({ color: '#d9d9d9', roughness: .9 });
 const matSash = new THREE.MeshStandardMaterial({ color: '#9aa0a6', roughness: .4, metalness: .6 });
-const matOuter = new THREE.MeshStandardMaterial({ color: '#e8e4dc', roughness: .9, side: THREE.BackSide });
+// 外側の面は、となりの部屋の壁の面と同じ位置に重なるので、少し奥に描く(ちらつき防止)
+const matOuter = new THREE.MeshStandardMaterial({ color: '#e8e4dc', roughness: .9, side: THREE.BackSide, polygonOffset: true, polygonOffsetFactor: 2, polygonOffsetUnits: 4 });
 
 function box(w, h, d, mat) { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); m.castShadow = true; m.receiveShadow = true; return m; }
 
