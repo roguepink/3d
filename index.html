@@ -19,12 +19,6 @@
 <meta property="og:image" content="https://roguepink.github.io/3d/ogp.jpg">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="stylesheet" href="style.css">
-<script type="importmap">
-{ "imports": {
-  "three": "https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js",
-  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/"
-} }
-</script>
 </head>
 <body>
 <div id="view"><canvas id="gl"></canvas></div>
@@ -211,6 +205,53 @@
 
 <div id="dialog" class="hidden"><div class="dialog-box"><div id="dialogBody"></div><div class="dialog-btns" id="dialogBtns"></div></div></div>
 
-<script type="module" src="js/main.js"></script>
+<script>
+// 起動係:毎回「いまの版」を確かめてから部品を読む。
+// 更新の直後に、古い部品と新しい部品が混ざって開けなくなるのを防ぐ。
+(function () {
+  var FILES = ['main', 'scene3d', 'controls', 'house', 'items', 'textures', 'demo', 'store', 'commands', 'photo', 'plan', 'ai', 'merge', 'thumbs'];
+  var THREE_URL = 'https://cdn.jsdelivr.net/npm/three@0.186.1/';
+  var started = false, retried = false;
+  try { retried = sessionStorage.getItem('oheya-retry') === '1'; } catch (e) {}
+  function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+  function lsSet(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+  function boot(v) {
+    if (started) return; started = true; window.OHEYA_VER = v; lsSet('oheya-ver', v);
+    var map = { imports: { 'three': THREE_URL + 'build/three.module.js', 'three/addons/': THREE_URL + 'examples/jsm/' } };
+    FILES.forEach(function (f) { map.imports['./js/' + f + '.js'] = './js/' + f + '.js?v=' + v; });
+    var im = document.createElement('script'); im.type = 'importmap'; im.textContent = JSON.stringify(map); document.head.appendChild(im);
+    var m = document.createElement('script'); m.type = 'module'; m.src = './js/main.js?v=' + v; m.onerror = function () { fail('部品を読み込めませんでした'); };
+    document.body.appendChild(m);
+    setTimeout(function () { if (!document.body.classList.contains('ready')) showFix(); }, 25000);
+  }
+  // 開けなかったとき:1回だけ自動でやり直す。それでもだめなら「直す」ボタンを出す
+  function fail(why) {
+    if (document.body.classList.contains('ready')) return;
+    if (!retried && navigator.onLine !== false) { try { sessionStorage.setItem('oheya-retry', '1'); } catch (e) {} clearAndReload(); return; }
+    showFix(why);
+  }
+  window.addEventListener('error', function (e) { if (!document.body.classList.contains('ready') && e && e.error instanceof SyntaxError) fail('部品が合いませんでした'); });
+  function clearAndReload() {
+    // 保存した部屋(スマホの中のデータ)は消さない。古い部品の控えだけ捨てる
+    var jobs = [];
+    if (window.caches) jobs.push(caches.keys().then(function (ks) { return Promise.all(ks.map(function (k) { return caches.delete(k); })); }));
+    if (navigator.serviceWorker) jobs.push(navigator.serviceWorker.getRegistrations().then(function (rs) { return Promise.all(rs.map(function (r) { return r.unregister(); })); }));
+    Promise.all(jobs).catch(function () {}).then(function () { location.replace(location.pathname + '?r=' + Date.now() + location.hash); });
+  }
+  window.oheyaFix = clearAndReload;
+  function showFix(why) {
+    if (document.getElementById('bootFix')) return;
+    var d = document.createElement('div'); d.id = 'bootFix';
+    d.innerHTML = '<p>うまく開けませんでした' + (why ? '(' + why + ')' : '') + '。<br>作った部屋は消えません。</p><button type="button">最新にして開きなおす</button>';
+    d.querySelector('button').onclick = function () { try { sessionStorage.removeItem('oheya-retry'); } catch (e) {} clearAndReload(); };
+    document.body.appendChild(d);
+  }
+  // 版の札(version.json)を見に行く。つながらないときは前回の版で開く
+  var timer = setTimeout(function () { boot(lsGet('oheya-ver') || 'x'); }, 3000);
+  fetch('./version.json?t=' + Date.now(), { cache: 'no-store' }).then(function (r) { return r.ok ? r.json() : null; }).then(function (j) {
+    clearTimeout(timer); boot((j && j.v) || lsGet('oheya-ver') || 'x');
+  }).catch(function () { clearTimeout(timer); boot(lsGet('oheya-ver') || 'x'); });
+})();
+</script>
 </body>
 </html>

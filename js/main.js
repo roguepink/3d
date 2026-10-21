@@ -85,7 +85,25 @@ class App {
     window.addEventListener('beforeunload', () => { if (this.dirty && this.project) { try { localStorage.setItem('oheya-last', JSON.stringify(this.project)); } catch {} } });
     if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => {});
   }
-  initStart() { this.refreshContinue(); if (location.hash === '#demo') { this.load(demoProject()); $('#start').classList.add('hidden'); } }
+  initStart() {
+    this.refreshContinue(); this.watchUpdate();
+    let resume = false; try { resume = sessionStorage.getItem('oheya-resume') === '1'; sessionStorage.removeItem('oheya-resume'); } catch {}
+    if (resume) { loadProject('current').then(p => { if (p) { this.load(p); $('#start').classList.add('hidden'); this.toast('新しい版になりました'); } }).catch(() => {}); return; }
+    if (location.hash === '#demo') { this.load(demoProject()); $('#start').classList.add('hidden'); } }
+  // 新しい版が出たら知らせる(アプリを開きなおしたとき・画面に戻ったとき)
+  watchUpdate() {
+    const check = async () => {
+      if (!window.OHEYA_VER || window.OHEYA_VER === 'x' || this._updBar) return;
+      try { const j = await (await fetch('./version.json?t=' + Date.now(), { cache: 'no-store' })).json(); if (j && j.v && j.v !== window.OHEYA_VER) this.showUpdate(); } catch {}
+    };
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') check(); });
+    setInterval(check, 30 * 60 * 1000); setTimeout(check, 60 * 1000);
+  }
+  showUpdate() {
+    if (this._updBar) return; const b = document.createElement('button'); b.id = 'updBar'; b.type = 'button'; b.textContent = '🆕 新しい版があります(押すと更新)'; this._updBar = b;
+    b.onclick = async () => { b.textContent = '更新しています…'; try { if (this.project && this.project.rooms.length) { await saveProject(this.project, 'current'); sessionStorage.setItem('oheya-resume', '1'); } } catch {} location.reload(); };
+    document.body.appendChild(b);
+  }
   async refreshContinue() { try { const list = await listProjects(); const cur = list.find(p => p.id === 'current'); $('#sContinueSub').textContent = cur ? new Date(cur.updated).toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) + ' の保存' : '保存なし'; } catch { } }
   blankProject() { return { v: 1, name: '部屋', rooms: [], items: [], assets: {}, settings: { night: false, module: this.module() } }; }
   module() { return (this.project && this.project.settings && this.project.settings.module) || localStorage.getItem('oheya-module') || 'shaku'; }
@@ -555,5 +573,5 @@ export function fileToDataUrl(file, max = 1600, quality = 0.88) {
   return new Promise((res, rej) => { const img = new Image(); img.onload = () => { const k = Math.min(1, max / Math.max(img.width, img.height)); const c = document.createElement('canvas'); c.width = Math.round(img.width * k); c.height = Math.round(img.height * k); c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); res(c.toDataURL('image/jpeg', quality)); URL.revokeObjectURL(img.src); }; img.onerror = rej; img.src = URL.createObjectURL(file); });
 }
 
-try { new App(); document.body.classList.add('ready'); }
+try { new App(); document.body.classList.add('ready'); try { sessionStorage.removeItem('oheya-retry'); } catch {} if (/[?&]r=/.test(location.search)) history.replaceState(null, '', location.pathname + location.hash); }
 catch (e) { console.error(e); const el = document.querySelector('.start-inner'); if (el) el.insertAdjacentHTML('beforeend', `<p style="color:#ff6b6b;font-size:16px;line-height:1.6">3Dの準備に失敗しました。ブラウザを最新にするか、別のブラウザ(Chrome / Safari)で開いてみてください。<br><small>${String(e.message || e).replace(/</g, '&lt;')}</small></p>`); }

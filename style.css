@@ -169,3 +169,7 @@ body.ready #loadingNote { display:none; }
 #roomModules .chip.text small { display:block; font-size:11px; color:var(--muted); }
 #roomModules .chip.text.on small { color:var(--accent); }
 @media (max-width:360px) { .shape-grid { grid-template-columns:repeat(4, 1fr); } }
+/* 起動に失敗したときの「直す」ボタン・新しい版のお知らせ */
+#bootFix { position:fixed; left:16px; right:16px; bottom:24px; z-index:9999; background:#2a2d36; color:#fff; border-radius:16px; padding:16px; font-size:16px; line-height:1.6; box-shadow:0 8px 30px rgba(0,0,0,.5); text-align:center; }
+#bootFix button { margin-top:10px; width:100%; padding:14px; font-size:17px; font-weight:bold; border:0; border-radius:12px; background:#ffb84d; color:#222; }
+#updBar { position:fixed; left:50%; transform:translateX(-50%); top:calc(env(safe-area-inset-top) + 64px); z-index:9000; padding:12px 18px; font-size:16px; font-weight:bold; border:0; border-radius:999px; background:#ffb84d; color:#222; box-shadow:0 6px 20px rgba(0,0,0,.4); white-space:nowrap; }

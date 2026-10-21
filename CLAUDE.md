@@ -19,3 +19,11 @@
 - 確認: `python3 -m http.server 8765` → `/#demo`。Chrome のパネルで撮って目で見る。`_check/` は Git に入れない。
 - 公開: GitHub Pages(main の直下)。URL https://roguepink.github.io/3d/
 - 言葉づかい: 画面の文言はノブさん向けにやさしく(専門用語を避ける)。
+
+## 更新と起動(開けなくなる対策)
+- index.html の起動係が、毎回 `version.json?t=…` を見てから、全部の js を `?v=版` 付きで読む(import map で ./js/*.js を ?v= に置きかえ)。古い部品と新しい部品が混ざらない。
+- `version.json` はコミットのたびに `.githooks/pre-commit` が書きかえる(`git config core.hooksPath .githooks` が必要。新しく clone したら設定する)。
+- js ファイルを足したら、index.html の起動係の FILES と sw.js の SHELL の両方に足す。
+- 起動に失敗したら、1回だけ自動で控え(caches と sw)を捨てて開きなおす。だめなら「最新にして開きなおす」ボタン。保存した部屋(IndexedDB)は消さない。
+- 開いている間に新しい版が出たら「🆕 新しい版があります」ボタン。押すと保存して開きなおし、続きから戻る。
+- sw.js はネット優先。控えは ?v= を外した名前で1つだけ。オフラインは控えで開く(headless Chrome+CDP で確認済み)。
