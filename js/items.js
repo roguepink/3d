@@ -36,7 +36,7 @@ function cassette(it, dirs) {
   const g = new THREE.Group(), w = it.w, d = it.d, m = std(it.color, .35), dark = std('#3a3c40', .6), grille = std(it.color === '#2b2b2e' ? '#444' : '#dcdcd8', .6);
   g.add(box(w, 0.035, d, m, 0, -0.0175, 0));
   const sl = 0.06, gi = dirs === 2 ? d - sl * 2 - 0.12 : d - sl - 0.14; const gz = dirs === 2 ? 0 : -sl / 2;
-  g.add(box(w - 0.16, 0.004, gi, grille, 0, -0.036, gz)); for (let i = -6; i <= 6; i++) g.add(box(0.004, 0.003, gi - 0.02, dark, i * (w - 0.2) / 12, -0.0385, gz));
+  g.add(box(w - 0.16, 0.004, gi, m, 0, -0.036, gz)); const fine = std('#c8c8c4', .6); for (let i = -12; i <= 12; i++) g.add(box(0.002, 0.002, gi - 0.02, fine, i * (w - 0.2) / 24, -0.0385, gz)); void grille;
   const slots = dirs === 2 ? [-1, 1] : [1]; for (const sd of slots) { const z = sd * (d / 2 - 0.04 - sl / 2); g.add(box(w - 0.12, 0.006, sl, dark, 0, -0.037, z)); const vane = box(w - 0.14, 0.004, sl * 0.9, m, 0, -0.041, z); vane.rotation.x = sd * 0.35; g.add(vane); }
   return g;
 }
@@ -247,7 +247,7 @@ export const CATALOG = {
   paperholder: { name: 'ペーパーホルダー', emoji: '🧻', cat: '水まわり', equip: true, kind: 'wall', size: [0.15, 0.12, 0.1], attachY: 0.7, color: '#c9c9c6', opts: {}, words: ['ペーパーホルダー', 'トイレットペーパー', '紙巻器', 'ペーパー'],
     build(it) { const g = new THREE.Group(), m = std(it.color, .25, .7); g.add(box(it.w, 0.05, 0.012, m, 0, 0.02, 0.006)); const roll = cyl(0.055, 0.055, 0.11, std('#fbfbf9', .9), 0, -0.01, 0.065, 20); roll.rotation.z = Math.PI / 2; g.add(roll); g.add(box(it.w + 0.01, 0.006, 0.1, m, 0, 0.05, 0.06)); return g; } },
   towelring: { name: 'タオルリング', emoji: '⭕', cat: '水まわり', equip: true, kind: 'wall', size: [0.2, 0.25, 0.08], attachY: 1.1, color: '#c9c9c6', opts: {}, words: ['タオルリング', 'タオル輪'],
-    build(it) { const g = new THREE.Group(), m = std(it.color, .25, .8); const base = cyl(0.022, 0.022, 0.03, m, 0, 0.08, 0.015, 12); base.rotation.x = Math.PI / 2; g.add(base); const ring = new THREE.Mesh(new THREE.TorusGeometry(0.075, 0.007, 8, 24), m); ring.position.set(0, 0.0, 0.05); g.add(ring); g.add(box(0.2, 0.22, 0.02, std('#dfe7ef', .95), 0, -0.07, 0.05)); return g; } },
+    build(it) { const g = new THREE.Group(), m = std(it.color, .25, .8); const base = cyl(0.022, 0.022, 0.03, m, 0, 0.08, 0.015, 12); base.rotation.x = Math.PI / 2; g.add(base); const ring = new THREE.Mesh(new THREE.TorusGeometry(0.075, 0.007, 8, 24), m); ring.position.set(0, 0.0, 0.05); g.add(ring); g.add(box(0.16, 0.3, 0.02, std('#efe9df', .95), 0, -0.1, 0.05)); return g; } },
   towelbar: { name: 'タオル掛け', emoji: '🧺', cat: '水まわり', equip: true, kind: 'wall', size: [0.6, 0.05, 0.08], range: { w: [0.3, 0.9] }, attachY: 1.0, color: '#c9c9c6', opts: {}, words: ['タオル掛け', 'タオルかけ', 'タオルバー'],
     build(it) { const g = new THREE.Group(), m = std(it.color, .25, .8), w = it.w; const bar = cyl(0.009, 0.009, w, m, 0, 0, 0.06, 10); bar.rotation.z = Math.PI / 2; g.add(bar); for (const sx of [-1, 1]) { const b = cyl(0.012, 0.012, 0.06, m, sx * w / 2, 0, 0.03, 10); b.rotation.x = Math.PI / 2; g.add(b); } g.add(box(w * 0.7, 0.45, 0.025, std('#e9e1d3', .95), 0, -0.2, 0.06)); return g; } },
   // ニッチ:置くと壁のくぼみ(開口)になる

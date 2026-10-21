@@ -188,7 +188,7 @@ function buildNiche(og, o, h, wallMat, boardMat, roomId, pick) {
   for (const sx of [-1, 1]) { const sd = new THREE.Mesh(new THREE.PlaneGeometry(D, H), wallMat); sd.rotation.y = -sx * Math.PI / 2; sd.position.set(sx * w / 2, y0 + H / 2, -D / 2); og.add(sd); }
   const top = new THREE.Mesh(new THREE.PlaneGeometry(w, D), wallMat); top.rotation.x = Math.PI / 2; top.position.set(0, y0 + H, -D / 2); og.add(top);
   const bd = box(w + EAR * 2, 0.03, D + EAR, boardMat); bd.position.set(0, y0 - 0.015, -D / 2 + EAR / 2); og.add(bd);
-  for (const m of [back, bd]) { m.userData = { kind: 'niche', roomId, openingId: o.id }; pick.push(m); }
+  for (const m of [back, bd]) { m.userData = { kind: 'niche', roomId, openingId: o.id }; pick.push(m); } for (const m of og.children) if (m.isMesh) m.receiveShadow = true;
 }
 // ---------- クローゼット・押入れの戸 ----------
 // style: fold(折れ戸) / slide(引き違い) / fusuma(襖)。open 0=閉 1=開。戸は部屋側(収納の外)の面にそろえる
@@ -249,10 +249,11 @@ function garmentShape(kind) {
 }
 const matHanger = new THREE.MeshStandardMaterial({ color: '#b08a5e', roughness: .5 });
 function garment(kind, color) {
-  if (!garmentGeo[kind]) { const g = new THREE.ExtrudeGeometry(garmentShape(kind), { depth: kind === 'jacket' ? 0.05 : 0.025, bevelEnabled: true, bevelThickness: 0.006, bevelSize: 0.006, bevelSegments: 1 }); g.translate(0, -0.03, -0.0125); garmentGeo[kind] = g; }
+  if (!garmentGeo[kind]) { const g = new THREE.ExtrudeGeometry(garmentShape(kind), { depth: kind === 'jacket' ? 0.035 : 0.012, bevelEnabled: true, bevelThickness: 0.006, bevelSize: 0.006, bevelSegments: 1 }); g.translate(0, -0.03, -0.0125); garmentGeo[kind] = g; }
   const grp = new THREE.Group(); const m = new THREE.Mesh(garmentGeo[kind], mat(color)); m.castShadow = true; grp.add(m);
   // ハンガー(肩の木の棒+フック)と、ワイシャツのえり
-  const bar = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.012, 0.02), matHanger); bar.position.y = -0.035; grp.add(bar);
+  // ハンガーの肩は、両側に約11°下がる
+  for (const sx of [-1, 1]) { const arm = new THREE.Mesh(new THREE.BoxGeometry(0.215, 0.012, 0.02), matHanger); arm.position.set(sx * 0.1, -0.035 - 0.02, 0); arm.rotation.z = -sx * 0.19; grp.add(arm); }
   const hook = new THREE.Mesh(new THREE.TorusGeometry(0.02, 0.003, 4, 10, Math.PI * 1.4), matPull); hook.position.y = 0.0; hook.rotation.z = -0.4; grp.add(hook);
   if (kind === 'shirt') { const col = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.05, 0.03), mat('#ffffff')); col.position.set(0, -0.05, 0.004); grp.add(col); }
   grp.userData.keep = false; return grp;
@@ -267,14 +268,14 @@ function buildClosetInside(room, group) {
     // 掛けてある服(少しだけ)
     // 掛けてある服:Tシャツ・ワイシャツ・ジャケット・ワンピースの形を、ハンガーごと
     let k = 0; for (let u = u0 + 0.12; u < u1 - 0.1; u += 0.075 + ((k * 37) % 4) * 0.015, k++) { if (k % 5 === 4) continue; const kind = GARMENTS[(k * 7 + 3) % GARMENTS.length]; const col = kind === 'shirt' ? ['#f4f4f2', '#cfe0f0', '#f4f4f2'][k % 3] : kind === 'jacket' ? ['#2f3542', '#5a4a3f', '#3c4a3a'][k % 3] : CLOTHES[k % CLOTHES.length];
-      const gg = garment(kind, col); gg.position.copy(wallPoint(room, de, u, y - 0.02, s)); gg.rotation.y = f.rotY + Math.PI / 2; group.add(gg); } };
+      const gg = garment(kind, col); gg.position.copy(wallPoint(room, de, u, y - 0.02, s)); gg.rotation.y = f.rotY + Math.PI / 2 + (((k * 53) % 7) - 3) * 0.02; group.add(gg); } };
   const pipeSide = (s0, s1, u, y) => { const len = s1 - s0; const c = new THREE.Mesh(new THREE.CylinderGeometry(0.0125, 0.0125, len, 10), matPull); c.rotation.x = Math.PI / 2; const g = new THREE.Group(); g.add(c); g.position.copy(wallPoint(room, de, u, y, (s0 + s1) / 2)); g.rotation.y = f.rotY; group.add(g); };
   if (kind === 'cl' || kind === 'wic') {
     const sd = Math.min(0.4, depth * 0.5); put(L, 0.022, sd, L / 2, 1.8, depth - sd / 2, matShelf);
     const ps = depth - Math.min(0.33, depth / 2); pipe(0.03, L - 0.03, ps, 1.7);
     if (kind === 'wic' && depth > 1.2) { put(sd, 0.022, depth - sd - 0.75, sd / 2, 1.8, (depth - sd - 0.75) / 2 + 0.75, matShelf); pipeSide(0.75, depth - sd, 0.33, 1.7); }
   } else if (kind === 'oshiire') {
-    put(L, 0.03, depth - 0.02, L / 2, 0.765, depth / 2 + 0.01, matPly); put(L, 0.06, 0.04, L / 2, 0.75, 0.04, matPly); put(L, 0.02, depth - 0.02, L / 2, 1.8, depth / 2 + 0.01, matPly);
+    put(L, 0.03, depth - 0.02, L / 2, 0.765, depth / 2 + 0.01, matPly); put(L, 0.06, 0.04, L / 2, 0.75, 0.04, matPly); put(L, 0.02, 0.45, L / 2, 1.8, depth - 0.225, matPly); // 枕棚は奥行450
     // 布団(中段の上)
     const fw = Math.min(1.0, L * 0.55); for (let i = 0; i < 4; i++) put(fw, 0.1, Math.min(0.7, depth - 0.1), fw / 2 + 0.05, 0.83 + i * 0.105, depth / 2 + 0.02, mat(['#f2efe6', '#c9d6e3', '#efe3cf', '#e6e9ee'][i]));
   } else if (kind === 'sic' || kind === 'storage') {

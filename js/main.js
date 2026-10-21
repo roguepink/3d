@@ -236,7 +236,8 @@ class App {
   updateGuides() {
     if (!this._guides) { this._guides = new THREE.Group(); this.s3.helperGroup.add(this._guides); } const G = this._guides; while (G.children.length) { const c = G.children.pop(); c.geometry.dispose(); }
     const it = this.selectedId && this.item(this.selectedId); if (!it) return; const c = catalogEntry(it.type), r = this.room(it.roomId); if (!r) return; const base = baseOf(r), e = 0.004;
-    const line = (a, b, col) => { const g = new THREE.BufferGeometry().setFromPoints([a, b]); const l = new THREE.Line(g, new THREE.LineBasicMaterial({ color: col, depthTest: false, transparent: true })); l.renderOrder = 999; G.add(l); };
+    // 線は太さ4mmの棒にする(1pxの線だと見えにくい)
+    const line = (a, b, col) => { const d = new THREE.Vector3().subVectors(b, a); const l = new THREE.Mesh(new THREE.CylinderGeometry(0.002, 0.002, d.length(), 6), new THREE.MeshBasicMaterial({ color: col === 0x4fd1ff ? 0x0a84ff : col, depthTest: false, transparent: true })); l.position.copy(a).addScaledVector(d, 0.5); l.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.clone().normalize()); l.renderOrder = 999; G.add(l); };
     if (c.kind === 'wall') { const ne = nearestEdge(r, new THREE.Vector3(it.x, 0, it.z)); const f = edgeFrame(r, ne); const u = (it.x - f.A[0]) * f.along.x + (it.z - f.A[1]) * f.along.z; const ms = this.wallMates(it, r, ne);
       const P = (uu, yy) => wallPoint(r, ne, uu, yy + base, 0.012);
       const hs = ms.filter(m => Math.abs(m.y - it.y) < e); if (hs.length) { const us = [u, ...hs.map(m => m.u)]; line(P(Math.min(...us) - 0.2, it.y), P(Math.max(...us) + 0.2, it.y), 0x4fd1ff); }
@@ -669,7 +670,7 @@ class App {
     const along = (w, k) => { const px = it.x + fx * k, pz = it.z + fz * k; const f = edgeFrame(room, w.e); return (px - f.A[0]) * f.along.x + (pz - f.A[1]) * f.along.z; };
     if (it.type === 'toilet') {
       const rw = this.sideWall(room, it.x, it.z, right), lw = this.sideWall(room, it.x, it.z, left), bw = this.sideWall(room, it.x, it.z, back);
-      const front = it.d / 2 + 0.1 - 0.05; // 中心から便座の先+100
+      const front = it.d / 2 + 0.1; // 中心から 便座の先+100
       if (rw && rw.d < 1.0) this.wallItemAt('paperholder', room, rw.e, along(rw, front), 0.7); else if (lw && lw.d < 1.0) this.wallItemAt('paperholder', room, lw.e, along(lw, front), 0.7); else if (bw) this.wallItemAt('paperholder', room, bw.e, bw.t + 0.45, 0.7);
       const ringWall = (rw && rw.d < 1.0 && lw && lw.d < 1.0) ? lw : (lw && lw.d < 1.0 ? null : lw);
       if (lw && lw.d < 1.2 && rw && rw.d < 1.0) this.wallItemAt('towelring', room, lw.e, along(lw, 0.2), 1.1); else if (bw) this.wallItemAt('towelring', room, bw.e, bw.t - 0.5, 1.1); void ringWall;
