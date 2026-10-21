@@ -70,3 +70,9 @@
 - Claude Code のスキル `~/.claude/skills/oheya-house/`(SKILL.md・scripts/build.py・examples/sample-4ldk.js):言葉・図面・写真 → house.js → build.py(ヘッドレス Chrome で公開中のアプリを開いて組み立て・チェック・画像・リンク)→ 専門家の見直し → ノブさんへリンクと画像。
 - **お客さんの図面・写真・家のデータは、このリポジトリに入れない。** 作業は `~/oheya-private/<日付-名前>/`(git の外)。
 - builder.js の部品・CATALOG の名前・opening の形式を変えたら、スキルの SKILL.md と examples も直す。
+
+## アプリの中で Claude に家を作ってもらう(2026-10-22)
+- js/claude.js(使うときだけ import)。鍵は localStorage 'oheya-claude-key'(端末の中だけ。リポジトリには絶対に書かない)。メニュー「AIの設定」で Claude と Gemini の鍵、「🏗 AIに家を作ってもらう(Claude)」で欄(#aihouse:言葉・図面/写真/PDF・「今の家を直す」)。
+- ブラウザから直接 fetch(ヘッダー x-api-key / anthropic-version 2023-06-01 / anthropic-dangerous-direct-browser-access: true / anthropic-beta: server-side-fallback-2026-07-01、本文 fallbacks:'default')。モデル claude-opus-5-5、effort high(直しは medium)、stream で文字数を知らせる。
+- 流れ:system に部品の説明+見本の家(demo.js の中身)→ Claude が builder.js の書き方の JS を返す → buildFromSource → audit → 問題があれば最大2回 Claude に直させる → 読み込み(前の家は「(前の家)」で保存)。作った書き方は project.settings.aiSource に入れ、次の「直す」で使う。料金の目安(円)を表示(yenOf)。
+- three.js 以外の外部ライブラリを入れない決まりのため、Anthropic の SDK ではなく fetch で呼ぶ。

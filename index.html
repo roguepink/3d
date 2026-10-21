@@ -138,6 +138,7 @@
   <div class="menu-list">
     <button id="mSave">💾 保存する</button>
     <button id="mOpen">📂 開く</button>
+    <button id="mAIHouse">🏗 AIに家を作ってもらう(Claude)</button>
     <button id="mLink">🔗 この家をリンクで送る</button>
     <button id="mExport">⬇ ファイルに書き出す</button>
     <label class="filebtn">⬆ ファイルを読み込む<input type="file" id="mImport" accept=".json,application/json"></label>
@@ -172,6 +173,16 @@
 </section>
 
 <!-- 新しい部屋 -->
+<section id="aihouse" class="sheet hidden">
+  <div class="sheet-head"><b>AIに家を作ってもらう</b><span><button class="ib peek" title="押している間だけ欄を消す">👁</button><button class="ib close" data-close="aihouse">✕</button></span></div>
+  <p class="hint">どんな家か、言葉で書いてください(キーボードのマイクで話してもOK)。図面や部屋の写真を付けると、その形で作ります。</p>
+  <textarea id="ahText" rows="4" placeholder="例:2階建ての3LDK。1階にLDKと和室、2階に主寝室(WIC)と子供部屋2つ。子供部屋の間に交互のクローゼット"></textarea>
+  <div class="row"><label class="filebtn">📎 図面・写真を付ける<input type="file" id="ahFiles" accept="image/*,application/pdf" multiple></label><span id="ahFileNote" class="hint"></span></div>
+  <label class="row" id="ahEditRow"><input type="checkbox" id="ahEdit"> 今の家(AIで作った家)を直す</label>
+  <div class="row"><button id="ahGo" class="primary">🏗 作る</button></div>
+  <p id="ahStatus" class="hint"></p>
+</section>
+
 <section id="newroom" class="sheet hidden">
   <div class="sheet-head"><b>新しい部屋</b><button class="ib close" data-close="newroom">✕</button></div>
   <div class="row chips" id="roomModules"></div>
@@ -220,7 +231,7 @@
 // 起動係:毎回「いまの版」を確かめてから部品を読む。
 // 更新の直後に、古い部品と新しい部品が混ざって開けなくなるのを防ぐ。
 (function () {
-  var FILES = ['main', 'scene3d', 'controls', 'house', 'items', 'textures', 'demo', 'store', 'commands', 'photo', 'plan', 'ai', 'merge', 'thumbs', 'stairs', 'plants', 'link', 'builder'];
+  var FILES = ['main', 'scene3d', 'controls', 'house', 'items', 'textures', 'demo', 'store', 'commands', 'photo', 'plan', 'ai', 'merge', 'thumbs', 'stairs', 'plants', 'link', 'builder', 'claude'];
   var THREE_URL = 'https://cdn.jsdelivr.net/npm/three@0.186.1/';
   var started = false, retried = false;
   try { retried = sessionStorage.getItem('oheya-retry') === '1'; } catch (e) {}

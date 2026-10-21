@@ -195,3 +195,5 @@ body.plan-mode #levelBar, body.sheet-open #levelBar { display:none; }
 #btnBack small { font-size:11px; font-weight:800; margin-top:1px; }
 #btnBack.hidden { display:none; }
 body.show-back #btnHome { visibility:hidden; }
+#aihouse textarea { width:100%; box-sizing:border-box; font-size:16px; padding:10px; border-radius:12px; border:1px solid var(--line); background:var(--panel2); color:var(--text); margin:6px 0; }
+#ahStatus { min-height:1.4em; font-weight:700; color:var(--accent); }

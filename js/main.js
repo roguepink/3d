@@ -73,6 +73,9 @@ class App {
     for (const b of $$('#levelBar button')) b.onclick = () => this.goLevel(b.dataset.lv === 'all' ? 'all' : +b.dataset.lv);
     $('#btnBack').onclick = () => this.goBack();
     $('#mLink').onclick = () => { this.closeSheets(); this.copyLink(); };
+    $('#mAIHouse').onclick = () => this.openAIHouse();
+    $('#ahFiles').onchange = async e => { const fs = [...e.target.files].slice(0, 6); this._ahFiles = []; for (const f of fs) { if (f.type === 'application/pdf') { const d = await new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result); fr.readAsDataURL(f); }); this._ahFiles.push({ dataUrl: d, type: f.type }); } else this._ahFiles.push({ dataUrl: await fileToDataUrl(f, 1568, 0.85), type: 'image/jpeg' }); } $('#ahFileNote').textContent = this._ahFiles.length ? `${this._ahFiles.length}まい付けました` : ''; };
+    $('#ahGo').onclick = () => this.runAIHouse();
     window.addEventListener('hashchange', () => { if (/[#&]p=/.test(location.hash)) this.openFromLink(location.hash); });
     $('#mAI').onclick = () => this.aiSettings();
     $('#mModule').onclick = () => { this.setModule(this.module() === 'shaku' ? 'meter' : 'shaku'); };
@@ -109,6 +112,18 @@ class App {
       try { const cur = await loadProject('current'); if (cur && cur.rooms && cur.rooms.length) await saveProject({ ...cur, name: '(前の家)' + (cur.name || '部屋') }, 'p_' + Date.now().toString(36)); } catch {}
       this.load(p); $('#start').classList.add('hidden'); await saveProject(p, 'current').catch(() => {}); this.toast(`「${p.name || '家'}」を開きました。前の家は「保存した家」に残してあります`, 4000);
     } catch (e) { console.warn(e); this.toast('リンクの家を開けませんでした(リンクが途中で切れているかもしれません)', 4000); } }
+  // AIに家を作ってもらう(Claude)。鍵がなければ設定へ
+  async openAIHouse() { const C = await import('./claude.js'); if (!C.hasKey()) { this.closeSheets(); this.toast('先にメニューの「AIの設定」で Claude の鍵を入れてください', 3500); this.aiSettings(); return; } const src = this.project && this.project.settings && this.project.settings.aiSource; $('#ahEditRow').classList.toggle('hidden', !src); $('#ahEdit').checked = !!src; $('#ahStatus').textContent = ''; this.openSheet('aihouse'); }
+  async runAIHouse() {
+    if (this._ahBusy) return; const C = await import('./claude.js'); const text = $('#ahText').value.trim(); const files = this._ahFiles || []; if (!text && !files.length) { this.toast('どんな家か書くか、図面・写真を付けてください'); return; }
+    const prev = $('#ahEdit').checked && this.project && this.project.settings && this.project.settings.aiSource; this._ahBusy = true; $('#ahGo').disabled = true; const st = $('#ahStatus');
+    try { const r = await C.makeHouse({ text, files, prevSource: prev || null, progress: m => { st.textContent = m; } });
+      if (this.project && this.project.rooms && this.project.rooms.length) { try { await saveProject({ ...this.project, name: '(前の家)' + (this.project.name || '部屋') }, 'p_' + Date.now().toString(36)); } catch {} }
+      r.project.settings.aiSource = r.source; this.snapshot(); this.load(r.project); $('#start').classList.add('hidden'); await saveProject(r.project, 'current').catch(() => {}); this.closeSheets();
+      const a = r.audit || {}; const left = [...(a.curtains || []), ...(a.doors || []), ...(a.items || []), ...(a.overlaps || [])]; this._ahFiles = []; $('#ahFileNote').textContent = ''; $('#ahFiles').value = '';
+      this.toast(`「${r.project.name}」を作りました(約${Math.max(1, Math.round(r.yen))}円)${left.length ? '。直しきれなかった所:' + left.slice(0, 2).join('・') : ''}。前の家は「保存した家」に残してあります`, 6000);
+    } catch (e) { st.textContent = e.status === 401 ? '鍵がちがうようです。メニューの「AIの設定」で確かめてください' : e.status === 429 ? '混み合っています。少し待ってから、もう一度押してください' : '作れませんでした:' + e.message; }
+    finally { this._ahBusy = false; $('#ahGo').disabled = false; } }
   async copyLink() { if (!this.project) return; try { const url = await projectToLink(this.project); if (navigator.share) { try { await navigator.share({ title: this.project.name || '家', url }); return; } catch (e) { if (e.name === 'AbortError') return; } } await navigator.clipboard.writeText(url); this.toast('この家のリンクをコピーしました(写真は入りません)', 3000); } catch { this.toast('リンクを作れませんでした'); } }
   // 新しい版が出たら知らせる(アプリを開きなおしたとき・画面に戻ったとき)
   watchUpdate() {
@@ -721,9 +736,9 @@ class App {
     const pr = this.dialog(html, [{ label: 'やめる', value: null }]); for (const b of $$('#dialogBody [data-id]')) b.onclick = async () => { $('#dialog').classList.add('hidden'); const p = await loadProject(b.dataset.id); if (p) { this.load(p); this.closeSheets(); this.toast('開きました:' + p.name); } }; await pr; }
   async shot() { this.closeSheets(); this.selHelper.visible = false; this.pinMesh.visible = false; const blob = await this.s3.screenshot(); this.updateSelHelper(); this.pinMesh.visible = !!this.pin; const r = await shareOrDownload(blob, 'oheya3d.jpg', 'おへや3D'); if (r === 'downloaded') this.toast('画像を保存しました'); }
   async aiSettings() {
-    const cur = AI.getKey(); const html = `<p><b>AIの設定(任意)</b></p><p>Google の Gemini の鍵(APIキー)を入れると、自由な言い方の指示や、写真から部屋の広さを読み取る機能が使えます。鍵は この端末の中にだけ保存します。</p><input id="aiKey" type="password" placeholder="AIza… の鍵" value="${cur ? cur : ''}">`;
-    const r = await this.dialog(html, [{ label: '消す', value: 'clear', danger: true }, { label: 'やめる', value: null }, { label: '保存', value: 'save', primary: true }]);
-    if (r === 'save') { AI.setKey($('#aiKey').value.trim()); this.toast(AI.hasKey() ? 'AIの鍵を保存しました' : '鍵が空です'); } else if (r === 'clear') { AI.setKey(''); this.toast('鍵を消しました'); }
+    const C = await import('./claude.js'); const cur = AI.getKey(), cc = C.getKey(); const html = `<p><b>AIの設定(任意)</b></p><p>鍵(APIキー)は、この端末の中にだけ保存します。どこにも送りません(使うときに、それぞれの会社にだけ送ります)。</p><p><b>Claude</b>(家を作る・図面や写真から家にする)</p><input id="aiKeyC" type="password" placeholder="sk-ant-… の鍵" value="${cc ? cc : ''}"><p><b>Gemini</b>(自由な言い方の指示・写真から広さ)</p><input id="aiKey" type="password" placeholder="AIza… の鍵" value="${cur ? cur : ''}"><p class="hint">Claude の鍵は console.anthropic.com で作れます。月の上限額を決めておくと安心です。</p>`;
+    const r = await this.dialog(html, [{ label: '両方消す', value: 'clear', danger: true }, { label: 'やめる', value: null }, { label: '保存', value: 'save', primary: true }]);
+    if (r === 'save') { AI.setKey($('#aiKey').value.trim()); C.setKey($('#aiKeyC').value.trim()); this.toast(C.hasKey() || AI.hasKey() ? 'AIの鍵を保存しました' : '鍵が空です'); } else if (r === 'clear') { AI.setKey(''); C.setKey(''); this.toast('鍵を消しました'); }
   }
   firstHelp() { try { if (localStorage.getItem('oheya-help-seen')) { this.toast('左側を指でなぞると歩けます。右側で見回せます。'); return; } localStorage.setItem('oheya-help-seen', '1'); } catch {} this.help(); }
   // 置いたものの寸法一覧(見積りの下書きに)
