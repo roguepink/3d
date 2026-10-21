@@ -107,7 +107,7 @@
 
 <!-- 置くもの一覧 -->
 <section id="catalog" class="sheet hidden">
-  <div class="sheet-head"><b id="catTitle">置くもの</b><button class="ib close" data-close="catalog">✕</button></div>
+  <div class="sheet-head"><b id="catTitle">置くもの</b><span><button class="ib peek" title="押している間だけ欄を消す">👁</button><button class="ib close" data-close="catalog">✕</button></span></div>
   <div class="tabs" id="catTabs"></div>
   <div class="cards" id="catCards"></div>
   <p class="hint" id="catHint">選ぶと、見ている場所(画面の中央の○)に置きます。</p>
@@ -115,7 +115,7 @@
 
 <!-- 床・壁の素材 -->
 <section id="surfaces" class="sheet hidden">
-  <div class="sheet-head"><b>床・壁・天井の素材</b><button class="ib close" data-close="surfaces">✕</button></div>
+  <div class="sheet-head"><b>床・壁・天井の素材</b><span><button class="ib peek" title="押している間だけ欄を消す">👁</button><button class="ib close" data-close="surfaces">✕</button></span></div>
   <div class="tabs" id="surfTabs"></div>
   <div class="row chips" id="surfColors"></div>
   <div class="cards" id="surfCards"></div>
@@ -196,6 +196,7 @@
     <button id="plStair">🪜階段</button>
     <button id="plDoor">🚪ドア</button>
     <button id="plWindow">🪟窓</button>
+    <button id="plCeil">☐天井</button>
     <button id="plNiche">▭ニッチ</button>
     <button id="plVertex">◆角</button>
     <button id="plColumn">▮柱型</button>

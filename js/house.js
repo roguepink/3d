@@ -196,9 +196,14 @@ const matCloset = new THREE.MeshStandardMaterial({ color: '#f3f1ec', roughness: 
 const matFusuma = new THREE.MeshStandardMaterial({ color: '#efe7d3', roughness: .85 });
 const matFusumaFrame = new THREE.MeshStandardMaterial({ color: '#3a2a1d', roughness: .5 });
 const matPull = new THREE.MeshStandardMaterial({ color: '#8f8a80', roughness: .35, metalness: .6 });
+// 戸のどこ(枠・取っ手・レール)をタップしても、その戸の開け閉めになるようにする
 function buildClosetDoor(og, o, h, ctx) {
+  const dg = new THREE.Group(); og.add(dg); buildClosetDoorParts(dg, o, h, ctx);
+  dg.traverse(m => { if (m.isMesh) { m.userData = { kind: 'closetdoor', roomId: ctx.roomId, edge: ctx.edge, openingId: o.id, keep: true }; if (!ctx.pick.includes(m)) ctx.pick.push(m); } });
+}
+function buildClosetDoorParts(og, o, h, ctx) {
   const style = o.style || 'fold', open = Math.max(0, Math.min(1, o.open || 0)), w = h.w, H = h.h - 0.01, t = 0.03, zf = -WALL_T + 0.022;
-  const tag = m => { m.userData = { kind: 'closetdoor', roomId: ctx.roomId, edge: ctx.edge, openingId: o.id }; ctx.pick.push(m); return m; };
+  const tag = m => { m.userData = { kind: 'closetdoor', roomId: ctx.roomId, edge: ctx.edge, openingId: o.id, keep: true }; ctx.pick.push(m); return m; };
   if ((style === 'slide' || style === 'fusuma') && w < 1.0) {
     // 片引き戸(トイレなど):1枚を壁にそって横へ引く
     const pw = w + 0.03, mat = style === 'fusuma' ? matFusuma : matCloset; const g = new THREE.Group(); g.position.set(-open * (w - 0.08), 0, zf - 0.02); const p = tag(box(pw, H, t, mat)); p.position.y = H / 2; g.add(p);
@@ -219,8 +224,8 @@ function buildClosetDoor(og, o, h, ctx) {
     const pairs = w > 1.0 ? 2 : 1, a = w / (pairs * 2), th = open * 1.3;
     for (let p = 0; p < pairs; p++) {
       const sdir = pairs === 1 ? -1 : (p === 0 ? -1 : 1), x0 = sdir * w / 2, d = -sdir;
-      const A = new THREE.Group(); A.position.set(x0, 0, zf); A.rotation.y = d * th; const la = tag(box(a - 0.004, H, t, matCloset)); la.position.set(d * a / 2, H / 2, 0); A.add(la); og.add(A);
-      const B = new THREE.Group(); B.position.set(x0 + d * a * Math.cos(th), 0, zf - a * Math.sin(th)); B.rotation.y = -d * th; const lb = tag(box(a - 0.004, H, t, matCloset)); lb.position.set(d * a / 2, H / 2, 0); B.add(lb);
+      const A = new THREE.Group(); A.position.set(x0, 0, zf); A.rotation.y = d * th; const la = tag(box(a + 0.002, H, t, matCloset)); la.position.set(d * a / 2, H / 2, 0); A.add(la); og.add(A);
+      const B = new THREE.Group(); B.position.set(x0 + d * a * Math.cos(th), 0, zf - a * Math.sin(th)); B.rotation.y = -d * th; const lb = tag(box(a + 0.002, H, t, matCloset)); lb.position.set(d * a / 2, H / 2, 0); B.add(lb);
       const knob = box(0.012, 0.22, 0.02, matPull); knob.position.set(d * (a - 0.05), 0.95, -t / 2 - 0.01); B.add(knob); og.add(B);
     }
     const rail = box(w, 0.012, 0.05, ctx.frame); rail.position.set(0, H + 0.004, zf); og.add(rail);
@@ -231,6 +236,27 @@ function buildClosetDoor(og, o, h, ctx) {
 const matShelf = new THREE.MeshStandardMaterial({ color: '#e9e4da', roughness: .6 });
 const matPly = new THREE.MeshStandardMaterial({ color: '#d9c39d', roughness: .7 });
 const MATS = {}; const mat = c => MATS[c] || (MATS[c] = new THREE.MeshStandardMaterial({ color: c, roughness: .9 }));
+// 服の形(正面から見た形を薄く押し出す)。上の真ん中がハンガーのフック。幅はおよそ肩幅 450
+const GARMENTS = ['tee', 'shirt', 'jacket', 'tee', 'shirt', 'dress'];
+const garmentGeo = {};
+function garmentShape(kind) {
+  const s = new THREE.Shape(), W = kind === 'jacket' ? 0.24 : 0.22; // 半分の幅
+  if (kind === 'tee') { s.moveTo(-0.06, 0); s.lineTo(-W, -0.04); s.lineTo(-W - 0.08, -0.16); s.lineTo(-W + 0.02, -0.21); s.lineTo(-W + 0.03, -0.14); s.lineTo(-W + 0.03, -0.66); s.lineTo(W - 0.03, -0.66); s.lineTo(W - 0.03, -0.14); s.lineTo(W - 0.02, -0.21); s.lineTo(W + 0.08, -0.16); s.lineTo(W, -0.04); s.lineTo(0.06, 0); s.quadraticCurveTo(0, -0.05, -0.06, 0); }
+  else if (kind === 'dress') { s.moveTo(-0.05, 0); s.lineTo(-0.15, -0.02); s.lineTo(-0.16, -0.3); s.lineTo(-0.27, -1.0); s.lineTo(0.27, -1.0); s.lineTo(0.16, -0.3); s.lineTo(0.15, -0.02); s.lineTo(0.05, 0); s.quadraticCurveTo(0, -0.06, -0.05, 0); }
+  else { const L = kind === 'jacket' ? 0.78 : 0.74; // 長袖(袖はからだの横に下がる)
+    s.moveTo(-0.05, 0); s.lineTo(-W, -0.035); s.lineTo(-W - 0.04, -0.12); s.lineTo(-W - 0.05, -0.6); s.lineTo(-W + 0.02, -0.62); s.lineTo(-W + 0.03, -0.2); s.lineTo(-W + 0.03, -L); s.lineTo(W - 0.03, -L); s.lineTo(W - 0.03, -0.2); s.lineTo(W - 0.02, -0.62); s.lineTo(W + 0.05, -0.6); s.lineTo(W + 0.04, -0.12); s.lineTo(W, -0.035); s.lineTo(0.05, 0); s.lineTo(0, -0.06); s.lineTo(-0.05, 0); }
+  return s;
+}
+const matHanger = new THREE.MeshStandardMaterial({ color: '#b08a5e', roughness: .5 });
+function garment(kind, color) {
+  if (!garmentGeo[kind]) { const g = new THREE.ExtrudeGeometry(garmentShape(kind), { depth: kind === 'jacket' ? 0.05 : 0.025, bevelEnabled: true, bevelThickness: 0.006, bevelSize: 0.006, bevelSegments: 1 }); g.translate(0, -0.03, -0.0125); garmentGeo[kind] = g; }
+  const grp = new THREE.Group(); const m = new THREE.Mesh(garmentGeo[kind], mat(color)); m.castShadow = true; grp.add(m);
+  // ハンガー(肩の木の棒+フック)と、ワイシャツのえり
+  const bar = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.012, 0.02), matHanger); bar.position.y = -0.035; grp.add(bar);
+  const hook = new THREE.Mesh(new THREE.TorusGeometry(0.02, 0.003, 4, 10, Math.PI * 1.4), matPull); hook.position.y = 0.0; hook.rotation.z = -0.4; grp.add(hook);
+  if (kind === 'shirt') { const col = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.05, 0.03), mat('#ffffff')); col.position.set(0, -0.05, 0.004); grp.add(col); }
+  grp.userData.keep = false; return grp;
+}
 const CLOTHES = ['#3d4a5c', '#b9a789', '#6d7f6a', '#e2ddd3', '#8a5a4a', '#2f2f33', '#a7b4c2'];
 export function closetDoorEdge(room) { const o = (room.openings || []).find(x => x.type === 'closet') || (room.openings || []).find(x => x.type !== 'window' && x.type !== 'niche'); return o ? o.edge : 0; }
 function buildClosetInside(room, group) {
@@ -239,7 +265,9 @@ function buildClosetInside(room, group) {
   const put = (lu, ly, ls, u, y, sd, mat) => { const m = box(lu, ly, ls, mat); m.position.copy(wallPoint(room, de, u, y, sd)); m.rotation.y = f.rotY; m.userData = { kind: 'closetin', roomId: room.id, mergeKey: 'closetin' }; group.add(m); return m; };
   const pipe = (u0, u1, s, y) => { const len = u1 - u0; const c = new THREE.Mesh(new THREE.CylinderGeometry(0.0125, 0.0125, len, 10), matPull); c.rotation.z = Math.PI / 2; const g = new THREE.Group(); g.add(c); g.position.copy(wallPoint(room, de, (u0 + u1) / 2, y, s)); g.rotation.y = f.rotY; group.add(g);
     // 掛けてある服(少しだけ)
-    let k = 0; for (let u = u0 + 0.12; u < u1 - 0.1; u += 0.09 + ((k * 37) % 5) * 0.02, k++) { if (k % 4 === 3) continue; const hgt = 0.75 + ((k * 53) % 4) * 0.12; put(0.035, hgt, 0.42, u, y - 0.06 - hgt / 2, s, mat(CLOTHES[k % CLOTHES.length])); } };
+    // 掛けてある服:Tシャツ・ワイシャツ・ジャケット・ワンピースの形を、ハンガーごと
+    let k = 0; for (let u = u0 + 0.12; u < u1 - 0.1; u += 0.075 + ((k * 37) % 4) * 0.015, k++) { if (k % 5 === 4) continue; const kind = GARMENTS[(k * 7 + 3) % GARMENTS.length]; const col = kind === 'shirt' ? ['#f4f4f2', '#cfe0f0', '#f4f4f2'][k % 3] : kind === 'jacket' ? ['#2f3542', '#5a4a3f', '#3c4a3a'][k % 3] : CLOTHES[k % CLOTHES.length];
+      const gg = garment(kind, col); gg.position.copy(wallPoint(room, de, u, y - 0.02, s)); gg.rotation.y = f.rotY + Math.PI / 2; group.add(gg); } };
   const pipeSide = (s0, s1, u, y) => { const len = s1 - s0; const c = new THREE.Mesh(new THREE.CylinderGeometry(0.0125, 0.0125, len, 10), matPull); c.rotation.x = Math.PI / 2; const g = new THREE.Group(); g.add(c); g.position.copy(wallPoint(room, de, u, y, (s0 + s1) / 2)); g.rotation.y = f.rotY; group.add(g); };
   if (kind === 'cl' || kind === 'wic') {
     const sd = Math.min(0.4, depth * 0.5); put(L, 0.022, sd, L / 2, 1.8, depth - sd / 2, matShelf);
@@ -259,6 +287,9 @@ function buildClosetInside(room, group) {
       for (const y of ys.slice(0, 5)) { if (narrow) for (let s2 = 0.25; s2 < depth - 0.15; s2 += 0.26, k++) { if ((k * 7) % 5 === 0) continue; shoe(L - sd / 2, s2, y, true); } else for (let u = 0.12; u < L - 0.15; u += 0.26, k++) { if ((k * 7) % 5 === 0) continue; shoe(u + 0.1, depth - 0.18, y, false); } } }
   }
 }
+// 梁の見付(見える幅):木を見せるときは梁そのものの幅、クロス巻き込みは 下地13mm+石膏ボード12mm を両側に足す
+export const BEAM_BOARD = 0.012, BEAM_FURRING = 0.013;
+export function beamVisibleWidth(part) { const core = part.core || 0.15; return part.finish === 'wood' ? core : core + 2 * (BEAM_BOARD + BEAM_FURRING); }
 export function wallSpec(room, e) { return (room.walls && (room.walls[e] !== undefined ? room.walls[e] : room.walls[String(e)])) || { lib: 'wp_white' }; }
 
 export function buildRoom(room, project, group) {
@@ -313,7 +344,9 @@ export function buildRoom(room, project, group) {
         // 段差なし:壁の厚みの所も床でつなぐ。となりと床が違うときは、フローリングに合わせた見切りを入れる
         else if (h.sill <= 0.02 && !o.twin) { const nb = neighborAcross(room, e, o.u, o.w, project.rooms || [], { y: baseOf(room) }); const myF = room.floor || {}, nbF = nb ? (nb.room.floor || {}) : myF;
           if (nb && myF.lib === nbF.lib && myF.color === nbF.color) { const st = new THREE.Mesh(new THREE.PlaneGeometry(h.w, WALL_T), floor.material); st.rotation.x = -Math.PI / 2; st.position.set(0, 0.001, -WALL_T / 2); og.add(st); }
-          else { const wood = [myF, nbF].find(f => /oak|walnut|ash|herring|grayoak|cf_wood/.test(f.lib || '')); const mm = wood ? surfaceMaterial('floor', wood, { w: 1, h: 1 }, assets) : (nb ? surfaceMaterial('floor', myF, { w: 1, h: 1 }, assets) : floor.material); const st = box(h.w, 0.006, WALL_T, mm); st.receiveShadow = true; st.position.set(0, nb ? 0.003 : 0.0, -WALL_T / 2); og.add(st); } }
+          else { // 段差は作らない(いつもフラット)。片方がフローリングでもう片方がクッションフロアなどのときだけ、フローリング色の見切り(床と同じ高さ)
+            const isWood = f => /oak|walnut|ash|herring|grayoak/.test(f.lib || ''); const wood = isWood(myF) ? myF : isWood(nbF) ? nbF : null; const mm = wood ? surfaceMaterial('floor', wood, { w: 1, h: 1 }, assets) : floor.material;
+            const st = new THREE.Mesh(new THREE.PlaneGeometry(h.w, WALL_T), mm); st.rotation.x = -Math.PI / 2; st.receiveShadow = true; st.position.set(0, 0.001, -WALL_T / 2); og.add(st); } }
       }
       // 箱型の出窓は、枠なし(三方クロス巻き込み)
       const casingOn = isWin ? (trim.casing.on && o.bay !== 'box') : true; const mFrame = isWin ? matCase : matDoorFrame; const wallMat = wall.material;
@@ -380,7 +413,7 @@ export function buildRoom(room, project, group) {
       if (h < H - 0.05) { const top = box(b.L + 0.02, 0.03, b.d + 0.04, matWood); top.position.set(b.cx, h + 0.015, b.cz); top.rotation.y = b.rot; roomGroup.add(top); }
     } else if (part.type === 'beam') {
       // 梁:クロス巻き込み(既定は天井と同じ。梁だけ別の壁紙も選べる)/ 木をそのまま見せる化粧梁(木の色を選べる)
-      const drop = part.drop || 0.3; const bmat = part.finish === 'wood' ? trimMaterial(part.wood || 'wood_medium') : surfaceMaterial('wall', part.cross || room.ceiling || { color: '#f7f7f4' }, { w: Math.max(part.w, part.d), h: drop }, assets); const m = new THREE.Mesh(new THREE.BoxGeometry(part.w, drop, part.d), bmat); m.position.set(b.cx, H - drop / 2, b.cz); m.castShadow = true; m.receiveShadow = true;
+      const drop = part.drop || 0.1; const bmat = part.finish === 'wood' ? trimMaterial(part.wood || 'wood_medium') : surfaceMaterial('wall', part.cross || room.ceiling || { color: '#f7f7f4' }, { w: Math.max(part.w, part.d), h: drop }, assets); const m = new THREE.Mesh(new THREE.BoxGeometry(part.w, drop, part.d), bmat); m.position.set(b.cx, H - drop / 2, b.cz); m.castShadow = true; m.receiveShadow = true;
       m.userData = { kind: 'part', part: 'beam', roomId: room.id, partId: part.id, keep: true }; roomGroup.add(m); pick.push(m);
     }
   }

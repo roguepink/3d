@@ -1,6 +1,6 @@
 // 間取り(上から見た図)の編集:部屋を動かす・形を変える(角を動かす/足す/斜めに)・柱型/袖壁/梁・ドアや窓
 // 寸法は mm で表示・入力。グリッド(尺 910 / メーター 1000)や壁の面、90°に「吸いつき」、それ以上動かせばなめらかに外れる。
-import { WALL_T, wallLength, houseBounds, neighborAcross, edgeFrame, edgeName, normalizeRoom, isRect, resizeRect, translateRoom, insertVertex, removeVertex, chamferVertex, syncBounds, partBox, distSeg, nearestEdge, MODULES, mm, mmRaw, roomJo, shinShin, snapTo, gridCandidates, wallFaces, snapAngle, levelOf, baseOf, floorH, onLevel, hasUpper } from './house.js';
+import { WALL_T, wallLength, houseBounds, neighborAcross, edgeFrame, edgeName, normalizeRoom, isRect, resizeRect, translateRoom, insertVertex, removeVertex, chamferVertex, syncBounds, partBox, distSeg, nearestEdge, MODULES, mm, mmRaw, roomJo, shinShin, snapTo, gridCandidates, wallFaces, snapAngle, levelOf, baseOf, floorH, onLevel, hasUpper, beamVisibleWidth } from './house.js';
 import { stairLayout, STAIR_KINDS, STAIR_STYLES, STAIR_CELLS, stairKindName } from './stairs.js';
 import { catalogEntry } from './items.js';
 import { SURFACE_LIB, TRIM_FINISHES } from './textures.js';
@@ -15,6 +15,7 @@ export class PlanEditor {
     document.getElementById('plWindow').onclick = () => this.setTool(this.tool === 'window' ? 'select' : 'window');
     document.getElementById('plVertex').onclick = () => this.setTool(this.tool === 'vertex' ? 'select' : 'vertex');
     document.getElementById('plNiche').onclick = () => this.setTool(this.tool === 'niche' ? 'select' : 'niche');
+    this.ceil = false; document.getElementById('plCeil').onclick = () => this.setCeil(!this.ceil);
     document.getElementById('plColumn').onclick = () => this.addPartHere('column');
     document.getElementById('plWing').onclick = () => this.addPartHere('wall');
     document.getElementById('plBeam').onclick = () => this.addPartHere('beam');
@@ -25,6 +26,12 @@ export class PlanEditor {
   }
   grid() { return MODULES[this.app.module()] || MODULES.shaku; }
   setTool(t) { this.tool = t; for (const [id, name] of [['plDoor', 'door'], ['plWindow', 'window'], ['plVertex', 'vertex'], ['plNiche', 'niche']]) document.getElementById(id).classList.toggle('on', t === name); this.info(t === 'door' ? '壁をタップすると、そこにドアが付きます(となりの部屋ともつながります)' : t === 'window' ? '壁をタップすると、そこに窓が付きます' : t === 'niche' ? '壁をタップすると、そこにニッチ(壁のくぼみ)ができます' : t === 'vertex' ? '壁の線をタップすると、そこに角(曲がり目)ができます。角は引っぱって動かせます' : null); }
+  // 天井の図(天井伏図):天井の照明・ダウンライト・火災警報器・天井エアコンだけを出して、真上から動かす
+  setCeil(on, item) { this.ceil = on; document.getElementById('plCeil').classList.toggle('on', on); document.body.classList.toggle('ceil-plan', on); this.sel = item ? { kind: 'citem', room: this.app.room(item.roomId), item } : null; this.guides = null; this.info(on ? null : null); this.draw(); }
+  ceilItems(r) { return this.app.project.items.filter(it => it.roomId === r.id && catalogEntry(it.type) && catalogEntry(it.type).kind === 'ceiling'); }
+  hitCeil(px, py) { const [mx, mz] = this.toM(px, py); let best = null; for (const r of this.visRooms()) for (const it of this.ceilItems(r)) { const rr = Math.max(it.w / 2, 14 / this.scale); const d = Math.hypot(mx - it.x, mz - it.z); if (d < rr && (!best || d < best.d)) best = { d, item: it, room: r }; } return best; }
+  // そろい:部屋の中心・ほかの天井の物と、横や縦が同じ位置か
+  ceilAlign(it, r) { const b = { cx: r.x + r.w / 2, cz: r.z + r.d / 2 }, e = 0.004, g = { cx: Math.abs(it.x - b.cx) < e, cz: Math.abs(it.z - b.cz) < e, xs: [], zs: [] }; for (const o of this.ceilItems(r)) { if (o === it) continue; if (Math.abs(o.x - it.x) < e) g.xs.push(o); if (Math.abs(o.z - it.z) < e) g.zs.push(o); } return g; }
   show() { this.visible = true; this.level = this.app.walkLevel(); this.levelButtons(); this.fit(); this.draw(); }
   // 1階・2階の切りかえ(階段は両方の階に出る)
   setLevel(lv) { this.level = lv; if (this.sel && !onLevel(this.sel.room, lv)) { this.sel = null; } this.levelButtons(); this.info(null); this.draw(); }
@@ -56,6 +63,8 @@ export class PlanEditor {
   field(k, label, valueMm, step = 5) { return `<label>${label}<input type="number" step="${step}" data-k="${k}" value="${Math.round(valueMm)}"></label>`; }
   selInfo() {
     const s = this.sel; if (!s) return ''; const r = s.room;
+    if (s.kind === 'citem') { const it = s.item, e = catalogEntry(it.type); const g = this.ceilAlign(it, r);
+      return `<b>${e.name}</b>(${r.name}の天井)<div class="dims">${this.field('cx', '左(西)の壁から中心まで(mm)', mmRaw(it.x - r.x), 5)}${this.field('cz', '奥(北)の壁から中心まで(mm)', mmRaw(it.z - r.z), 5)}</div><div class="note">${g.cx && g.cz ? '◎ 部屋の真ん中です' : g.cx ? '│ 横の真ん中です' : g.cz ? '─ 奥行の真ん中です' : ''}${g.xs.length || g.zs.length ? '・ほかの物とそろっています' : ''}</div><div class="row"><button data-act="ccenter">◎ 部屋の真ん中へ</button><button data-act="cwalk">👣 歩いて見る</button></div>`; }
     if (s.kind === 'room') {
       let dims = `<div class="dims">${isRect(r) ? this.field('rw', '横 芯々(mm)', mmRaw(shinShin(r.w))) + this.field('rd', '奥行 芯々(mm)', mmRaw(shinShin(r.d))) : ''}${r.stair ? '' : this.field('rh', '天井高(mm)', mmRaw(r.h), 10)}</div>`;
       if (!isRect(r)) dims += `<div class="dims">${r.poly.map((_, e) => this.field('e' + e, `${edgeName(r, e)} 内法`, mmRaw(wallLength(r, e)))).join('')}</div>`;
@@ -66,7 +75,7 @@ export class PlanEditor {
       return `<b>${nm}</b>(${r.name}の${edgeName(r, o.edge)})<div class="dims">${this.field('ow', '幅(mm)', mmRaw(o.w))}${this.field('oh', '高さ(mm)', mmRaw(o.h))}${hasSill ? this.field('os', '床から(mm)', mmRaw(o.sill ?? (o.type === 'niche' ? 1.0 : 0.9))) : ''}${o.type === 'niche' ? this.field('odp', '奥行(mm)', mmRaw(o.depth || 0.1)) : ''}${this.field('ou', '壁の左端から(mm)', mmRaw(o.u))}</div>${o.type === 'door' ? this.doorInfo(r, o) : o.type === 'closet' ? this.closetInfo(r, o) : o.type === 'window' ? this.bayInfo(o) : o.type === 'niche' ? '<div class="note">奥・左右・上は壁紙の巻き込み、下だけ板(左右20mm出し)</div>' : ''}`; }
     if (s.kind === 'part') { const p = s.part; const b = partBox(p); const name = { column: '柱型', wall: '袖壁(腰壁)', beam: '梁(下がり天井)' }[p.type];
       const dims = p.type === 'wall' ? this.field('pl', '長さ(mm)', mmRaw(b.L)) + this.field('pt', '厚み(mm)', mmRaw(p.t || WALL_T)) + this.field('ph', '高さ(mm)', mmRaw(p.h || r.h), 10)
-        : p.type === 'beam' ? this.field('pw', '横(mm)', mmRaw(p.w)) + this.field('pd', '奥行(mm)', mmRaw(p.d)) + this.field('pdrop', '下がり(mm)', mmRaw(p.drop || .3), 10)
+        : p.type === 'beam' ? this.field('pcore', '梁の幅 木の実寸(mm)', mmRaw(p.core || 0.15)) + (p.w <= p.d ? this.field('pd', '長さ(mm)', mmRaw(p.d)) : this.field('pw', '長さ(mm)', mmRaw(p.w))) + this.field('pdrop', '天井から下がる(mm)', mmRaw(p.drop || .1), 10)
         : this.field('pw', '横(mm)', mmRaw(p.w)) + this.field('pd', '奥行(mm)', mmRaw(p.d));
       return `<b>${name}</b>(${r.name})<div class="dims">${dims}</div>${p.type === 'beam' ? this.beamInfo(p) : ''}<div class="row">${p.type !== 'beam' ? '<button data-act="prot">⟳ 90°回す</button>' : ''}<button data-act="pdel" class="danger">消す</button></div>`; }
     return '';
@@ -80,9 +89,11 @@ export class PlanEditor {
       <div><span>丁番の位置</span>${chip('dhinge', 'left', '左', hinge === 'left')}${chip('dhinge', 'right', '右', hinge === 'right')}<small>この部屋の中から ドアを見て</small></div>
       <div><span>開き具合</span>${chip('dopen', '0', '閉める', open < 0.05)}${chip('dopen', '0.5', '半分', open > 0.3 && open < 0.7)}${chip('dopen', '1', '全開', open > 0.85)}</div></div>`;
   }
+  // 梁の見える幅を、仕上げと木の幅に合わせる(短いほうの辺が幅。中心はそのまま)
+  beamResize(p) { const vw = beamVisibleWidth(p); if (p.w <= p.d) { const c = p.x + p.w / 2; p.w = vw; p.x = c - vw / 2; } else { const c = p.z + p.d / 2; p.d = vw; p.z = c - vw / 2; } }
   // 梁の仕上げ:クロス巻き込み(天井と同じ/梁だけ別の壁紙)・化粧梁(木の色)
   beamInfo(p) { const chip = (act, v, label, on) => `<button class="chip text${on ? ' on' : ''}" data-act="${act}" data-v="${v}">${label}</button>`; const wood = p.finish === 'wood';
-    let h = `<div class="lbl">仕上げ</div><div class="chips">${chip('bfin', 'cross', 'クロス巻き込み', !wood)}${chip('bfin', 'wood', '木を見せる(化粧梁)', wood)}</div>`;
+    let h = `<div class="note">見える幅 ${mm(beamVisibleWidth(p))}mm${wood ? '(木の幅そのまま)' : '(木の幅+両側に下地13mm・石膏ボード12mm)'}</div><div class="lbl">仕上げ</div><div class="chips">${chip('bfin', 'cross', 'クロス巻き込み', !wood)}${chip('bfin', 'wood', '木を見せる(化粧梁)', wood)}</div>`;
     if (wood) h += `<div class="lbl">木の色</div><div class="chips">${TRIM_FINISHES.filter(f => f.wood).map(f => chip('bwood', f.id, f.name.replace('木目', '').replace(/[()（）]/g, ''), (p.wood || 'wood_medium') === f.id)).join('')}</div>`;
     else h += `<div class="lbl">クロス</div><div class="chips">${chip('bcross', '', '天井と同じ', !p.cross)}${SURFACE_LIB.wall.filter(x => /^wp_/.test(x.id)).map(x => chip('bcross', x.id, x.name.replace('壁紙', '').replace(/[()()]/g, ''), p.cross && p.cross.lib === x.id)).join('')}</div>`;
     return h; }
@@ -99,18 +110,21 @@ export class PlanEditor {
     for (const inp of document.querySelectorAll('#planInfo input[data-k]')) inp.onchange = () => {
       const v = parseFloat(inp.value); if (!Number.isFinite(v)) return; const m = v / 1000; const k = inp.dataset.k; app.snapshot();
       if (k === 'rw' || k === 'rd') { const w = k === 'rw' ? Math.max(0.6, m - WALL_T) : s.room.w, d = k === 'rd' ? Math.max(0.6, m - WALL_T) : s.room.d; resizeRect(s.room, w, d); this.clampOpenings(s.room); redo(); return; }
+      if (k === 'cx' || k === 'cz') { const it = s.item; if (k === 'cx') it.x = s.room.x + m; else it.z = s.room.z + m; app.updateItemPose(it); app.touched(); this.draw(); this.info(null); return; }
       if (k === 'fh') { app.project.settings.floorH = Math.max(2.4, Math.min(4, m)); app.load(app.project); app.setMode('plan'); return; }
       if (k === 'rh') { s.room.h = Math.max(1.8, m); for (const it of app.project.items) if (it.roomId === s.room.id && catalogEntry(it.type).kind === 'ceiling') it.y = s.room.h; redo(); return; }
       if (k[0] === 'e') { const e = parseInt(k.slice(1)); const f = edgeFrame(s.room, e); const n = s.room.poly.length; const B = s.room.poly[(e + 1) % n]; const L = Math.max(0.1, m); B[0] = f.A[0] + f.along.x * L; B[1] = f.A[1] + f.along.z * L; syncBounds(s.room); this.clampOpenings(s.room); redo(); return; }
       if (k === 'vx' || k === 'vz') { const p = s.room.poly[s.index]; if (k === 'vx') p[0] = m; else p[1] = m; syncBounds(s.room); this.clampOpenings(s.room); redo(); return; }
       if (k[0] === 'o') { const o = s.opening; const L = wallLength(s.room, o.edge); if (k === 'ow') o.w = Math.max(0.3, Math.min(L - 0.1, m)); if (k === 'oh') o.h = Math.max(0.3, Math.min(s.room.h - 0.05, m)); if (k === 'os') o.sill = Math.max(0, m); if (k === 'obd') o.bayDepth = Math.max(0.12, Math.min(0.9, m)); if (k === 'odp') o.depth = Math.max(0.03, Math.min(0.105, m)); if (k === 'ou') o.u = m; o.u = Math.max(0.05, Math.min(L - o.w - 0.05, o.u)); if ((o.type === 'window' || o.type === 'niche') && o.sill + o.h > s.room.h) o.sill = Math.max(0, s.room.h - o.h - 0.05); this.syncTwin(s.room, o); app.rebuildHouse(); app.touched(); this.draw(); this.info(null); return; }
-      if (k[0] === 'p') { const p = s.part; if (k === 'pl') { const dx = p.x2 - p.x1, dz = p.z2 - p.z1; const l0 = Math.hypot(dx, dz) || 1; const L = Math.max(0.05, m); p.x2 = p.x1 + dx / l0 * L; p.z2 = p.z1 + dz / l0 * L; } if (k === 'pt') p.t = Math.max(0.03, m); if (k === 'ph') p.h = Math.max(0.2, Math.min(s.room.h, m)); if (k === 'pw') p.w = Math.max(0.05, m); if (k === 'pd') p.d = Math.max(0.05, m); if (k === 'pdrop') p.drop = Math.max(0.05, Math.min(s.room.h - 1.6, m)); app.rebuildHouse(); app.touched(); this.draw(); this.info(null); return; }
+      if (k[0] === 'p') { const p = s.part; if (k === 'pl') { const dx = p.x2 - p.x1, dz = p.z2 - p.z1; const l0 = Math.hypot(dx, dz) || 1; const L = Math.max(0.05, m); p.x2 = p.x1 + dx / l0 * L; p.z2 = p.z1 + dz / l0 * L; } if (k === 'pt') p.t = Math.max(0.03, m); if (k === 'ph') p.h = Math.max(0.2, Math.min(s.room.h, m)); if (k === 'pcore') { p.core = Math.max(0.09, Math.min(0.3, m)); this.beamResize(p); } if (k === 'pw') p.w = Math.max(0.05, m); if (k === 'pd') p.d = Math.max(0.05, m); if (k === 'pdrop') p.drop = Math.max(0.05, Math.min(s.room.h - 1.6, m)); app.rebuildHouse(); app.touched(); this.draw(); this.info(null); return; }
     };
     for (const b of document.querySelectorAll('#planInfo [data-act]')) b.onclick = async () => {
       const act = b.dataset.act;
       if (act === 'rename') { const n = prompt('部屋の名前', s.room.name); if (n) { s.room.name = n; app.touched(); this.draw(); this.info(null); } }
       if (act === 'stand') { const r = s.room; app.walk.floorY = r.stair ? baseOf(r) : baseOf(r); app.s3.camera.position.set(r.x + r.w / 2, app.walk.floorY + 1.5, r.z + r.d * 0.75); app.walk.yaw = 0; app.setMode('walk'); }
-      if (act === 'bfin' || act === 'bwood' || act === 'bcross') { const p = s.part; app.snapshot(); if (act === 'bfin') p.finish = b.dataset.v; if (act === 'bwood') p.wood = b.dataset.v; if (act === 'bcross') { if (b.dataset.v) p.cross = { lib: b.dataset.v }; else delete p.cross; } app.rebuildHouse(); app.touched(); this.draw(); this.info(null); app.toast(p.finish === 'wood' ? '化粧梁(木を見せる)にしました' : 'クロス巻き込みにしました', 1500); }
+      if (act === 'ccenter') { app.snapshot(); s.item.x = s.room.x + s.room.w / 2; s.item.z = s.room.z + s.room.d / 2; app.updateItemPose(s.item); app.touched(); this.draw(); this.info(null); }
+      if (act === 'cwalk') { const it = s.item; this.setCeil(false); app.setMode('walk'); app.select(it.id); }
+      if (act === 'bfin' || act === 'bwood' || act === 'bcross') { const p = s.part; app.snapshot(); if (act === 'bfin') { p.finish = b.dataset.v; this.beamResize(p); } if (act === 'bwood') p.wood = b.dataset.v; if (act === 'bcross') { if (b.dataset.v) p.cross = { lib: b.dataset.v }; else delete p.cross; } app.rebuildHouse(); app.touched(); this.draw(); this.info(null); app.toast(p.finish === 'wood' ? '化粧梁(木を見せる)にしました' : 'クロス巻き込みにしました', 1500); }
       if (act === 'cstyle' || act === 'copen') { const own = s.opening.twin ? this.doorOwner(s.room, s.opening).owner : s.opening; app.snapshot(); if (act === 'cstyle') own.style = b.dataset.v; else own.open = +b.dataset.v; app.rebuildHouse(); app.touched(); this.draw(); this.info(null); }
       if (act === 'rtype') { app.setRoomType(s.room, b.dataset.v); this.draw(); this.info(null); }
       if (act === 'skind' || act === 'sstyle' || act === 'sdir' || act === 'sflip' || act === 'sfit') { app.stairEdit(s.room, act, b.dataset.v); this.fit(); this.draw(); this.info(null); }
@@ -148,7 +162,10 @@ export class PlanEditor {
   down(e) {
     try { this.canvas.setPointerCapture(e.pointerId); } catch {} const rect = this.canvas.getBoundingClientRect(); const px = e.clientX - rect.left, py = e.clientY - rect.top; this.pointers.set(e.pointerId, { x: px, y: py });
     if (this.pointers.size === 2) { const [a, b] = [...this.pointers.values()]; this.pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), scale: this.scale, cx: (a.x + b.x) / 2, cy: (a.y + b.y) / 2, ox: this.ox, oy: this.oy }; this.drag = null; return; }
-    const h = this.hit(px, py); const app = this.app;
+    const app = this.app;
+    if (this.ceil) { const hc = this.hitCeil(px, py); if (hc) { app.snapshot(); this.sel = { kind: 'citem', room: hc.room, item: hc.item }; this.drag = { kind: 'citem', item: hc.item, room: hc.room, sx: px, sy: py, x0: hc.item.x, z0: hc.item.z, moved: false }; this.info(null); this.draw(); return; }
+      this.sel = null; this.info(null); this.drag = { kind: 'pan', sx: px, sy: py, ox: this.ox, oy: this.oy }; this.draw(); return; }
+    const h = this.hit(px, py);
     if (this.tool === 'niche') { if (h && h.kind === 'wall') { const L = wallLength(h.room, h.edge); if (L < 0.6) { app.toast('この壁は短すぎます'); return; } const w = 0.35; const u = Math.max(0.1, Math.min(L - w - 0.1, h.u - w / 2)); const o = app.addOpening(h.room, { edge: h.edge, type: 'niche', u, w, h: 0.5, sill: 1.0, depth: 0.1 }); this.sel = { kind: 'opening', room: h.room, opening: o }; this.setTool('select'); this.info(null); this.draw(); } else app.toast('壁の線をタップしてください'); return; }
     if (this.tool === 'door' || this.tool === 'window') { if (h && (h.kind === 'wall' || h.kind === 'opening')) { if (h.kind === 'opening') { this.sel = h; this.info(null); this.draw(); return; } const w = this.tool === 'door' ? 0.8 : 1.65, L = wallLength(h.room, h.edge); if (L < w + 0.3) { app.toast('この壁は短すぎます'); return; } const u = Math.max(0.1, Math.min(L - w - 0.1, h.u - w / 2)); const o = app.addOpening(h.room, { edge: h.edge, type: this.tool, u, w, h: this.tool === 'door' ? 2.0 : (L > 2.5 ? 1.8 : 1.1), sill: this.tool === 'window' ? (L > 2.5 ? 0.4 : 0.9) : 0, open: 0.9 }); this.sel = { kind: 'opening', room: h.room, opening: o }; this.setTool('select'); this.info(null); this.draw(); } else app.toast('壁の線をタップしてください'); return; }
     if (this.tool === 'vertex') { if (h && h.kind === 'wall') { app.snapshot(); const f = edgeFrame(h.room, h.edge); const x = f.A[0] + f.along.x * h.u, z = f.A[1] + f.along.z * h.u; insertVertex(h.room, h.edge, Math.round(x * 1000) / 1000, Math.round(z * 1000) / 1000); this.sel = { kind: 'vertex', room: h.room, index: h.edge + 1 }; this.setTool('select'); this.fixTwins(); app.rebuildHouse(); app.touched(); this.info(null); this.draw(); } else app.toast('壁の線をタップしてください'); return; }
@@ -166,6 +183,13 @@ export class PlanEditor {
     if (this.pointers.size === 2 && this.pinch) { const [a, b] = [...this.pointers.values()]; const d = Math.hypot(a.x - b.x, a.y - b.y); const k = d / this.pinch.d; const cx = (a.x + b.x) / 2, cy = (a.y + b.y) / 2; const [mx, mz] = [(this.pinch.cx - this.pinch.ox) / this.pinch.scale, (this.pinch.cy - this.pinch.oy) / this.pinch.scale]; this.scale = Math.max(15, Math.min(400, this.pinch.scale * k)); this.ox = cx - mx * this.scale; this.oy = cy - mz * this.scale; this.draw(); return; }
     const d = this.drag; if (!d) return; const dx = (px - d.sx) / this.scale, dz = (py - d.sy) / this.scale; const r1 = v => Math.round(v * 1000) / 1000; const tol = this.tolM();
     if (d.kind === 'pan') { this.ox = d.ox + (px - d.sx); this.oy = d.oy + (py - d.sy); this.draw(); return; }
+    if (d.kind === 'citem') { const it = d.item, r = d.room; let nx = d.x0 + dx, nz = d.z0 + dz; const t2 = 10 / this.scale; d.moved = true;
+      // 部屋の中心と、ほかの天井の物の位置に吸いつく(いったん止まる)
+      const cx = r.x + r.w / 2, cz = r.z + r.d / 2; const xs = [cx, ...this.ceilItems(r).filter(o => o !== it).map(o => o.x)], zs = [cz, ...this.ceilItems(r).filter(o => o !== it).map(o => o.z)];
+      let bx = null; for (const v of xs) if (Math.abs(nx - v) < t2 && (bx === null || Math.abs(nx - v) < Math.abs(nx - bx))) bx = v; if (bx !== null) nx = bx;
+      let bz = null; for (const v of zs) if (Math.abs(nz - v) < t2 && (bz === null || Math.abs(nz - v) < Math.abs(nz - bz))) bz = v; if (bz !== null) nz = bz;
+      const m = Math.min(it.w, it.d) / 2; nx = Math.max(r.x + m, Math.min(r.x + r.w - m, nx)); nz = Math.max(r.z + m, Math.min(r.z + r.d - m, nz));
+      it.x = r1(nx); it.z = r1(nz); app.updateItemPose(it); this.draw(); return; }
     if (d.kind === 'vertex') { const r = d.room; const n = r.poly.length, A = r.poly[(d.index - 1 + n) % n], B = r.poly[(d.index + 1) % n];
       // 吸いつき:となりの角と まっすぐ(90°)、壁の面、グリッド
       let nx = this.snapCoord(r1(d.p0[0] + dx), r, 'x', [A[0], B[0]]), nz = this.snapCoord(r1(d.p0[1] + dz), r, 'z', [A[1], B[1]]);
@@ -193,6 +217,7 @@ export class PlanEditor {
   }
   up(e) {
     this.pointers.delete(e.pointerId); if (this.pointers.size < 2) this.pinch = null; const d = this.drag; this.drag = null; if (!d) return; const app = this.app;
+    if (d.kind === 'citem') { app.touched(); this.info(null); this.draw(); return; }
     const redo = () => { this.fixTwins(); app.rebuildHouse(); app.rebuildItems(); app.touched(); this.info(null); this.draw(); };
     if (d.kind === 'room' && d.moved) redo();
     if (d.kind === 'resize') { this.clampOpenings(d.room); for (const it of app.project.items) if (it.roomId === d.room.id) { const r = d.room; it.x = Math.min(r.x + r.w - 0.1, it.x); it.z = Math.min(r.z + r.d - 0.1, it.z); } redo(); }
@@ -213,6 +238,23 @@ export class PlanEditor {
     if (s.kind === 'room') { if (!confirm(`${s.room.name}を消しますか?(中のものも消えます)`)) return; app.snapshot(); const p = app.project; p.rooms = p.rooms.filter(r => r !== s.room); p.items = p.items.filter(i => i.roomId !== s.room.id); this.fixTwins(); this.sel = null; app.load(p); app.setMode('plan'); }
   }
 
+  drawCeil(g, r) {
+    const s = this.scale; const sel = this.sel && this.sel.kind === 'citem' ? this.sel.item : null;
+    // 選んでいる物のそろい線(部屋の中心=赤の十字、ほかの物とそろう=水色)
+    if (sel && sel.roomId === r.id) { const al = this.ceilAlign(sel, r); const [x0, z0] = this.toPx(r.x, r.z), [x1, z1] = this.toPx(r.x + r.w, r.z + r.d), [sx, sz] = this.toPx(sel.x, sel.z);
+      const line = (ax, ay, bx, by, col, dash) => { g.save(); g.strokeStyle = col; g.lineWidth = 1.5; g.setLineDash(dash ? [6, 4] : []); g.beginPath(); g.moveTo(ax, ay); g.lineTo(bx, by); g.stroke(); g.restore(); };
+      if (al.cx) line(sx, z0, sx, z1, '#ff5a5a', true); else if (al.xs.length) line(sx, z0, sx, z1, '#4fd1ff', false);
+      if (al.cz) line(x0, sz, x1, sz, '#ff5a5a', true); else if (al.zs.length) line(x0, sz, x1, sz, '#4fd1ff', false);
+      if (al.cx && al.cz) this.dimLabel(g, sx, sz - 26, '部屋の真ん中', 'rgba(200,40,40,.85)');
+      this.dimLabel(g, (x0 + sx) / 2, sz + 14, mm(sel.x - r.x)); this.dimLabel(g, sx + 26, (z0 + sz) / 2, mm(sel.z - r.z)); }
+    for (const it of this.ceilItems(r)) { const [cx, cz] = this.toPx(it.x, it.z), on = it === sel; g.save(); g.translate(cx, cz); g.rotate(-(it.rot || 0)); g.lineWidth = on ? 3 : 1.5; g.strokeStyle = on ? '#ffcf4d' : '#ffe9a8'; g.fillStyle = on ? 'rgba(255,207,77,.35)' : 'rgba(255,233,168,.18)';
+      const t = it.type, rr = Math.max(5, it.w / 2 * s);
+      if (/cassette/.test(t)) { g.fillRect(-it.w * s / 2, -it.d * s / 2, it.w * s, it.d * s); g.strokeRect(-it.w * s / 2, -it.d * s / 2, it.w * s, it.d * s); g.beginPath(); g.moveTo(-it.w * s / 2 + 4, it.d * s / 2 - 5); g.lineTo(it.w * s / 2 - 4, it.d * s / 2 - 5); if (t === 'cassette2') { g.moveTo(-it.w * s / 2 + 4, -it.d * s / 2 + 5); g.lineTo(it.w * s / 2 - 4, -it.d * s / 2 + 5); } g.stroke(); }
+      else if (t === 'downlight') { g.beginPath(); g.arc(0, 0, Math.max(6, rr), 0, 7); g.fill(); g.stroke(); g.beginPath(); g.moveTo(-rr, 0); g.lineTo(rr, 0); g.moveTo(0, -rr); g.lineTo(0, rr); g.stroke(); }
+      else if (t === 'smoke') { g.beginPath(); g.arc(0, 0, Math.max(7, rr), 0, 7); g.fill(); g.stroke(); g.fillStyle = '#ffe9a8'; g.font = 'bold 10px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('S', 0, 0); }
+      else { g.beginPath(); g.arc(0, 0, rr, 0, 7); g.fill(); g.stroke(); g.beginPath(); g.moveTo(-4, 0); g.lineTo(4, 0); g.moveTo(0, -4); g.lineTo(0, 4); g.stroke(); }
+      g.restore(); }
+  }
   // 階段:段の線と、上る向きの矢印
   drawStair(g, r) {
     const L = stairLayout(r, floorH()); const s = this.scale; g.save(); g.lineWidth = 1;
@@ -245,12 +287,12 @@ export class PlanEditor {
     // ほかの階の部屋は、うすい点線で(上下をそろえる目安)
     if (hasUpper(this.app.project.rooms)) for (const r of this.app.project.rooms) { if (onLevel(r, this.level)) continue; g.beginPath(); r.poly.forEach(([x, z], i) => { const [px, pz] = this.toPx(x, z); if (i === 0) g.moveTo(px, pz); else g.lineTo(px, pz); }); g.closePath(); g.setLineDash([5, 5]); g.strokeStyle = 'rgba(255,255,255,.22)'; g.lineWidth = 1; g.stroke(); g.setLineDash([]); }
     for (const r of rooms) {
-      normalizeRoom(r); const selected = this.sel && this.sel.room === r; const path = () => { g.beginPath(); r.poly.forEach(([x, z], i) => { const [px, pz] = this.toPx(x, z); if (i === 0) g.moveTo(px, pz); else g.lineTo(px, pz); }); g.closePath(); };
+      normalizeRoom(r); const selected = !this.ceil && this.sel && this.sel.room === r; const path = () => { g.beginPath(); r.poly.forEach(([x, z], i) => { const [px, pz] = this.toPx(x, z); if (i === 0) g.moveTo(px, pz); else g.lineTo(px, pz); }); g.closePath(); };
       path(); g.fillStyle = selected ? '#3a3f55' : r.closet ? '#30283a' : '#2a2e3a'; g.fill();
       if (r.closet) { g.save(); path(); g.clip(); g.strokeStyle = 'rgba(199,166,242,.25)'; g.lineWidth = 1; const b0 = this.toPx(r.x, r.z), b1 = this.toPx(r.x + r.w, r.z + r.d); for (let k = b0[0] - (b1[1] - b0[1]); k < b1[0]; k += 8) { g.beginPath(); g.moveTo(k, b1[1]); g.lineTo(k + (b1[1] - b0[1]), b0[1]); g.stroke(); } g.restore(); }
       if (r.stair) this.drawStair(g, r);
       path(); g.strokeStyle = '#e8e8e8'; g.lineWidth = Math.max(3, WALL_T * s); g.lineJoin = 'miter'; g.stroke();
-      for (const it of this.app.project.items) { if (it.roomId !== r.id) continue; const e = catalogEntry(it.type); if (!e) continue; const [ix, iz] = this.toPx(it.x, it.z); g.save(); g.translate(ix, iz); g.rotate(-(it.rot || 0)); g.fillStyle = e.cat === '照明' ? 'rgba(255,220,120,.7)' : e.kind === 'wall' ? 'rgba(120,180,255,.7)' : 'rgba(200,200,200,.45)'; const iw = it.w * s, id = (e.kind === 'wall' ? 0.08 : it.d) * s; g.fillRect(-iw / 2, e.kind === 'wall' ? 0 : -id / 2, iw, id); g.restore(); }
+      if (this.ceil) this.drawCeil(g, r); else for (const it of this.app.project.items) { if (it.roomId !== r.id) continue; const e = catalogEntry(it.type); if (!e) continue; const [ix, iz] = this.toPx(it.x, it.z); g.save(); g.translate(ix, iz); g.rotate(-(it.rot || 0)); g.fillStyle = e.cat === '照明' ? 'rgba(255,220,120,.7)' : e.kind === 'wall' ? 'rgba(120,180,255,.7)' : 'rgba(200,200,200,.45)'; const iw = it.w * s, id = (e.kind === 'wall' ? 0.08 : it.d) * s; g.fillRect(-iw / 2, e.kind === 'wall' ? 0 : -id / 2, iw, id); g.restore(); }
       for (const p of (r.parts || [])) { const b = partBox(p); const [cx, cz] = this.toPx(b.cx, b.cz); const psel = this.sel && this.sel.kind === 'part' && this.sel.part === p; g.save(); g.translate(cx, cz); g.rotate(-b.rot); if (p.type === 'beam') { g.setLineDash([6, 4]); g.strokeStyle = psel ? '#ffcf4d' : 'rgba(255,255,255,.6)'; g.lineWidth = 2; g.strokeRect(-b.w * s / 2, -b.d * s / 2, b.w * s, b.d * s); g.setLineDash([]); } else { g.fillStyle = psel ? '#ffcf4d' : '#e8e8e8'; g.fillRect(-b.w * s / 2, -b.d * s / 2, b.w * s, b.d * s); } g.restore();
         if (selected) { if (p.type === 'wall') { for (const [x, z] of [[p.x1, p.z1], [p.x2, p.z2]]) { const [hx, hz] = this.toPx(x, z); g.fillStyle = '#ffcf4d'; g.beginPath(); g.arc(hx, hz, 6, 0, 7); g.fill(); } } else { const [hx, hz] = this.toPx(p.x + p.w, p.z + p.d); g.fillStyle = '#ffcf4d'; g.fillRect(hx - 5, hz - 5, 10, 10); } }
         if (psel) { if (p.type === 'wall') { this.dimLabel(g, cx, cz - 14, `${mm(b.L)} × 厚${mm(p.t || WALL_T)}`); } else { this.dimLabel(g, cx, cz - b.d * s / 2 - 10, mm(p.w)); this.dimLabel(g, cx + b.w * s / 2 + 22, cz, mm(p.d)); } } }

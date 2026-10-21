@@ -59,7 +59,8 @@ export function demoProject() {
   const wa = room('wa', '和室', 0, 0, 5, 3, 8, { floor: { lib: 'tatami' }, walls: { 0: { lib: 'wp_warm' }, 1: { lib: 'wp_warm' }, 2: { lib: 'wp_warm' }, 3: { lib: 'wp_warm' } } });
   const ldk = room('ldk', 'LDK', 0, 3, 2, 9, 8, { walls: { 0: W0, 1: { lib: 'wp_greige' }, 2: W0, 3: W0 } });
   // 梁:2階の子供部屋1とWICの間の壁を受ける大きな梁(LDKの真ん中、南北に通す)。最初はクロス巻き込み・天井と同じ。木を見せる化粧梁にもできる
-  ldk.parts.push({ id: 'beam1', type: 'beam', x: 6 * G - 0.075, z: ldk.z, w: 0.15, d: ldk.d, drop: 0.3, finish: 'cross' }); // テレビの後ろ(東)をアクセントクロス
+  // 梁の幅150(木の実寸)。クロス巻き込みは下地13+石膏ボード12を両側に足して見付200、天井から100下がる(梁の大部分は天井の中)
+  ldk.parts.push({ id: 'beam1', type: 'beam', x: 6 * G - 0.1, z: ldk.z, w: 0.2, d: ldk.d, core: 0.15, drop: 0.1, finish: 'cross' }); // テレビの後ろ(東)をアクセントクロス
   // ---------- 2階 ----------
   //    x: 0  1  2  3  4  5  6  7  8
   // z0  収A 収A ト ト ホ 子2 子2 子2 子2
@@ -78,8 +79,8 @@ export function demoProject() {
   const stoB = room('stoB', '納戸', 1, 0, 1, 1, 4, { closet: 'storage' });
   const stoC = room('stoC', '物入れ', 1, 3, 2, 4, 4, { closet: 'storage' }); // 階段の横の残り
   const kid2 = room('kid2', '子供部屋2', 1, 5, 0, 9, 3, { floor: { lib: 'whiteash' }, walls: { 0: W0, 1: { lib: 'wp_green' }, 2: W0, 3: W0 } });
-  const cl2 = room('cl2', 'クローゼット', 1, 5, 3, 7, 4, { closet: 'cl' });
-  const cl1 = room('cl1', 'クローゼット', 1, 7, 3, 9, 4, { closet: 'cl' });
+  const cl2 = room('cl2', 'クローゼット', 1, 5, 3, 7, 4, { closet: 'cl', floor: { lib: 'whiteash' } });
+  const cl1 = room('cl1', 'クローゼット', 1, 7, 3, 9, 4, { closet: 'cl', floor: { lib: 'whiteash' } });
   const master = room('master', '主寝室', 1, 0, 4, 4, 8, { walls: { 0: { lib: 'wp_navy' }, 1: W0, 2: W0, 3: W0 } }); // ベッドの頭(北)をアクセントクロス
   const wic = room('wic', 'WIC', 1, 4, 5, 6, 8, { closet: 'wic' });
   const kid1 = room('kid1', '子供部屋1', 1, 6, 4, 9, 8, { floor: { lib: 'whiteash' }, walls: { 0: W0, 1: { lib: 'wp_blue' }, 2: W0, 3: W0 } });
@@ -89,7 +90,7 @@ export function demoProject() {
   link(genkan, 'E', hall1, 0.1, 1.56, { type: 'open', sill: 0.15, twinSill: 0, h: 2.2 }); // 上がり框(幅いっぱい)
   link(sic, 'N', genkan, 0.1, 0.7, { type: 'open', h: 2.0 }); // 土間からシューズインクローゼットへ(どちらも土間なので段なし)
   link(ldk, 'N', hall1, 3.0, 0.8, { swing: 'in', hinge: 'left', open: 0.85 });
-  link(wc1, 'S', hall1, 3.6, 0.7, { style: 'slide', open: 0 }); // 引き戸(ホールで開け閉めしても、ほかをふさがない)
+  link(wc1, 'S', hall1, 2.85, 0.7, { style: 'slide', open: 0 }); // 引き戸。入口は西の端、便器は入口から遠い東の壁
   link(wash, 'W', hall1, 1.0, 0.7, { swing: 'in', hinge: 'left', open: 0.8 });
   link(wash, 'E', bath, 0.95, 0.75, { swing: 'in', hinge: 'right', open: 0.85, style: 'bath' });
   link(stair, 'N', hall1, 1.88, 0.76, { type: 'open', h: 2.4 });                // 1階の上り口(北の辺の東半分)
@@ -104,7 +105,7 @@ export function demoProject() {
   // ---------- 出入り口・窓(2階) ----------
   link(hall2a, 'E', hall2b, 0.98, 0.77, { type: 'open', h: 2.4 });
   link(hall2b, 'S', hall2c, 3.72, 0.75, { type: 'open', h: 2.4 });
-  link(wc2, 'S', hall2b, 3.75, 0.7, { style: 'slide', open: 0 });
+  link(wc2, 'S', hall2a, 2.85, 0.7, { style: 'slide', open: 0 });
   link(stoA, 'S', hall2a, 1.2, 1.3, { type: 'closet', style: 'fold', open: 0 });
   link(stoB, 'S', master, 0.1, 0.7, { type: 'closet', style: 'fold', open: 0 }); // 納戸は主寝室からも使える
   link(stoB, 'E', hall2a, 1.0, 0.7, { type: 'closet', style: 'fold', open: 0 });
@@ -152,7 +153,7 @@ export function demoProject() {
   add('downlight', 'sic', 0.455, 2.55, 2.73, 0);
   // ホール・物入れ・トイレ・洗面・浴室
   add('downlight', 'hall1', 2.27, 2.4, 0.9, 0); add('downlight', 'hall1', 3.9, 2.4, 1.365, 0); add('switch', 'hall1', 2.67, 1.2, 0.5, -H);
-  add('toilet', 'wc1', 4.115, 0, 0.455, -H); add('paperholder', 'wc1', 3.86, 0.7, 0.06, 0); add('towelring', 'wc1', 2.79, 1.1, 0.45, H); add('downlight', 'wc1', 3.64, 2.4, 0.455, 0);
+  add('toilet', 'wc1', 4.115, 0, 0.455, -H); add('paperholder', 'wc1', 3.64, 0.7, 0.06, 0); add('towelring', 'wc1', 4.0, 1.1, 0.85, P); // 座って右にペーパー(床700・便座の先+100)、左にタオルリング add('downlight', 'wc1', 3.64, 2.4, 0.455, 0);
   add('washstand', 'wash', 5.0, 0, 0.335, 0, { w: 0.75 }); add('washer', 'wash', 5.85, 0, 0.38, 0); add('towelbar', 'wash', 4.61, 1.0, 0.78, H, { w: 0.3 });
   add('ceilingLight', 'wash', 5.46, 2.4, 0.91, 0, { w: 0.35 }); add('switch', 'wash', 4.61, 1.2, 0.85, H);
   add('unitbath', 'bath', 7.28, 0, 0.91, -H, { w: 1.7, d: 1.7, color: '#f6f6f3' }); add('downlight', 'bath', 7.28, 2.2, 0.91, 0);
@@ -173,7 +174,7 @@ export function demoProject() {
   add('curtain', 'kid2', 6.99, 1.425, 0.06, 0, { w: 1.08, h: 1.35, color: '#b9c9a5', opts: { open: 0.3 } });
   add('curtain', 'kid2', 8.13, 1.425, 0.69, -H, { w: 1.08, h: 1.35, color: '#b9c9a5', opts: { open: 0.3 } });
   // 2階のトイレ・ホール・収納
-  add('toilet', 'wc2', 4.115, 0, 0.455, -H); add('paperholder', 'wc2', 3.86, 0.7, 0.06, 0); add('towelring', 'wc2', 2.79, 1.1, 0.45, H); add('downlight', 'wc2', 3.64, 2.4, 0.455, 0);
+  add('toilet', 'wc2', 4.115, 0, 0.455, -H); add('paperholder', 'wc2', 3.64, 0.7, 0.06, 0); add('towelring', 'wc2', 4.0, 1.1, 0.85, P); add('downlight', 'wc2', 3.64, 2.4, 0.455, 0);
   add('switch', 'hall2a', 2.75, 1.2, 0.97, 0);
   add('downlight', 'hall2a', 2.3, 2.4, 1.365, 0); add('downlight', 'hall2b', 4.095, 2.4, 1.4, 0); add('downlight', 'hall2b', 4.095, 2.4, 2.7, 0); add('downlight', 'hall2c', 4.55, 2.4, 4.095, 0);
   add('downlight', 'stoA', 1.365, 2.4, 0.455, 0); add('downlight', 'stoB', 0.455, 2.4, 2.275, 0); add('downlight', 'stoC', 3.185, 2.4, 2.73, 0);

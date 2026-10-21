@@ -31,6 +31,15 @@ function light(group, color, intensity, x, y, z, opts = {}) {
 const WARM = '#ffe2b8', DAYLIGHT = '#fff6e8';
 
 // ---- 各アイテム ----
+// 天井カセットの形:パネル(厚み約35)、真ん中は吸い込み口(細かい格子)、長い辺に吹き出し口(羽根)
+function cassette(it, dirs) {
+  const g = new THREE.Group(), w = it.w, d = it.d, m = std(it.color, .35), dark = std('#3a3c40', .6), grille = std(it.color === '#2b2b2e' ? '#444' : '#dcdcd8', .6);
+  g.add(box(w, 0.035, d, m, 0, -0.0175, 0));
+  const sl = 0.06, gi = dirs === 2 ? d - sl * 2 - 0.12 : d - sl - 0.14; const gz = dirs === 2 ? 0 : -sl / 2;
+  g.add(box(w - 0.16, 0.004, gi, grille, 0, -0.036, gz)); for (let i = -6; i <= 6; i++) g.add(box(0.004, 0.003, gi - 0.02, dark, i * (w - 0.2) / 12, -0.0385, gz));
+  const slots = dirs === 2 ? [-1, 1] : [1]; for (const sd of slots) { const z = sd * (d / 2 - 0.04 - sl / 2); g.add(box(w - 0.12, 0.006, sl, dark, 0, -0.037, z)); const vane = box(w - 0.14, 0.004, sl * 0.9, m, 0, -0.041, z); vane.rotation.x = sd * 0.35; g.add(vane); }
+  return g;
+}
 export const CATALOG = {
   curtain: { name: 'カーテン', emoji: '🪟', cat: '窓まわり', kind: 'wall', size: [1.8, 2.0, 0.15], color: '#d9cdb8', fabric: 'plain', opts: { open: 0.3, lace: true, pleat: 1.5, box: false },
     words: ['カーテン', 'ドレープ', 'かーてん'], params: [['open', '開き具合', 0, 1], ['pleat', 'ヒダの多さ', 1, 2.5], ['lace', 'レースも', 'bool'], ['box', 'カーテンボックス', 'bool']],
@@ -155,7 +164,7 @@ export const CATALOG = {
     build(it) { const g = new THREE.Group(); g.add(box(it.w, it.h, 0.025, std(it.color, .5), 0, 0, 0.0125)); g.add(box(it.w * 0.76, it.h * 0.42, 0.004, std('#1d2733', .2, .3), 0, it.h * 0.18, 0.027)); g.add(box(it.w * 0.3, 0.012, 0.004, std('#8fb4d8', .5), 0, -it.h * 0.25, 0.027)); return g; } },
   smoke: { name: '火災警報器', emoji: '🚨', cat: '電気', equip: true, kind: 'ceiling', size: [0.10, 0.035, 0.10], range: { w: [0.08, 0.15] }, color: '#f4f4f2', opts: {}, words: ['火災警報器', '火災報知器', '警報器', '煙感知器'],
     build(it) { const g = new THREE.Group(); g.add(cyl(it.w / 2, it.w / 2 * 0.9, 0.03, std(it.color, .5), 0, -0.015, 0, 24)); g.add(cyl(0.006, 0.006, 0.004, std('#d33', .4), 0, -0.032, 0.02, 8)); return g; } },
-  aircon: { name: 'エアコン(壁掛け)', emoji: '❄️', cat: '空調・換気', equip: true, kind: 'wall', size: [0.80, 0.29, 0.23], range: { w: [0.7, 1.0], h: [0.25, 0.35], d: [0.2, 0.3] }, attachY: 'top', color: '#f6f6f3', opts: {}, words: ['エアコン', 'クーラー', '冷房', '暖房機'],
+  aircon: { palette: true, name: 'エアコン(壁掛け)', emoji: '❄️', cat: '空調・換気', equip: true, kind: 'wall', size: [0.80, 0.29, 0.23], range: { w: [0.7, 1.0], h: [0.25, 0.35], d: [0.2, 0.3] }, attachY: 'top', color: '#f6f6f3', opts: {}, words: ['エアコン', 'クーラー', '冷房', '暖房機'],
     build(it) { const g = new THREE.Group(), w = it.w, h = it.h, d = it.d; g.add(box(w, h, d * 0.85, std(it.color, .35), 0, 0, d * 0.425)); g.add(box(w * 0.98, h * 0.5, 0.01, std(it.color, .25), 0, h * 0.2, d * 0.85 + 0.005)); g.add(box(w * 0.9, 0.03, 0.02, std('#4a4f57', .4), 0, -h * 0.32, d * 0.82)); g.add(box(0.03, 0.006, 0.004, std('#5fd36a', .3), w * 0.38, -h * 0.1, d * 0.86)); return g; } },
   register: { name: '給気口(レジスター)', emoji: '⭕', cat: '空調・換気', equip: true, kind: 'wall', size: [0.15, 0.15, 0.03], range: { w: [0.1, 0.25] }, attachY: 2.0, color: '#f4f4f2', opts: {}, words: ['給気口', 'レジスター', '吸気口', '換気口', '通気口'],
     build(it) { const g = new THREE.Group(), r = it.w / 2; const m = std(it.color, .5); g.add(cyl(r, r, 0.012, m, 0, 0, 0.006).rotateX(Math.PI / 2)); g.add(cyl(r * 0.8, r * 0.8, 0.02, m, 0, 0, 0.02).rotateX(Math.PI / 2)); g.add(cyl(r * 0.84, r * 0.84, 0.006, std('#55585e', .5), 0, 0, 0.012).rotateX(Math.PI / 2)); return g; } },
@@ -205,6 +214,11 @@ export const CATALOG = {
       for (let i = 0; i < n; i++) { const x = -w / 2 + lw * (i + 0.5); g.add(box(lw - 0.006, dh, 0.025, m, x, dh / 2 + 0.01, d / 2 - 0.0125)); if (i % 2 === 1) g.add(box(0.012, 0.25, 0.02, metal, x - lw / 2 + 0.04, 1.0, d / 2 + 0.01)); if (i > 0) g.add(box(0.004, dh, 0.004, line, x - lw / 2, dh / 2 + 0.01, d / 2 + 0.001)); }
       return g;
     } },
+  // 天井埋込カセット形エアコン(住宅用)。1方向:パネル 1,200×460、2方向:1,050×560(ダイキン・パナソニックのハウジングエアコンの大きさ)
+  cassette1: { name: '天井エアコン(1方向)', emoji: '❄️', cat: '空調・換気', equip: true, kind: 'ceiling', size: [1.2, 0.04, 0.46], range: { w: [0.9, 1.3], d: [0.4, 0.6] }, color: '#f4f4f2', palette: true, opts: {}, words: ['天井エアコン', '天井埋込', 'カセットエアコン', '天井カセット'],
+    build(it) { return cassette(it, 1); } },
+  cassette2: { name: '天井エアコン(2方向)', emoji: '❄️', cat: '空調・換気', equip: true, kind: 'ceiling', size: [1.05, 0.04, 0.56], range: { w: [0.9, 1.3], d: [0.45, 0.7] }, color: '#f4f4f2', palette: true, opts: {}, words: ['天井エアコン2方向', '2方向カセット', 'ダブルフロー'],
+    build(it) { return cassette(it, 2); } },
   // 冷蔵庫(3〜4人家族で 幅650・高さ1,800・奥行700 くらい)
   fridge: { name: '冷蔵庫', emoji: '🧊', cat: '水まわり', equip: true, kind: 'floor', size: [0.65, 1.8, 0.7], range: { w: [0.5, 0.9], h: [1.2, 1.9], d: [0.6, 0.75] }, color: '#e9e9e7', opts: {}, words: ['冷蔵庫', 'れいぞうこ'],
     build(it) { const g = new THREE.Group(), w = it.w, h = it.h, d = it.d, m = std(it.color, .3, .1), metal = std(METAL, .25, .8); g.add(box(w, h, d - 0.02, m, 0, h / 2, -0.01)); for (const [y0, y1] of [[0.05, 0.62], [0.65, h - 0.02]]) { g.add(box(w - 0.01, y1 - y0, 0.02, m, 0, (y0 + y1) / 2, d / 2 - 0.01)); g.add(box(0.015, Math.min(0.4, (y1 - y0) * 0.6), 0.025, metal, w / 2 - 0.05, (y0 + y1) / 2, d / 2 + 0.01)); } return g; } },

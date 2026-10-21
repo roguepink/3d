@@ -25,7 +25,9 @@ class App {
       hitTest: (x, y) => { const h = this.hitAt(x, y); return h && h.itemId ? { itemId: h.itemId, selected: h.itemId === this.selectedId, point: h.point } : null; }, onDragItem: (ph, e, h) => this.dragItem(ph, e, h),
       onDoubleTap: (x, y, e) => this.onDoubleTap(x, y, e), onZoom: (k, step, pinch) => { if (step) { this.setZoom(this.s3.zoom * k); return; } if (pinch) { if (!pinch.z0) pinch.z0 = this.s3.zoom; this.setZoom(pinch.z0 * k, true); } else this.zoomLabel(true); } });
     this.plan = new PlanEditor(this, $('#planCanvas'));
-    this.selHelper = new THREE.Box3Helper(new THREE.Box3(), 0xffcf4d); this.selHelper.visible = false; this.s3.helperGroup.add(this.selHelper);
+    // 選んだ物の黄色い枠。カーテンの裏などに隠れていても見えるように、ほかの物より手前に描く
+    this.selHelper = new THREE.Box3Helper(new THREE.Box3(), 0xffcf4d); this.selHelper.material.depthTest = false; this.selHelper.material.transparent = true; this.selHelper.renderOrder = 998; this.selHelper.visible = false; this.s3.helperGroup.add(this.selHelper);
+    this.selFill = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial({ color: 0xffcf4d, transparent: true, opacity: 0.16, depthTest: false, depthWrite: false })); this.selFill.renderOrder = 997; this.selFill.visible = false; this.s3.helperGroup.add(this.selFill);
     this.pinMesh = new THREE.Mesh(new THREE.RingGeometry(0.06, 0.09, 24), new THREE.MeshBasicMaterial({ color: 0xffcf4d, side: THREE.DoubleSide, depthTest: false })); this.pinMesh.visible = false; this.pinMesh.renderOrder = 10; this.s3.helperGroup.add(this.pinMesh);
     this.s3.onFrame = dt => this.frame(dt);
     this.bindUI(); this.initStart();
@@ -53,7 +55,8 @@ class App {
     for (const b of $$('#edit [data-mv]')) b.onclick = () => this.editMove(b.dataset.mv);
     for (const b of $$('#editTabs [data-etab]')) b.onclick = () => this.editTab(b.dataset.etab);
     { const grab = $('#editGrab'); let y0 = null, h0 = 0; grab.addEventListener('pointerdown', e => { y0 = e.clientY; h0 = $('#edit').getBoundingClientRect().height; try { grab.setPointerCapture(e.pointerId); } catch {} }); grab.addEventListener('pointermove', e => { if (y0 === null) return; const dy = y0 - e.clientY; if (Math.abs(dy) > 30) { this.editHeight(dy > 0 ? 'high' : 'low'); y0 = null; } }); grab.addEventListener('pointerup', e => { if (y0 !== null && Math.abs(y0 - e.clientY) < 8) this.editHeight($('#edit').classList.contains('high') ? 'low' : 'high'); y0 = null; }); }
-    { const pk = $('#editPeek'); const on = e => { e.preventDefault(); try { pk.setPointerCapture(e.pointerId); } catch {} document.body.classList.add('peeking'); this.updateInset(); }; const off = () => { if (!document.body.classList.contains('peeking')) return; document.body.classList.remove('peeking'); this.updateInset(); }; pk.addEventListener('pointerdown', on); pk.addEventListener('pointerup', off); pk.addEventListener('pointercancel', off); pk.addEventListener('pointerleave', off); pk.addEventListener('contextmenu', e => e.preventDefault()); }
+    // 👁:押している間だけ欄を消して、部屋全体を見る(どの欄にもある)
+    for (const pk of $$('.peek')) { const on = e => { e.preventDefault(); try { pk.setPointerCapture(e.pointerId); } catch {} document.body.classList.add('peeking'); this.updateInset(); }; const off = () => { if (!document.body.classList.contains('peeking')) return; document.body.classList.remove('peeking'); this.updateInset(); }; pk.addEventListener('pointerdown', on); pk.addEventListener('pointerup', off); pk.addEventListener('pointercancel', off); pk.addEventListener('pointerleave', off); pk.addEventListener('contextmenu', e => e.preventDefault()); }
     $('#edit [data-close=edit]').onclick = () => this.select(null);
     if (window.ResizeObserver) new ResizeObserver(() => this.updateInset()).observe($('#edit'));
     window.addEventListener('resize', () => this.updateInset());
@@ -181,7 +184,7 @@ class App {
     this.mode = m; this.s3.mode = m === 'walk' ? 'walk' : 'orbit'; document.body.classList.toggle('plan-mode', m === 'plan'); document.body.classList.toggle('orbit-mode', m === 'orbit');
     for (const b of $$('#modes .mode')) b.classList.toggle('on', b.dataset.mode === m);
     this.walk.enabled = m === 'walk'; this.s3.orbit.enabled = m === 'orbit';
-    $('#plan').classList.toggle('hidden', m !== 'plan'); if (m === 'plan') this.plan.show(); else this.plan.hide();
+    $('#plan').classList.toggle('hidden', m !== 'plan'); if (m === 'plan') this.plan.show(); else { this.plan.hide(); if (this.plan.ceil) this.plan.setCeil(false); }
     if (m === 'orbit') { if (this.levelView === undefined || this.levelView === null && !this._lvAll) this.levelView = hasUpper(this.project.rooms) ? this.walkLevel() : null; this.fitOrbit(); } this.applyCeilingVisibility(); this.applyLevels(); this.closeSheets();
   }
   fitOrbit() { const b = houseBounds(this.project ? this.project.rooms : []); const cx = (b.minX + b.maxX) / 2, cz = (b.minZ + b.maxZ) / 2, size = Math.max(b.maxX - b.minX, b.maxZ - b.minZ, 3); const asp = this.s3.orbitCam.aspect || 1, k = Math.max(1, 0.8 / asp); const ty = this.project && hasUpper(this.project.rooms) && this.levelView != null ? this.levelView * floorH() : 0; this.s3.orbitCam.position.set(cx + size * 0.25 * k, ty + (size * 1.15 + 2) * k, cz + size * 1.0 * k); this.s3.orbit.target.set(cx, ty + 0.5, cz); this.s3.orbit.update(); }
@@ -226,6 +229,25 @@ class App {
     if (v) { const hasF = /クローゼット|押入|収納|納戸|シューズ|物入/.test(room.name); if (!hasF) room.name = { cl: 'クローゼット', wic: 'ウォークインクローゼット', oshiire: '押入れ', sic: 'シューズクローク', storage: '納戸' }[v]; }
     this.rebuildHouse(); this.rebuildItems(); this.applyLevels(); this.touched(); this.toast(v ? '収納にしました。戸をタップすると開きます' : 'ふつうの部屋にしました', 2200);
   }
+  // 壁の物(コンセント・スイッチなど):同じ壁のほかの物と、高さ(横の線)・左右の位置(縦の線)がそろう所で、いったん止まる
+  wallMates(it, r, edge) { const f = edgeFrame(r, edge); return this.project.items.filter(o => o !== it && o.roomId === r.id && catalogEntry(o.type).kind === 'wall' && Math.abs((o.x - f.A[0]) * f.normal.x + (o.z - f.A[1]) * f.normal.z) < 0.08).map(o => ({ o, u: (o.x - f.A[0]) * f.along.x + (o.z - f.A[1]) * f.along.z, y: o.y })); }
+  snapWall(it, r, edge, u, y) { const T = 0.025; let bu = null, by = null; for (const m of this.wallMates(it, r, edge)) { if (Math.abs(m.u - u) < T && (bu === null || Math.abs(m.u - u) < Math.abs(bu - u))) bu = m.u; if (Math.abs(m.y - y) < T && (by === null || Math.abs(m.y - y) < Math.abs(by - y))) by = m.y; } return [bu ?? u, by ?? y]; }
+  // そろい線(選んでいる物が、ほかの物と横・縦にそろっているとき)。天井の物は、部屋の真ん中で赤い十字
+  updateGuides() {
+    if (!this._guides) { this._guides = new THREE.Group(); this.s3.helperGroup.add(this._guides); } const G = this._guides; while (G.children.length) { const c = G.children.pop(); c.geometry.dispose(); }
+    const it = this.selectedId && this.item(this.selectedId); if (!it) return; const c = catalogEntry(it.type), r = this.room(it.roomId); if (!r) return; const base = baseOf(r), e = 0.004;
+    const line = (a, b, col) => { const g = new THREE.BufferGeometry().setFromPoints([a, b]); const l = new THREE.Line(g, new THREE.LineBasicMaterial({ color: col, depthTest: false, transparent: true })); l.renderOrder = 999; G.add(l); };
+    if (c.kind === 'wall') { const ne = nearestEdge(r, new THREE.Vector3(it.x, 0, it.z)); const f = edgeFrame(r, ne); const u = (it.x - f.A[0]) * f.along.x + (it.z - f.A[1]) * f.along.z; const ms = this.wallMates(it, r, ne);
+      const P = (uu, yy) => wallPoint(r, ne, uu, yy + base, 0.012);
+      const hs = ms.filter(m => Math.abs(m.y - it.y) < e); if (hs.length) { const us = [u, ...hs.map(m => m.u)]; line(P(Math.min(...us) - 0.2, it.y), P(Math.max(...us) + 0.2, it.y), 0x4fd1ff); }
+      const vs = ms.filter(m => Math.abs(m.u - u) < e); if (vs.length) { const ys = [it.y, ...vs.map(m => m.y)]; line(P(u, Math.min(...ys) - 0.2), P(u, Math.max(...ys) + 0.2), 0x4fd1ff); } }
+    if (c.kind === 'ceiling') { const y = base + r.h - 0.01, cx = r.x + r.w / 2, cz = r.z + r.d / 2; const V = (x, z) => new THREE.Vector3(x, y, z);
+      const others = this.project.items.filter(o => o !== it && o.roomId === r.id && catalogEntry(o.type).kind === 'ceiling');
+      if (Math.abs(it.x - cx) < e) line(V(it.x, r.z), V(it.x, r.z + r.d), 0xff5a5a); else if (others.some(o => Math.abs(o.x - it.x) < e)) line(V(it.x, r.z), V(it.x, r.z + r.d), 0x4fd1ff);
+      if (Math.abs(it.z - cz) < e) line(V(r.x, it.z), V(r.x + r.w, it.z), 0xff5a5a); else if (others.some(o => Math.abs(o.z - it.z) < e)) line(V(r.x, it.z), V(r.x + r.w, it.z), 0x4fd1ff); }
+  }
+  // 天井の物を動かすときは、天井の図(真上から)にする
+  openCeilingPlan(it) { const r = this.room(it.roomId); this.closeSheets(); this.setMode('plan'); this.plan.setLevel(levelOf(r)); this.plan.setCeil(true, it); this.plan.fit(); this.plan.draw(); this.toast('天井の図です。引っぱると動きます。部屋の真ん中や、ほかの物とそろうと線が出ます。「歩く」で戻ります', 3500); }
   // クローゼット・押入れの戸:タップで開け閉め(中が見える)
   toggleCloset(h) { const room = this.room(h.roomId); const o = room && room.openings.find(x => x.id === h.openingId); if (!o) return; o.open = (o.open || 0) > 0.5 ? 0 : 1; this.rebuildHouse(); this.applyLevels(); this.applyCeilingVisibility(); this.touched(); this.toast(o.open ? '開けました(もう一度タップで閉めます)' : '閉めました', 1400); }
   // ダブルタップ:何でも選んで直せる
@@ -293,6 +315,7 @@ class App {
       else if (dist < 0.9 || type === 'rug') it.rot = type === 'rug' ? 0 : f.rotY; else { const cam = this.s3.camera.position; it.rot = Math.atan2(cam.x - it.x, cam.z - it.z); }
       if (type !== 'rug' && dist < it.d / 2 + 0.02) { const push = it.d / 2 + 0.02 - dist; it.x += f.normal.x * push; it.z += f.normal.z * push; }
     }
+    if (type === 'toilet' && !over.keepPose) this.toiletPose(it, room);
     this.project.items.push(it); this.addItemMesh(it); if (type === 'toilet' || type === 'washstand') this.addAccessories(it); this.updateShadowLights(); this.setPin(null); this.touched(); return it;
   }
 
@@ -301,7 +324,10 @@ class App {
     const prev = this.selectedId; this.selectedId = id; this.updateSelHelper(); if (!id) { $('#edit').classList.add('hidden'); this.updateInset(); this.restoreView(); return; }
     const it = this.item(id), c = catalogEntry(it.type); const wasOpen = !$('#edit').classList.contains('hidden'); this.openSheet('edit'); $('#editName').textContent = c.name; if (!wasOpen) this.editTab(this._etab || 'color', true);
     const colors = $('#editColors'); colors.innerHTML = '';
-    for (const [n, hex] of Object.entries(COLORS)) { const b = document.createElement('button'); b.className = 'chip' + (it.color === hex ? ' on' : ''); b.style.background = hex; b.title = n; b.onclick = () => { it.color = hex; this.rebuildItem(it); this.select(id); }; colors.appendChild(b); }
+    // エアコンなどは「白・グレー・黒」だけ先に出す。ほかの色は「その他」で開く
+    { const pal = c.palette ? { 白: '#f4f4f2', グレー: '#9a9da3', 黒: '#2b2b2e' } : null; const full = !pal || this._palOpen === id || !Object.values(pal).includes(it.color);
+      const list = pal && !full ? pal : COLORS; for (const [n, hex] of Object.entries(pal && !full ? pal : (pal ? { ...pal, ...COLORS } : COLORS))) { const b = document.createElement('button'); b.className = 'chip' + (it.color === hex ? ' on' : ''); b.style.background = hex; b.title = n; b.onclick = () => { it.color = hex; this.rebuildItem(it); this.select(id); }; colors.appendChild(b); }
+      if (pal && !full) { const more = document.createElement('button'); more.className = 'chip text'; more.textContent = 'その他'; more.onclick = () => { this._palOpen = id; this.select(id); }; colors.appendChild(more); } void list; }
     const mats = $('#editMats'); mats.innerHTML = '';
     if (c.fabric !== undefined && c.fabric !== null && it.type !== 'lace') { for (const f of SURFACE_LIB.fabric) { const b = document.createElement('button'); b.className = 'card sw' + (it.fabric === f.id ? ' on' : ''); b.appendChild(swatchCanvas('fabric', f.id, f.tint ? it.color : null)); const bb = document.createElement('b'); bb.textContent = f.name; b.appendChild(bb); b.onclick = () => { it.fabric = f.id; it.userTex = null; this.rebuildItem(it); this.select(id); }; mats.appendChild(b); }
       for (const [aid, a] of Object.entries(this.project.assets)) { if (a.kind !== 'tile') continue; const b = document.createElement('button'); b.className = 'card sw' + (it.userTex === aid ? ' on' : ''); const img = document.createElement('img'); img.src = a.dataUrl; b.appendChild(img); const bb = document.createElement('b'); bb.textContent = a.name || '写真'; b.appendChild(bb); b.onclick = () => { it.userTex = aid; it.texSize = a.size || .5; it.fabric = null; this.rebuildItem(it); this.select(id); }; mats.appendChild(b); }
@@ -323,7 +349,7 @@ class App {
     // 色・素材タブが空の物はない(色は全部にある)。選んだ物に寄る
     setTimeout(() => { this.updateInset(); if (id !== prev && !opts.noFrame) this.frameItem(id); }, 30);
   }
-  editTab(name, quiet) { this._etab = name; for (const b of $$('#editTabs [data-etab]')) b.classList.toggle('on', b.dataset.etab === name); for (const p of $$('#edit .epane')) p.classList.toggle('hidden', p.dataset.pane !== name); if (!quiet) setTimeout(() => this.updateInset(), 30); }
+  editTab(name, quiet) { if (name === 'pos' && !quiet) { const it = this.item(this.selectedId); if (it && catalogEntry(it.type).kind === 'ceiling') { this.openCeilingPlan(it); return; } } this._etab = name; for (const b of $$('#editTabs [data-etab]')) b.classList.toggle('on', b.dataset.etab === name); for (const p of $$('#edit .epane')) p.classList.toggle('hidden', p.dataset.pane !== name); if (!quiet) setTimeout(() => this.updateInset(), 30); }
   editHeight(h) { $('#edit').classList.toggle('high', h === 'high'); $('#edit').classList.toggle('low', h !== 'high'); setTimeout(() => { this.updateInset(); if (this.selectedId) this.frameItem(this.selectedId, true); }, 230); }
   // 編集欄でおおわれていない部分を3Dの表示の中心にする
   updateInset() {
@@ -367,7 +393,7 @@ class App {
     this._savedView = null; this._savedOrbit = null; this._framedAt = null;
   }
   animateView(to) { const cam = this.s3.camera; const from = { x: cam.position.x, z: cam.position.z, yaw: this.walk.yaw, pitch: this.walk.pitch, eye: this.walk.eye }; if (to.eye === undefined) to.eye = from.eye; let dyaw = to.yaw - from.yaw; dyaw = Math.atan2(Math.sin(dyaw), Math.cos(dyaw)); const t0 = performance.now(), T = 450; this._anim = t => { const k = Math.min(1, (t - t0) / T), e = k < .5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2; cam.position.x = from.x + (to.x - from.x) * e; cam.position.z = from.z + (to.z - from.z) * e; if (to.gy !== undefined && k >= 1) this.walk.floorY = to.gy; this.walk.yaw = from.yaw + dyaw * e; this.walk.pitch = from.pitch + (to.pitch - from.pitch) * e; this.walk.eye = from.eye + (to.eye - from.eye) * e; if (k >= 1) { this._anim = null; this._framedAt = { x: to.x, z: to.z }; } }; }
-  updateSelHelper() { const g = this.selectedId && this.itemGroups.get(this.selectedId); if (!g) { this.selHelper.visible = false; return; } this.selHelper.box.setFromObject(g, true); this.selHelper.visible = true; }
+  updateSelHelper() { const g = this.selectedId && this.itemGroups.get(this.selectedId); if (!g) { this.selHelper.visible = false; this.selFill.visible = false; this.updateGuides && this.updateGuides(); return; } this.selHelper.box.setFromObject(g, true); this.selHelper.visible = true; const b = this.selHelper.box, sz = b.getSize(new THREE.Vector3()), c = b.getCenter(new THREE.Vector3()); this.selFill.scale.set(Math.max(sz.x, 0.01) + 0.01, Math.max(sz.y, 0.01) + 0.01, Math.max(sz.z, 0.01) + 0.01); this.selFill.position.copy(c); this.selFill.visible = true; this.updateGuides && this.updateGuides(); }
   editMove(op) {
     const it = this.item(this.selectedId); if (!it) return; const c = catalogEntry(it.type), room = this.room(it.roomId) || this.currentRoom(), step = (this.moveStep || (c.equip ? 10 : 100)) / 1000;
     if (op === 'del') { this.removeItem(it.id); return; }
@@ -380,9 +406,13 @@ class App {
     if (c.kind === 'wall') {
       // 壁に付く物:▲▼=床からの高さ、◀▶=壁にそって(壁に向かって見たときの左右)
       const f = frameFromRot(it.rot || 0);
-      if (m === 'u' || m === 'd') { const ny = it.y + (m === 'u' ? step : -step); it.y = Math.min(room.h - it.h / 2, Math.max(it.h / 2, ny)); }
+      // 途中にほかの物とそろう位置があれば、そこで1回止まる
+      const ne = nearestEdge(room, new THREE.Vector3(it.x, 0, it.z)), mates = this.wallMates(it, room, ne), ef = edgeFrame(room, ne); const curU = (it.x - ef.A[0]) * ef.along.x + (it.z - ef.A[1]) * ef.along.z;
+      const stopAt = (from, to, vals) => { const lo = Math.min(from, to), hi = Math.max(from, to); const hit = vals.filter(v => v > lo + 1e-4 && v < hi - 1e-4).sort((a, b) => Math.abs(a - from) - Math.abs(b - from))[0]; return hit ?? to; };
+      if (m === 'u' || m === 'd') { let ny = it.y + (m === 'u' ? step : -step); ny = stopAt(it.y, ny, mates.map(q => q.y)); it.y = Math.min(room.h - it.h / 2, Math.max(it.h / 2, ny)); }
       else { const s = m === 'r' ? 1 : -1; let nx = it.x + f.along.x * s * step, nz = it.z + f.along.z * s * step;
         if (it.edge !== null && it.edge !== undefined && room) { const L = wallLength(room, it.edge); const { u } = wallUV(room, it.edge, new THREE.Vector3(nx, 0, nz)); const cu = Math.min(L - it.w / 2, Math.max(it.w / 2, u)); const wp = wallPoint(room, it.edge, cu, 0, 0); nx = wp.x; nz = wp.z; }
+        { const nu = (nx - ef.A[0]) * ef.along.x + (nz - ef.A[1]) * ef.along.z; const su = stopAt(curU, nu, mates.map(q => q.u)); if (su !== nu) { nx += ef.along.x * (su - nu); nz += ef.along.z * (su - nu); } }
         it.x = nx; it.z = nz; }
     } else {
       // 床・天井の物:▲=奥へ ▼=手前へ ◀▶=左右(いま見ている向きで)
@@ -418,10 +448,11 @@ class App {
     if (phase === 'grab') { this._dragging = true; this.select(h.itemId, { noFrame: true }); try { navigator.vibrate && navigator.vibrate(20); } catch {} this.toast('つかみました。指を動かすと動きます', 1500); phase = 'start'; }
     const it = this.item(this.selectedId); if (!it) return; const c = catalogEntry(it.type), room = this.room(it.roomId) || this.currentRoom();
     const nx = e.clientX / this.canvas.clientWidth, ny = e.clientY / this.canvas.clientHeight;
+    if (phase === 'start' && c.kind === 'ceiling') { this._dragging = false; this._drag = null; this.openCeilingPlan(it); return; }
     if (phase === 'start') { this.snapshot(); const p0 = (h && h.point) || new THREE.Vector3(it.x, it.y, it.z); this._drag = { off: new THREE.Vector3(it.x - p0.x, 0, it.z - p0.z) }; return; }
     if (!this._drag) return;
     if (phase === 'end') { this.touched(); this.refreshPosNums(); if (this._dragging) { this._dragging = false; this.updateInset(); } return; }
-    if (c.kind === 'wall') { const hit0 = this.s3.pick(nx, ny, [this.s3.houseGroup]); if (!hit0) return; const u = hit0.object.userData; const r = this.room(u.roomId); if (!r) return; const hit = { ...hit0, point: hit0.point.clone().setY(hit0.point.y - baseOf(r)) }; if (u.kind === 'part') { const n = hit.face ? hit.face.normal.clone().transformDirection(hit.object.matrixWorld) : null; if (!n || Math.abs(n.y) > 0.5) return; it.rot = Math.atan2(n.x, n.z); it.x = hit.point.x + n.x * 0.004; it.z = hit.point.z + n.z * 0.004; it.y = Math.min(r.h - it.h / 2, Math.max(it.h / 2, hit.point.y)); it.edge = null; it.roomId = r.id; this.updateItemPose(it); return; } if (!(u.kind === 'wall' || u.kind === 'window')) return; const f = edgeFrame(r, u.edge); const { u: uu, v } = wallUV(r, u.edge, hit.point); const L = f.L; const cu = Math.min(L - it.w / 2, Math.max(it.w / 2, uu)); const wp = wallPoint(r, u.edge, cu, 0, 0); it.x = wp.x; it.z = wp.z; it.y = Math.min(r.h - it.h / 2, Math.max(it.h / 2, v)); it.rot = f.rotY; it.edge = u.edge; it.roomId = r.id; this.updateItemPose(it); return; }
+    if (c.kind === 'wall') { const hit0 = this.s3.pick(nx, ny, [this.s3.houseGroup]); if (!hit0) return; const u = hit0.object.userData; const r = this.room(u.roomId); if (!r) return; const hit = { ...hit0, point: hit0.point.clone().setY(hit0.point.y - baseOf(r)) }; if (u.kind === 'part') { const n = hit.face ? hit.face.normal.clone().transformDirection(hit.object.matrixWorld) : null; if (!n || Math.abs(n.y) > 0.5) return; it.rot = Math.atan2(n.x, n.z); it.x = hit.point.x + n.x * 0.004; it.z = hit.point.z + n.z * 0.004; it.y = Math.min(r.h - it.h / 2, Math.max(it.h / 2, hit.point.y)); it.edge = null; it.roomId = r.id; this.updateItemPose(it); return; } if (!(u.kind === 'wall' || u.kind === 'window')) return; const f = edgeFrame(r, u.edge); const { u: uu, v } = wallUV(r, u.edge, hit.point); const L = f.L; let cu = Math.min(L - it.w / 2, Math.max(it.w / 2, uu)); let vy = Math.min(r.h - it.h / 2, Math.max(it.h / 2, v)); [cu, vy] = this.snapWall(it, r, u.edge, cu, vy); const wp = wallPoint(r, u.edge, cu, 0, 0); it.x = wp.x; it.z = wp.z; it.y = vy; it.rot = f.rotY; it.edge = u.edge; it.roomId = r.id; this.updateItemPose(it); return; }
     const y = (c.kind === 'ceiling' ? room.h : it.y) + baseOf(room); const ray = this.s3.raycaster; ray.setFromCamera(new THREE.Vector2(nx * 2 - 1, -(ny * 2 - 1)), this.s3.activeCamera()); const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -y); const p = new THREE.Vector3(); if (!ray.ray.intersectPlane(plane, p)) return;
     p.add(this._drag.off); const r2 = roomAt(p, this.project.rooms, { level: levelOf(room) }) || room; it.roomId = r2.id; const [cx, cz] = clampIntoRoom(r2, p.x, p.z, Math.min(0.3, Math.min(it.w, it.d) / 2)); it.x = cx; it.z = cz; this.updateItemPose(it);
   }
@@ -593,8 +624,9 @@ class App {
       const a = f.origin.clone().addScaledVector(f.along, uu), b = a.clone().addScaledVector(f.normal, len); room.parts.push({ id, type: 'wall', x1: a.x, z1: a.z, x2: b.x, z2: b.z, h: cmd.size?.h || H });
     } else {
       // 部屋を横切る梁(見ている向きに直交)
-      const horiz = room.w >= room.d; const bw = horiz ? room.w : 0.3, bdp = horiz ? 0.3 : room.d; const x = horiz ? room.x : Math.min(room.x + room.w - 0.3, Math.max(room.x, pt.x - 0.15)), z = horiz ? Math.min(room.z + room.d - 0.3, Math.max(room.z, pt.z - 0.15)) : room.z;
-      room.parts.push({ id, type: 'beam', x, z, w: bw, d: bdp, drop: cmd.size?.h || 0.3 });
+      // 梁の幅150(クロス巻き込みで見付200)・天井から100下がる
+      const horiz = room.w >= room.d; const bw = horiz ? room.w : 0.2, bdp = horiz ? 0.2 : room.d; const x = horiz ? room.x : Math.min(room.x + room.w - 0.2, Math.max(room.x, pt.x - 0.1)), z = horiz ? Math.min(room.z + room.d - 0.2, Math.max(room.z, pt.z - 0.1)) : room.z;
+      room.parts.push({ id, type: 'beam', x, z, w: bw, d: bdp, core: 0.15, finish: 'cross', drop: cmd.size?.h || 0.1 });
     }
     this.rebuildHouse(); this.touched(); this.toast({ column: '柱型を足しました(間取りで動かせます)', wall: '袖壁を足しました(間取りで動かせます)', beam: '梁(下がり天井)を足しました' }[kind]); return id;
   }
@@ -620,12 +652,29 @@ class App {
   // トイレにはペーパーホルダーとタオルリング、洗面台にはタオル掛けを、横の壁に自動で付ける
   wallItemAt(type, room, edge, u, y) { const f = edgeFrame(room, edge); const it = newItem(type, { roomId: room.id }); u = Math.max(it.w / 2 + 0.02, Math.min(f.L - it.w / 2 - 0.02, u)); const p = wallPoint(room, edge, u, 0, 0); it.x = p.x; it.z = p.z; it.y = y; it.rot = f.rotY; it.edge = edge; this.project.items.push(it); this.addItemMesh(it); return it; }
   sideWall(room, x, z, dir) { let best = null; for (let e = 0; e < room.poly.length; e++) { const f = edgeFrame(room, e); if (f.normal.x * dir.x + f.normal.z * dir.z > -0.7) continue; const t = (x - f.A[0]) * f.along.x + (z - f.A[1]) * f.along.z; if (t < 0.05 || t > f.L - 0.05) continue; const d = edgeDistance(room, e, x, z); if (d > 0 && (!best || d < best.d)) best = { e, d, t }; } return best; }
+  // トイレの便器は、出入り口から遠い壁に背中を付けて置く(ドアの正面には置かない)
+  toiletPose(it, room) {
+    const doors = room.openings.filter(o => o.type !== 'window' && o.type !== 'niche'); let best = null;
+    for (let e = 0; e < room.poly.length; e++) { const f = edgeFrame(room, e); if (f.L < 0.6) continue; const mid = f.origin.clone().addScaledVector(f.along, f.L / 2);
+      let dmin = 99; for (const o of doors) { const g = edgeFrame(room, o.edge); const c = g.origin.clone().addScaledVector(g.along, o.u + o.w / 2); dmin = Math.min(dmin, Math.hypot(c.x - mid.x, c.z - mid.z)); }
+      if (doors.some(o => o.edge === e)) dmin -= 5; if (!best || dmin > best.d) best = { e, d: dmin, f }; }
+    if (!best) return; const f = best.f; const p = f.origin.clone().addScaledVector(f.along, f.L / 2).addScaledVector(f.normal, it.d / 2 + 0.01);
+    it.x = p.x; it.z = p.z; it.rot = Math.atan2(f.normal.x, f.normal.z);
+  }
+  // 小物を自動で付ける。トイレ:座って右の壁にペーパーホルダー(床から700・便座の先から100前)、左の壁にタオルリング(床から1,100)
+  // 洗面台:横の壁(近ければ)にタオル掛け
   addAccessories(it) {
-    const room = this.room(it.roomId); if (!room) return; const fx = Math.sin(it.rot || 0), fz = Math.cos(it.rot || 0); const sides = [{ x: fz, z: -fx }, { x: -fz, z: fx }];
-    const cands = sides.map(d => this.sideWall(room, it.x, it.z, d)).filter(Boolean).sort((a, b) => a.d - b.d); const sw = cands[0];
-    const at = (k) => { const px = it.x + fx * k, pz = it.z + fz * k; const f = edgeFrame(room, sw.e); return (px - f.A[0]) * f.along.x + (pz - f.A[1]) * f.along.z; };
-    if (it.type === 'toilet') { if (sw && sw.d < 1.2) { this.wallItemAt('paperholder', room, sw.e, at(0.2), 0.7); this.wallItemAt('towelring', room, sw.e, at(0.75), 1.1); } else { const back = this.sideWall(room, it.x, it.z, { x: -fx, z: -fz }); if (back) { this.wallItemAt('paperholder', room, back.e, back.t + 0.45, 0.7); this.wallItemAt('towelring', room, back.e, back.t - 0.45, 1.1); } } }
-    if (it.type === 'washstand') { if (sw && sw.d < 0.9) this.wallItemAt('towelbar', room, sw.e, at(0.15), 1.0); else { const back = this.sideWall(room, it.x, it.z, { x: -fx, z: -fz }); if (back) this.wallItemAt('towelbar', room, back.e, back.t + it.w / 2 + 0.4, 1.0); } }
+    const room = this.room(it.roomId); if (!room) return; const fx = Math.sin(it.rot || 0), fz = Math.cos(it.rot || 0);
+    const right = { x: -fz, z: fx }, left = { x: fz, z: -fx }; const back = { x: -fx, z: -fz };
+    const along = (w, k) => { const px = it.x + fx * k, pz = it.z + fz * k; const f = edgeFrame(room, w.e); return (px - f.A[0]) * f.along.x + (pz - f.A[1]) * f.along.z; };
+    if (it.type === 'toilet') {
+      const rw = this.sideWall(room, it.x, it.z, right), lw = this.sideWall(room, it.x, it.z, left), bw = this.sideWall(room, it.x, it.z, back);
+      const front = it.d / 2 + 0.1 - 0.05; // 中心から便座の先+100
+      if (rw && rw.d < 1.0) this.wallItemAt('paperholder', room, rw.e, along(rw, front), 0.7); else if (lw && lw.d < 1.0) this.wallItemAt('paperholder', room, lw.e, along(lw, front), 0.7); else if (bw) this.wallItemAt('paperholder', room, bw.e, bw.t + 0.45, 0.7);
+      const ringWall = (rw && rw.d < 1.0 && lw && lw.d < 1.0) ? lw : (lw && lw.d < 1.0 ? null : lw);
+      if (lw && lw.d < 1.2 && rw && rw.d < 1.0) this.wallItemAt('towelring', room, lw.e, along(lw, 0.2), 1.1); else if (bw) this.wallItemAt('towelring', room, bw.e, bw.t - 0.5, 1.1); void ringWall;
+    }
+    if (it.type === 'washstand') { const sw = [this.sideWall(room, it.x, it.z, right), this.sideWall(room, it.x, it.z, left)].filter(Boolean).sort((a, b) => a.d - b.d)[0]; if (sw && sw.d < 0.9) this.wallItemAt('towelbar', room, sw.e, along(sw, 0.15), 1.0); else { const bk = this.sideWall(room, it.x, it.z, back); if (bk) this.wallItemAt('towelbar', room, bk.e, bk.t + it.w / 2 + 0.4, 1.0); } }
   }
   removeOpening(room, id) { const o = (room.openings || []).find(x => x.id === id); if (!o) return; this.snapshot(); room.openings = room.openings.filter(x => x.id !== id); for (const r of this.project.rooms) r.openings = (r.openings || []).filter(x => x.twin !== id && x.id !== o.twin); this.rebuildHouse(); this.touched(); }
 

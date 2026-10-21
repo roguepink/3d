@@ -107,7 +107,7 @@ body.orbit-mode #walkpad, body.orbit-mode #crosshair { display:none; }
 #edit .sheet-head { margin-bottom:4px; } #edit .sheet-head b { margin-right:auto; } #edit .peek { width:40px; height:40px; font-size:18px; margin-right:6px; }
 .grab { display:flex; justify-content:center; padding:4px 0 6px; cursor:ns-resize; touch-action:none; } .grab span { width:44px; height:5px; border-radius:3px; background:rgba(255,255,255,.35); }
 .etabs { margin-bottom:4px; } .etabs button { padding:6px 14px; }
-body.peeking #edit { opacity:0; pointer-events:none; } body.peeking #edit .peek { pointer-events:auto; }
+body.peeking .sheet { opacity:0; pointer-events:none; } body.peeking .sheet .peek { pointer-events:auto; opacity:1; }
 #editStep { gap:6px; } #editStep .chip.text { min-height:32px; padding:4px 10px; font-size:13px; }
 @media (min-width:700px) { #edit.sheet.low, #edit.sheet.high { height:auto; max-height:85vh; } }
 #edit .chips { max-height:none; }
@@ -189,3 +189,4 @@ body.plan-mode #levelBar, body.sheet-open #levelBar { display:none; }
 .stair-info .note { font-size:13px; color:var(--muted); margin:6px 0; line-height:1.5; }
 .stair-info .warn { font-size:13px; color:#ffb4a8; margin:6px 0; line-height:1.6; }
 .stair-info .warn button { margin-top:4px; }
+.sheet-head .peek { width:40px; height:40px; font-size:18px; margin-right:6px; }
