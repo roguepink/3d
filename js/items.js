@@ -205,6 +205,9 @@ export const CATALOG = {
       for (let i = 0; i < n; i++) { const x = -w / 2 + lw * (i + 0.5); g.add(box(lw - 0.006, dh, 0.025, m, x, dh / 2 + 0.01, d / 2 - 0.0125)); if (i % 2 === 1) g.add(box(0.012, 0.25, 0.02, metal, x - lw / 2 + 0.04, 1.0, d / 2 + 0.01)); if (i > 0) g.add(box(0.004, dh, 0.004, line, x - lw / 2, dh / 2 + 0.01, d / 2 + 0.001)); }
       return g;
     } },
+  // 冷蔵庫(3〜4人家族で 幅650・高さ1,800・奥行700 くらい)
+  fridge: { name: '冷蔵庫', emoji: '🧊', cat: '水まわり', equip: true, kind: 'floor', size: [0.65, 1.8, 0.7], range: { w: [0.5, 0.9], h: [1.2, 1.9], d: [0.6, 0.75] }, color: '#e9e9e7', opts: {}, words: ['冷蔵庫', 'れいぞうこ'],
+    build(it) { const g = new THREE.Group(), w = it.w, h = it.h, d = it.d, m = std(it.color, .3, .1), metal = std(METAL, .25, .8); g.add(box(w, h, d - 0.02, m, 0, h / 2, -0.01)); for (const [y0, y1] of [[0.05, 0.62], [0.65, h - 0.02]]) { g.add(box(w - 0.01, y1 - y0, 0.02, m, 0, (y0 + y1) / 2, d / 2 - 0.01)); g.add(box(0.015, Math.min(0.4, (y1 - y0) * 0.6), 0.025, metal, w / 2 - 0.05, (y0 + y1) / 2, d / 2 + 0.01)); } return g; } },
   // 洗濯機(縦型)と洗濯パン
   washer: { name: '洗濯機', emoji: '🫧', cat: '水まわり', equip: true, kind: 'floor', size: [0.6, 1.0, 0.6], range: { w: [0.5, 0.75], h: [0.85, 1.1], d: [0.5, 0.75] }, color: '#f4f4f2', opts: {}, words: ['洗濯機', 'せんたくき', 'ランドリー'],
     build(it) {

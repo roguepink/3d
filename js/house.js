@@ -199,6 +199,12 @@ const matPull = new THREE.MeshStandardMaterial({ color: '#8f8a80', roughness: .3
 function buildClosetDoor(og, o, h, ctx) {
   const style = o.style || 'fold', open = Math.max(0, Math.min(1, o.open || 0)), w = h.w, H = h.h - 0.01, t = 0.03, zf = -WALL_T + 0.022;
   const tag = m => { m.userData = { kind: 'closetdoor', roomId: ctx.roomId, edge: ctx.edge, openingId: o.id }; ctx.pick.push(m); return m; };
+  if ((style === 'slide' || style === 'fusuma') && w < 1.0) {
+    // 片引き戸(トイレなど):1枚を壁にそって横へ引く
+    const pw = w + 0.03, mat = style === 'fusuma' ? matFusuma : matCloset; const g = new THREE.Group(); g.position.set(-open * (w - 0.08), 0, zf - 0.02); const p = tag(box(pw, H, t, mat)); p.position.y = H / 2; g.add(p);
+    for (const zz of [t / 2 + 0.004, -t / 2 - 0.004]) { const q = box(0.015, 0.25, 0.012, matPull); q.position.set(w / 2 - 0.07, 0.95, zz); g.add(q); } og.add(g);
+    const rail = box(w * 2, 0.012, 0.05, ctx.frame); rail.position.set(-w / 2, H + 0.004, zf - 0.02); og.add(rail); return;
+  }
   if (style === 'slide' || style === 'fusuma') {
     const pw = w / 2 + 0.02, mat = style === 'fusuma' ? matFusuma : matCloset;
     const panel = (cx, z) => { const g = new THREE.Group(); g.position.set(cx, 0, z); const p = tag(box(pw, H, t, mat)); p.position.y = H / 2; g.add(p);
@@ -244,11 +250,13 @@ function buildClosetInside(room, group) {
     // 布団(中段の上)
     const fw = Math.min(1.0, L * 0.55); for (let i = 0; i < 4; i++) put(fw, 0.1, Math.min(0.7, depth - 0.1), fw / 2 + 0.05, 0.83 + i * 0.105, depth / 2 + 0.02, mat(['#f2efe6', '#c9d6e3', '#efe3cf', '#e6e9ee'][i]));
   } else if (kind === 'sic' || kind === 'storage') {
-    const sd = kind === 'sic' ? 0.35 : 0.45, ys = kind === 'sic' ? [0.12, 0.42, 0.72, 1.02, 1.32, 1.62, 1.92] : [0.4, 0.9, 1.4, 1.9];
-    for (const y of ys) put(L, 0.02, sd, L / 2, y, depth - sd / 2, matShelf);
-    if (kind === 'sic' && depth > 1.0) for (const y of ys.slice(0, 5)) put(sd, 0.02, depth - sd - 0.6, L - sd / 2, y, (depth - sd - 0.6) / 2 + 0.6, matShelf);
+    const ys = kind === 'sic' ? [0.12, 0.42, 0.72, 1.02, 1.32, 1.62, 1.92] : [0.4, 0.9, 1.4, 1.9];
+    // 通路を450以上残す:奥行きが浅ければ棚も浅く。入口の幅がせまいシューズクロークは、長い側の壁に棚を付ける
+    const narrow = kind === 'sic' && L < 1.2 && depth > 1.0; const sd = narrow ? Math.min(0.32, L - 0.45) : Math.max(0.25, Math.min(kind === 'sic' ? 0.35 : 0.45, depth - 0.5));
+    if (narrow) for (const y of ys) put(sd, 0.02, depth - 0.1, L - sd / 2, y, depth / 2 + 0.05, matShelf); else for (const y of ys) put(L, 0.02, sd, L / 2, y, depth - sd / 2, matShelf);
     // 靴(シューズインクローゼットの棚に少しだけ)
-    if (kind === 'sic') { let k = 0; for (const y of ys.slice(0, 4)) for (let u = 0.12; u < L - 0.15; u += 0.26, k++) { if ((k * 7) % 5 === 0) continue; put(0.2, 0.08 + (k % 3) * 0.04, 0.26, u + 0.1, y + 0.05 + (k % 3) * 0.02, depth - 0.18, mat(['#2f2f33', '#7a5b45', '#e9e6df', '#4b5a73'][k % 4])); } }
+    if (kind === 'sic') { let k = 0; const shoe = (u, s, y, rot) => put(rot ? 0.26 : 0.2, 0.08 + (k % 3) * 0.04, rot ? 0.2 : 0.26, u, y + 0.05 + (k % 3) * 0.02, s, mat(['#2f2f33', '#7a5b45', '#e9e6df', '#4b5a73'][k % 4]));
+      for (const y of ys.slice(0, 5)) { if (narrow) for (let s2 = 0.25; s2 < depth - 0.15; s2 += 0.26, k++) { if ((k * 7) % 5 === 0) continue; shoe(L - sd / 2, s2, y, true); } else for (let u = 0.12; u < L - 0.15; u += 0.26, k++) { if ((k * 7) % 5 === 0) continue; shoe(u + 0.1, depth - 0.18, y, false); } } }
   }
 }
 export function wallSpec(room, e) { return (room.walls && (room.walls[e] !== undefined ? room.walls[e] : room.walls[String(e)])) || { lib: 'wp_white' }; }
@@ -337,7 +345,7 @@ export function buildRoom(room, project, group) {
         const s5 = s4.clone(); s5.position.x = h.w / 2 - fw / 2; og.add(s5);
       } else if (bay) {
         buildBay(og, o, h, { mFrame, matGlass, matSash, matOuter, wallMat, roomId: room.id, edge: e, pick, tagTrim, ear: (casingOn ? caseW : 0) + 0.02 });
-      } else if (o.type === 'closet' && !o.twin) {
+      } else if ((o.type === 'closet' || (o.type === 'door' && (o.style === 'slide' || o.style === 'fusuma'))) && !o.twin) {
         buildClosetDoor(og, o, h, { roomId: room.id, edge: e, pick, frame: matDoorFrame });
       } else if (o.type === 'door' && !o.twin) {
         // 丁番:部屋の内側から見て左(left)/右(right)。開く向き:内開き(in=この部屋側)/外開き(out)
