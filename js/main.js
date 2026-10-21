@@ -13,6 +13,7 @@ import { PlanEditor } from './plan.js';
 import * as AI from './ai.js';
 import { stairLayout as stairLayoutOf, STAIR_CELLS, stairKindName } from './stairs.js';
 import { thumbnail } from './thumbs.js';
+import { projectToLink, linkToProject } from './link.js';
 
 const $ = s => document.querySelector(s), $$ = s => Array.from(document.querySelectorAll(s));
 const uid = () => 'o' + Date.now().toString(36) + Math.floor(Math.random() * 1e4).toString(36);
@@ -71,6 +72,8 @@ class App {
     $('#mQuality').onclick = () => { const q = { normal: 'high', high: 'low', low: 'normal' }[this.s3.quality]; this.s3.quality = q; this.s3.applyQuality(); localStorage.setItem('oheya-quality', q); $('#mQuality').textContent = '🎚 画質:' + { low: 'かるい', normal: 'ふつう', high: 'きれい' }[q]; };
     for (const b of $$('#levelBar button')) b.onclick = () => this.goLevel(b.dataset.lv === 'all' ? 'all' : +b.dataset.lv);
     $('#btnBack').onclick = () => this.goBack();
+    $('#mLink').onclick = () => { this.closeSheets(); this.copyLink(); };
+    window.addEventListener('hashchange', () => { if (/[#&]p=/.test(location.hash)) this.openFromLink(location.hash); });
     $('#mAI').onclick = () => this.aiSettings();
     $('#mModule').onclick = () => { this.setModule(this.module() === 'shaku' ? 'meter' : 'shaku'); };
     $('#mHelp').onclick = () => this.help();
@@ -98,7 +101,15 @@ class App {
     this.refreshContinue(); this.watchUpdate();
     let resume = false; try { resume = sessionStorage.getItem('oheya-resume') === '1'; sessionStorage.removeItem('oheya-resume'); } catch {}
     if (resume) { loadProject('current').then(p => { if (p) { this.load(p); $('#start').classList.add('hidden'); this.toast('新しい版になりました'); } }).catch(() => {}); return; }
-    if (location.hash === '#demo') { this.load(demoProject()); $('#start').classList.add('hidden'); } }
+    if (location.hash === '#demo') { this.load(demoProject()); $('#start').classList.add('hidden'); }
+    if (/[#&]p=/.test(location.hash)) this.openFromLink(location.hash); }
+  // リンクで送られてきた家を開く。今の家は「前の家」として保存しておく(消えない)
+  async openFromLink(hash) {
+    try { const p = await linkToProject(hash); if (!p) return; history.replaceState(null, '', location.pathname);
+      try { const cur = await loadProject('current'); if (cur && cur.rooms && cur.rooms.length) await saveProject({ ...cur, name: '(前の家)' + (cur.name || '部屋') }, 'p_' + Date.now().toString(36)); } catch {}
+      this.load(p); $('#start').classList.add('hidden'); await saveProject(p, 'current').catch(() => {}); this.toast(`「${p.name || '家'}」を開きました。前の家は「保存した家」に残してあります`, 4000);
+    } catch (e) { console.warn(e); this.toast('リンクの家を開けませんでした(リンクが途中で切れているかもしれません)', 4000); } }
+  async copyLink() { if (!this.project) return; try { const url = await projectToLink(this.project); if (navigator.share) { try { await navigator.share({ title: this.project.name || '家', url }); return; } catch (e) { if (e.name === 'AbortError') return; } } await navigator.clipboard.writeText(url); this.toast('この家のリンクをコピーしました(写真は入りません)', 3000); } catch { this.toast('リンクを作れませんでした'); } }
   // 新しい版が出たら知らせる(アプリを開きなおしたとき・画面に戻ったとき)
   watchUpdate() {
     const check = async () => {

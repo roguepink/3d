@@ -63,3 +63,10 @@
 - 👁(押している間だけ欄を消す)は全部の欄にある(.peek)。
 - 戻るボタン(#btnBack):歩く画面で何も開いていないとき以外(間取り・天井の図・全体・どの欄)は、左上の🏠の場所に「←戻る」。押すと欄を閉じて歩く画面へ(app.goBack / updateBack)。
 - 項目の5番目が 'mm' のもの(例:ペンダントの drop 150〜1,100)は、スライド5mm刻み+mmの数字欄。天井の図で選んだ物は、幅・奥行・⟳90°・大きく/小さく、2本指でつまむと大きさが変わる(plan.resizeCeil)。
+
+## 家をリンクで開く・Claude が家を作る(2026-10-22)
+- リンク:`https://roguepink.github.io/3d/#p=<データ>`。データ = 家の JSON(assets は抜く)を deflate-raw で縮めて base64url(js/link.js)。「#」以降はサーバーに届かないので、お客さんの家でもネットに残らない。開くと今の家は「(前の家)…」として保存(app.openFromLink)。メニュー「🔗 この家をリンクで送る」(app.copyLink)。
+- js/builder.js:家を書くための部品(room/link/win/niche/add/beam。910 マス)と自動チェック audit(カーテンと窓・出入り口・家具のはみ出し・部屋の重なり・すき間)。buildFromSource(書き方の文字)で家のデータを作る。
+- Claude Code のスキル `~/.claude/skills/oheya-house/`(SKILL.md・scripts/build.py・examples/sample-4ldk.js):言葉・図面・写真 → house.js → build.py(ヘッドレス Chrome で公開中のアプリを開いて組み立て・チェック・画像・リンク)→ 専門家の見直し → ノブさんへリンクと画像。
+- **お客さんの図面・写真・家のデータは、このリポジトリに入れない。** 作業は `~/oheya-private/<日付-名前>/`(git の外)。
+- builder.js の部品・CATALOG の名前・opening の形式を変えたら、スキルの SKILL.md と examples も直す。
