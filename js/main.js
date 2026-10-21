@@ -516,6 +516,7 @@ class App {
       case 'spin': this.setMode('walk'); this.spin = 14; this.toast('ゆっくり一周します(14秒)'); return;
       case 'list': this.listItems(); return;
       case 'level': this.goLevel(cmd.level); return;
+      case 'stair': { const st = this.project.rooms.find(r => r.stair); if (!st) { this.toast('階段がありません。間取りの「🪜階段」で作れます'); return; } if (cmd.kind) this.stairEdit(st, 'skind', cmd.kind); if (cmd.style) this.stairEdit(st, 'sstyle', cmd.style); return; }
       case 'eye': this.walk.eye = cmd.eye; this.toast(cmd.eye > 1.3 ? '立った高さで見ています' : '座った高さで見ています'); return;
       case 'help': this.help(); return;
       case 'info': this.toast(cmd.text, 5000); return;

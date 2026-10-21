@@ -55,6 +55,16 @@ export function parseCommand(raw, app) {
   const side = sideWord ? relativeSide(sideWord, app) : null;
   const all = /全部|すべて|全て|どの壁も|全体/.test(t);
 
+  // 階段の形(「階段をらせんに」「L字の階段にして」「オープン階段」)
+  if (/階段/.test(t) && !/(上が|あが|下り|降り|行)/.test(t)) {
+    const land = /踊り場|おどりば/.test(t); let kind = null, style = null;
+    if (/らせん|螺旋|ラセン|スパイラル/.test(t)) kind = 'spiral';
+    else if (/折り返し|折返し|おりかえし|U字|Ｕ字|コの字/.test(t)) kind = land ? 'u_landing' : 'u_winder';
+    else if (/L字|Ｌ字|かね折れ|曲がり|まがり/.test(t)) kind = land ? 'l_landing' : 'l_winder';
+    else if (/まっすぐ|真っ直ぐ|直階段|鉄砲|ストレート/.test(t)) kind = 'straight';
+    if (/オープン|スケルトン|すけ|透け|ストリップ/.test(t)) style = 'open'; else if (/箱階段|箱型|はこ/.test(t)) style = 'box';
+    if (kind || style) return { action: 'stair', kind, style };
+  }
   // 階の移動(「2階へ」「1階に下りる」)
   if (/(2|二)階(へ|に|まで)?(上が|あが|行|い|へ$|に$|$)/.test(t) && !/(部屋|作|つく|足)/.test(t)) return { action: 'level', level: 1 };
   if (/(1|一)階(へ|に|まで)?(下り|お|降|行|い|へ$|に$|$)/.test(t) && !/(部屋|作|つく|足)/.test(t)) return { action: 'level', level: 0 };
