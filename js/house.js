@@ -11,7 +11,8 @@ let FLOOR_H = 2.9;
 export function setFloorH(v) { FLOOR_H = (v > 2 && v < 5) ? v : 2.9; }
 export function floorH() { return FLOOR_H; }
 export function levelOf(r) { return (r && r.level) || 0; }
-export function baseOf(r) { return r ? levelOf(r) * FLOOR_H : 0; }
+// 玄関の土間のように1段下がる部屋は drop(m)だけ床を下げる
+export function baseOf(r) { return r ? levelOf(r) * FLOOR_H - (r.drop || 0) : 0; }
 export function hasUpper(rooms) { return rooms.some(r => levelOf(r) > 0); }
 // 部屋がその階に見えるか(階段は1階と2階の両方)
 export function onLevel(r, level) { return levelOf(r) === level || (r.stair && level === levelOf(r) + 1); }
@@ -108,6 +109,7 @@ export function pointInPart(px, pz, part, margin = 0) { const b = partBox(part);
 const matWood = new THREE.MeshStandardMaterial({ color: '#efece6', roughness: .6 });
 const matFrame = new THREE.MeshStandardMaterial({ color: '#f4f4f2', roughness: .5 });
 const matDoor = new THREE.MeshStandardMaterial({ color: '#b78b5e', roughness: .55 });
+const matFound = new THREE.MeshStandardMaterial({ color: '#9c9a95', roughness: .95 });
 const matBathDoor = new THREE.MeshStandardMaterial({ color: '#f2f2f0', roughness: .35 });
 const matFrost = new THREE.MeshStandardMaterial({ color: '#dfe6ea', roughness: .25, metalness: .05 });
 const matKnob = new THREE.MeshStandardMaterial({ color: '#c9b37a', roughness: .3, metalness: .8 });
@@ -283,6 +285,8 @@ export function buildRoom(room, project, group) {
     // 外側の面(外から見たときだけ見える)
     const outer = new THREE.Mesh(wallGeometry(L, outerH, holes.filter(h => h.op.type !== 'niche')), matOuter);
     outer.position.copy(wallPoint(room, e, 0, 0, -WALL_T)); outer.rotation.y = f.rotY; outer.receiveShadow = true; outer.userData.keep = true; roomGroup.add(outer);
+    // 基礎(1階の外まわり:地面から床まで 約450mm)
+    if (levelOf(room) === 0) { const fd = new THREE.Mesh(new THREE.PlaneGeometry(L + WALL_T * 2, 0.45), matFound); fd.position.copy(wallPoint(room, e, L / 2, -0.225, -WALL_T)); fd.rotation.y = f.rotY + Math.PI; fd.userData.keep = true; roomGroup.add(fd); }
     // 廻り縁(あり/なし・高さ・仕上げ)
     if (trim.crown.on) { const crown = box(L, crownH, Math.min(0.03, crownH * 0.6)); crown.material = matCrown; crown.castShadow = false; crown.userData = { kind: 'trim', part: 'crown', roomId: room.id, mergeKey: 'crown' }; crown.position.copy(wallPoint(room, e, L / 2, H - crownH / 2, Math.min(0.03, crownH * 0.6) / 2)); crown.rotation.y = f.rotY; roomGroup.add(crown); }
     // 巾木(ドアのところは切る)
@@ -295,6 +299,14 @@ export function buildRoom(room, project, group) {
       const o = h.op, cu = h.u + h.w / 2, isWin = o.type === 'window';
       const og = new THREE.Group(); og.position.copy(wallPoint(room, e, cu, 0, 0)); og.rotation.y = f.rotY; roomGroup.add(og); const tagTrim = m => { m.userData = { kind: 'trim', part: isWin ? 'casing' : 'door', roomId: room.id, openingId: o.id, mergeKey: isWin ? 'casing' : 'door' }; return m; };
       if (o.type === 'niche') { buildNiche(og, o, h, wall.material, trimMaterial(o.finish || trim.casing.finish || 'white'), room.id, pick); continue; }
+      if (!isWin) {
+        // 上がり框(玄関の土間から上がる段):開口の下が床から少し上(150mmなど)のとき、木の框を付ける
+        if (h.sill > 0.02 && h.sill < 0.45) { const km = trimMaterial(o.kamachi || 'wood_medium'); const fr = box(h.w, h.sill, 0.03, km); fr.position.set(0, h.sill / 2, 0.015); og.add(fr); const tp = box(h.w, 0.03, WALL_T + 0.05, km); tp.position.set(0, h.sill - 0.015, -WALL_T / 2 + 0.025); og.add(tp); }
+        // 段差なし:壁の厚みの所も床でつなぐ。となりと床が違うときは、フローリングに合わせた見切りを入れる
+        else if (h.sill <= 0.02 && !o.twin) { const nb = neighborAcross(room, e, o.u, o.w, project.rooms || [], { y: baseOf(room) }); const myF = room.floor || {}, nbF = nb ? (nb.room.floor || {}) : myF;
+          if (nb && myF.lib === nbF.lib && myF.color === nbF.color) { const st = new THREE.Mesh(new THREE.PlaneGeometry(h.w, WALL_T), floor.material); st.rotation.x = -Math.PI / 2; st.position.set(0, 0.001, -WALL_T / 2); og.add(st); }
+          else { const wood = [myF, nbF].find(f => /oak|walnut|ash|herring|grayoak|cf_wood/.test(f.lib || '')); const mm = wood ? surfaceMaterial('floor', wood, { w: 1, h: 1 }, assets) : (nb ? surfaceMaterial('floor', myF, { w: 1, h: 1 }, assets) : floor.material); const st = box(h.w, 0.006, WALL_T, mm); st.receiveShadow = true; st.position.set(0, nb ? 0.003 : 0.0, -WALL_T / 2); og.add(st); } }
+      }
       // 箱型の出窓は、枠なし(三方クロス巻き込み)
       const casingOn = isWin ? (trim.casing.on && o.bay !== 'box') : true; const mFrame = isWin ? matCase : matDoorFrame; const wallMat = wall.material;
       const bay = isWin && (o.bay === 'trap' || o.bay === 'box'); const EAR = 0.02; // 窓台・出窓天板の左右の出(20mm)

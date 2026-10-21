@@ -106,6 +106,10 @@ function drawLace(g, w, h, r) {
   g.strokeStyle = 'rgba(0,0,0,.35)'; g.lineWidth = 1.2;
   const s = w / 8; for (let i = 0; i < 8; i++) for (let j = 0; j < 8; j++) { g.beginPath(); g.arc(i * s + s / 2, j * s + s / 2, s * .42, 0, 7); g.stroke(); g.beginPath(); g.arc(i * s + s / 2, j * s + s / 2, s * .2, 0, 7); g.stroke(); }
 }
+// 六角タイル柄
+function drawHex(g, w, h, r, { base, line }) { g.fillStyle = base; g.fillRect(0, 0, w, h); noise(g, w, h, r, .02); g.strokeStyle = line; g.lineWidth = Math.max(1, w / 400); const R = w / 12, dx = R * 1.5, dy = R * Math.sqrt(3); for (let i = -1; i < 10; i++) for (let j = -1; j < 8; j++) { const cx = i * dx, cy = j * dy + (i % 2 ? dy / 2 : 0); g.beginPath(); for (let k = 0; k < 6; k++) { const a = k * Math.PI / 3; const x = cx + R * Math.cos(a), y = cy + R * Math.sin(a); k ? g.lineTo(x, y) : g.moveTo(x, y); } g.closePath(); g.stroke(); } }
+// テラゾー(小石を混ぜた柄)
+function drawTerrazzo(g, w, h, r, { base }) { g.fillStyle = base; g.fillRect(0, 0, w, h); const cs = ['#b7aea2', '#8d8a86', '#d9cfc2', '#6f6c69', '#c9b9a5']; for (let i = 0; i < 900; i++) { g.fillStyle = cs[i % cs.length]; g.beginPath(); const x = r() * w, y = r() * h, s = (0.003 + r() * 0.01) * w; g.ellipse(x, y, s, s * (0.5 + r() * 0.5), r() * 3, 0, Math.PI * 2); g.fill(); } }
 // 浴室のパネル:つるっとした面に、900mm ごとの細いつなぎ目(grid=true なら横にも)
 function drawBathPanel(g, w, h, r, { base, seam, grid = false, tile = 1.8, step = 0.9 }) { g.fillStyle = base; g.fillRect(0, 0, w, h); noise(g, w, h, r, 0.015); const n = Math.round(tile / step), s = w / n; g.fillStyle = seam; for (let i = 0; i < n; i++) g.fillRect(i * s, 0, Math.max(1, w / 512), h); if (grid) for (let j = 0; j < n; j++) g.fillRect(0, j * s, w, Math.max(1, w / 512)); }
 // 浴室の床:すべり止めの小さな点
@@ -155,6 +159,13 @@ export const SURFACE_LIB = {
     { id: 'tile_k', bump: 0.008, name: 'タイル(黒 60cm)', size: 1.2, rough: .2, draw: (g, w, h, r) => drawTile(g, w, h, r, { base: '#3a3c40', grout: '#5a5c60', size: .6, mottle: .05 }) },
     { id: 'carpet_w', bump: 0.006, name: 'カーペット(アイボリー)', size: 1, rough: .95, draw: (g, w, h, r) => drawCarpet(g, w, h, r, { base: '#e9e2d2' }) },
     { id: 'cf_tile', bump: 0.003, name: 'クッションフロア(タイル柄)', size: 1.2, rough: .3, draw: (g, w, h, r) => drawTile(g, w, h, r, { base: '#e6e2da', grout: '#cfc9bf', size: .3, mottle: .04 }) },
+    // 洗面所・トイレ向け:クッションフロア・塩ビタイル
+    { id: 'cf_white', bump: 0.002, name: 'クッションフロア(白)', size: 1.2, rough: .35, draw: (g, w, h, r) => drawPlain(g, w, h, r, { base: '#f1f0ec', alpha: .03 }) },
+    { id: 'cf_marble', bump: 0.002, name: 'クッションフロア(大理石柄)', size: 1.2, rough: .25, draw: (g, w, h, r) => { drawMarble(g, w, h, r, { base: '#f0eeea', vein: '#a8a9ad' }); g.fillStyle = 'rgba(0,0,0,.08)'; for (const k of [0, .5]) { g.fillRect(k * w, 0, 1.5, h); g.fillRect(0, k * h, w, 1.5); } } },
+    { id: 'cf_hex', bump: 0.003, name: 'クッションフロア(六角タイル柄)', size: 0.9, rough: .35, draw: (g, w, h, r) => drawHex(g, w, h, r, { base: '#f2f1ed', line: '#c9c6bf' }) },
+    { id: 'cf_tile_g', bump: 0.003, name: 'クッションフロア(タイル柄グレー)', size: 1.2, rough: .3, draw: (g, w, h, r) => drawTile(g, w, h, r, { base: '#b9b7b2', grout: '#a3a19c', size: .3, mottle: .04 }) },
+    { id: 'pvc_stone', bump: 0.004, name: '塩ビタイル(石目グレー)', size: 1.2, rough: .4, draw: (g, w, h, r) => drawTile(g, w, h, r, { base: '#a7a6a2', grout: '#8f8e8a', size: .45, mottle: .1 }) },
+    { id: 'pvc_terrazzo', bump: 0.003, name: '塩ビタイル(テラゾー)', size: 1.0, rough: .35, draw: (g, w, h, r) => drawTerrazzo(g, w, h, r, { base: '#ebe7e0' }) },
     { id: 'ub_floor_g', bump: 0.006, name: '浴室の床(グレー)', size: 0.9, rough: .6, draw: (g, w, h, r) => drawDots(g, w, h, r, { base: '#9a9da1', dot: '#8a8d91' }) },
     { id: 'ub_floor_b', bump: 0.006, name: '浴室の床(ベージュ)', size: 0.9, rough: .6, draw: (g, w, h, r) => drawDots(g, w, h, r, { base: '#cdbfa8', dot: '#bcae97' }) },
     { id: 'ub_floor_w', bump: 0.006, name: '浴室の床(白)', size: 0.9, rough: .6, draw: (g, w, h, r) => drawDots(g, w, h, r, { base: '#e6e6e3', dot: '#d3d3cf' }) },

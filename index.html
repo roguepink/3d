@@ -215,7 +215,7 @@
 // 起動係:毎回「いまの版」を確かめてから部品を読む。
 // 更新の直後に、古い部品と新しい部品が混ざって開けなくなるのを防ぐ。
 (function () {
-  var FILES = ['main', 'scene3d', 'controls', 'house', 'items', 'textures', 'demo', 'store', 'commands', 'photo', 'plan', 'ai', 'merge', 'thumbs', 'stairs'];
+  var FILES = ['main', 'scene3d', 'controls', 'house', 'items', 'textures', 'demo', 'store', 'commands', 'photo', 'plan', 'ai', 'merge', 'thumbs', 'stairs', 'plants'];
   var THREE_URL = 'https://cdn.jsdelivr.net/npm/three@0.186.1/';
   var started = false, retried = false;
   try { retried = sessionStorage.getItem('oheya-retry') === '1'; } catch (e) {}

@@ -21,14 +21,14 @@ export class Scene3D {
       vertexShader: 'varying vec3 vP; void main(){ vP = (modelMatrix*vec4(position,1.)).xyz; gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.); }',
       fragmentShader: 'uniform vec3 top; uniform vec3 bottom; varying vec3 vP; void main(){ float t = clamp(normalize(vP).y*1.6+0.1,0.,1.); gl_FragColor = vec4(mix(bottom, top, pow(t,0.6)),1.); }' }));
     s.add(this.sky);
-    this.ground = new THREE.Mesh(new THREE.CircleGeometry(120, 48), new THREE.MeshStandardMaterial({ color: '#8fae6e', roughness: 1 })); this.ground.rotation.x = -Math.PI / 2; this.ground.position.y = -0.02; this.ground.receiveShadow = true; s.add(this.ground);
+    this.ground = new THREE.Mesh(new THREE.CircleGeometry(120, 48), new THREE.MeshStandardMaterial({ color: '#8fae6e', roughness: 1 })); this.ground.rotation.x = -Math.PI / 2; this.ground.position.y = -0.45; /* 1階の床は地面から約450mm上(基礎の高さ) */ this.ground.receiveShadow = true; s.add(this.ground);
     // 光
     this.sun = new THREE.DirectionalLight('#fff4e0', 2.6); this.sun.position.set(6, 10, 4); this.sun.castShadow = true;
     const sc = this.sun.shadow.camera; sc.left = -12; sc.right = 12; sc.top = 12; sc.bottom = -12; sc.near = 1; sc.far = 50; this.sun.shadow.mapSize.set(1536, 1536); this.sun.shadow.bias = -0.0008; this.sun.shadow.normalBias = 0.02;
     s.add(this.sun); s.add(this.sun.target);
     this.hemi = new THREE.HemisphereLight('#cfe3ff', '#6b6050', 0.9); s.add(this.hemi);
     this.ambient = new THREE.AmbientLight('#ffffff', 0.15); s.add(this.ambient);
-    this.garden = new THREE.Group(); s.add(this.garden); this.placeGarden(2, 2, 4);
+    this.garden = new THREE.Group(); this.garden.position.y = -0.45; s.add(this.garden); this.placeGarden(2, 2, 4);
     s.fog = new THREE.Fog('#dfeaf4', 25, 110);
     this.houseGroup = new THREE.Group(); s.add(this.houseGroup);
     this.itemGroup = new THREE.Group(); s.add(this.itemGroup);

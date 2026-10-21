@@ -2,6 +2,7 @@
 import * as THREE from 'three';
 import { surfaceMaterial } from './textures.js';
 import { mergeGroup } from './merge.js';
+import { PLANTS } from './plants.js';
 
 const stdCache = new Map();
 export function std(color, rough = .6, metal = 0, extra = {}) {
@@ -234,7 +235,7 @@ export const CATALOG = {
     build(it) { const g = new THREE.Group(), m = std(it.color, .25, .8), w = it.w; const bar = cyl(0.009, 0.009, w, m, 0, 0, 0.06, 10); bar.rotation.z = Math.PI / 2; g.add(bar); for (const sx of [-1, 1]) { const b = cyl(0.012, 0.012, 0.06, m, sx * w / 2, 0, 0.03, 10); b.rotation.x = Math.PI / 2; g.add(b); } g.add(box(w * 0.7, 0.45, 0.025, std('#e9e1d3', .95), 0, -0.2, 0.06)); return g; } },
   // ニッチ:置くと壁のくぼみ(開口)になる
   niche: { name: 'ニッチ(壁のくぼみ)', emoji: '▭', cat: '壁かざり', kind: 'wall', size: [0.35, 0.5, 0.1], opening: true, color: '#ffffff', opts: {}, words: ['ニッチ', 'にっち', '飾り棚のくぼみ'], build() { return new THREE.Group(); } },
-  plant: { name: '観葉植物', emoji: '🪴', cat: 'みどり', kind: 'floor', size: [0.6, 1.4, 0.6], color: '#4e8a5a', opts: {}, words: ['観葉植物', '植物', 'グリーン', '木', '鉢'],
+  plant: { name: '観葉植物(丸い木)', emoji: '🪴', cat: 'みどり', kind: 'floor', size: [0.6, 1.4, 0.6], color: '#4e8a5a', opts: {}, words: ['観葉植物', '植物', 'グリーン', '木', '鉢'],
     build(it) { const g = new THREE.Group(), h = it.h, r = it.w / 2; g.add(cyl(r * .4, r * .32, h * .22, std('#b9b1a6', .8), 0, h * .11, 0)); g.add(cyl(r * .38, r * .38, 0.01, std('#3b2a1a', 1), 0, h * .22, 0)); g.add(cyl(0.02, 0.03, h * .5, std('#6b4a2a', .9), 0, h * .45, 0, 8));
       const leaf = std(it.color, .7); const seed = (it.id || '').length; for (let i = 0; i < 9; i++) { const a = i * 2.4 + seed, rr = r * (0.3 + (i % 3) * 0.25), y = h * (0.55 + (i % 4) * 0.11); const s = sph(r * (0.28 + (i % 2) * 0.1), leaf, Math.cos(a) * rr, y, Math.sin(a) * rr); s.scale.set(1.2, 0.7, 1); g.add(s); } return g; } },
 };
@@ -243,6 +244,8 @@ function chairGroup(mat) {
   const g = new THREE.Group(); g.add(box(0.42, 0.04, 0.42, mat, 0, 0.44, 0)); for (const [x, z] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) g.add(box(0.035, 0.42, 0.035, mat, x * 0.18, 0.21, z * 0.18)); g.add(box(0.42, 0.42, 0.03, mat, 0, 0.67, -0.19)); return g;
 }
 
+// いま人気の観葉植物(10種類)を足す
+Object.assign(CATALOG, PLANTS);
 export const CATEGORIES = ['窓まわり', '照明', '敷物', '家具', '壁かざり', 'みどり'];
 export const EQUIP_CATEGORIES = ['電気', '空調・換気', '水まわり'];
 export function catalogEntry(type) { return CATALOG[type] || null; }
