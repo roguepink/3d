@@ -15,7 +15,8 @@ export const STAIR_STYLES = [['box', '箱階段'], ['open', 'オープン(すけ
 // 種類ごとの広さ(芯々のマス数:[横, 上る向き])
 export const STAIR_CELLS = { u_winder: [2, 2], u_landing: [2, 3], l_winder: [2, 3], l_landing: [2, 3], straight: [1, 4], spiral: [2, 2] };
 export function stairKindName(k) { const e = STAIR_KINDS.find(x => x[0] === k); return e ? e[1] : k; }
-export function stairRisers(FH) { return Math.max(10, Math.round(FH / 0.205)); }
+// 段数(14段が基本)。折り返しの回り段は、前と後の踏面をそろえるため、残りの段が偶数になるようにする(2.9m なら15段・193mm)
+export function stairRisers(FH, kind) { let n = Math.max(10, Math.round(FH / 0.205)); if (kind === 'u_winder' && (n - 1 - 6) % 2) n++; return n; }
 
 function inPoly(px, pz, poly) { let ins = false; for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) { const [xi, zi] = poly[i], [xj, zj] = poly[j]; if (((zi > pz) !== (zj > pz)) && (px < (xj - xi) * (pz - zi) / (zj - zi) + xi)) ins = !ins; } return ins; }
 function bbox(poly) { let a = Infinity, b = Infinity, c = -Infinity, d = -Infinity; for (const [x, z] of poly) { a = Math.min(a, x); b = Math.min(b, z); c = Math.max(c, x); d = Math.max(d, z); } return { x: a, z: b, w: c - a, d: d - b }; }
@@ -45,7 +46,7 @@ const cache = new Map();
 export function stairLayout(room, FH) {
   const s = room.stair; const key = JSON.stringify([room.poly, s, FH]); if (cache.has(key)) return cache.get(key);
   const { W, D, to } = makeXf(room); const kind = s.kind || 'u_winder';
-  const N = stairRisers(FH), T = N - 1, rise = FH / N; const steps = [], railC = []; let minTread = Infinity, width = W; const ports = [];
+  const N = stairRisers(FH, kind), T = N - 1, rise = FH / N; const steps = [], railC = [], cores = []; let minTread = Infinity, width = W; const ports = [];
   const add = (pts, k, solid = true, tread) => { steps.push({ c: pts, k, solid }); if (tread !== undefined) minTread = Math.min(minTread, tread); };
   const off = 0.05;
   if (kind === 'straight') {
@@ -63,6 +64,7 @@ export function stairLayout(room, FH) {
     else for (let i = 0; i < 3; i++) { const a0 = Math.PI - i * Math.PI / 6, a1 = Math.PI - (i + 1) * Math.PI / 6; add(sector(P, a0, a1, R), ++k, true, 0.3 * Math.PI / 6); const m = rayHit(P, (a0 + a1) / 2, R); const dd = Math.hypot(m[0] - P[0], m[1] - P[1]); railC.push([P[0] + (m[0] - P[0]) * (dd - off) / dd, P[1] + (m[1] - P[1]) * (dd - off) / dd, k]); }
     for (let j = 1; j <= n2; j++) { const a = f + (j - 1) * t2, b = f + j * t2; add(rect(a, D - f, b, D), ++k, true, t2); railC.push([(a + b) / 2, D - off, k]); }
     add(rect(f, 0, W, D - f), 0, false);
+    if (W - f > 0.3 && D - f > 0.3) cores.push([f, 0, f, D - f], [f, D - f, W, D - f]); // 段の内側(落ちないように)
     ports.push({ level: 0, a: [0, 0], b: [f, 0] }, { level: 1, a: [W, D - f], b: [W, D] });
   } else if (kind === 'u_winder' || kind === 'u_landing') {
     const f = W / 2; width = f; const band = Math.min(f, D * 0.5), L = D - band, nc = kind === 'u_winder' ? 6 : 1;
@@ -74,6 +76,7 @@ export function stairLayout(room, FH) {
     for (let j = 1; j <= n2; j++) { const b = L - (j - 1) * t2, a = L - j * t2; add(rect(f, a, W, b), ++k, true, t2); railC.push([W - off, (a + b) / 2, k]); }
     // 回り段の踏面は、せまい側から 300mm の所で測る
     if (nc === 6) minTread = Math.min(minTread, 0.3 * Math.PI / 6);
+    cores.push([f, 0, f, L]); // 上りと下りの間の壁(建築基準法:階段の両側に壁か手すり)
     ports.push({ level: 0, a: [0, 0], b: [f, 0] }, { level: 1, a: [f, 0], b: [W, 0] });
   } else if (kind === 'spiral') {
     // 1段の角度は、内側から300mmの所の踏面が 155mm になるように(約30°)。1周より少し多く回って、2階の出口は上り口の右どなり
@@ -84,7 +87,7 @@ export function stairLayout(room, FH) {
     minTread = 0.3 * sw;
     ports.push({ level: 0, a: [0, 0], b: [W / 2, 0] }, { level: 1, a: [W / 2, 0], b: [W, 0] });
   }
-  const out = { steps: steps.map(st => ({ pts: st.c.map(to), y: st.k * rise, k: st.k, solid: st.solid })), rail: railC.map(([u, v, k]) => { const [x, z] = to([u, v]); return [x, k * rise + 0.8, z]; }), rise, n: N, tread: minTread, width, kind, ports: ports.map(p => ({ level: p.level, a: to(p.a), b: to(p.b) })) };
+  const out = { steps: steps.map(st => ({ pts: st.c.map(to), y: st.k * rise, k: st.k, solid: st.solid })), rail: railC.map(([u, v, k]) => { const [x, z] = to([u, v]); return [x, k * rise + 0.8, z]; }), rise, n: N, tread: minTread, width, kind, cores: cores.map(([u0, v0, u1, v1]) => [to([u0, v0]), to([u1, v1])]), ports: ports.map(p => ({ level: p.level, a: to(p.a), b: to(p.b) })) };
   const w = []; if (rise > 0.23) w.push('1段が高すぎます'); if (out.tread < 0.15) w.push('足をのせる奥行きが足りません'); if (width < 0.75) w.push('幅がせまいです'); out.warn = w;
   cache.set(key, out); if (cache.size > 40) cache.delete(cache.keys().next().value); return out;
 }
@@ -105,6 +108,9 @@ export function buildStair(room, FH, group, mats) {
     const m = new THREE.Mesh(g, [mats.tread, open ? mats.tread : mats.riser]); m.castShadow = true; m.receiveShadow = true;
     m.userData = { kind: 'stair', roomId: room.id, mergeKey: open ? 'stair-o' : 'stair' }; group.add(m);
   }
+  // 段の内側の壁(箱階段は2階の天井まで、オープンは手すりの高さまで)
+  for (const [a, b] of L.cores) { const len = Math.hypot(b[0] - a[0], b[1] - a[1]); if (len < 0.05) continue; const hh = open ? Math.min(FH + 0.9, FH + (room.stair.upperH || 2.4)) : FH + (room.stair.upperH || 2.4); const t = open ? 0.04 : 0.1;
+    const m = new THREE.Mesh(new THREE.BoxGeometry(len, hh, t), open ? mats.metal : mats.wall || mats.riser); m.position.set((a[0] + b[0]) / 2, hh / 2, (a[1] + b[1]) / 2); m.rotation.y = -Math.atan2(b[1] - a[1], b[0] - a[0]); m.castShadow = true; m.receiveShadow = true; m.userData = { kind: 'stair', roomId: room.id }; group.add(m); }
   // らせんの真ん中の柱
   if (L.kind === 'spiral') { const b = bbox(room.poly); const col = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, FH + 1, 16), mats.metal); col.position.set(b.x + b.w / 2, (FH + 1) / 2, b.z + b.d / 2); col.castShadow = true; col.userData = { kind: 'stair', roomId: room.id }; group.add(col); }
   // 手すり(段の先から 約800mm)

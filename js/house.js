@@ -269,7 +269,7 @@ export function buildRoom(room, project, group) {
     }
   }
   // 階段
-  if (room.stair) { const sg = new THREE.Group(); buildStair(room, FLOOR_H, sg, { tread: trimMaterial(room.stair.finish || 'wood_natural'), riser: trimMaterial(room.stair.riser || 'white'), rail: trimMaterial(room.stair.railFinish || 'wood_walnut'), metal: matSash }); sg.traverse(o => { if (o.isMesh) { o.userData.roomId = room.id; o.userData.kind = 'stair'; pick.push(o); } }); roomGroup.add(sg); }
+  if (room.stair) { const sg = new THREE.Group(); buildStair(room, FLOOR_H, sg, { tread: trimMaterial(room.stair.finish || 'wood_natural'), riser: trimMaterial(room.stair.riser || 'white'), rail: trimMaterial(room.stair.railFinish || 'wood_walnut'), metal: matSash, wall: surfaceMaterial('wall', wallSpec(room, 0), { w: 2, h: 2 }, assets) }); sg.traverse(o => { if (o.isMesh) { o.userData.roomId = room.id; o.userData.kind = 'stair'; pick.push(o); } }); roomGroup.add(sg); }
   // 柱型・袖壁・梁
   for (const part of room.parts) {
     const b = partBox(part); const ne = nearestEdge(room, new THREE.Vector3(b.cx, 0, b.cz)); const spec = wallSpec(room, ne);

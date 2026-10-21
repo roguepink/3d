@@ -195,6 +195,25 @@ export const CATALOG = {
       const tb = cyl(0.01, 0.01, 0.5, metal, 0.2, 1.1, d / 2 - 0.04, 8); tb.rotation.z = Math.PI / 2; g.add(tb);
       return g;
     } },
+  // 作りつけのクローゼット(天井近くまでの扉。折れ戸の継ぎ目と取っ手)
+  closet: { name: 'クローゼット', emoji: '🚪', cat: '家具', kind: 'floor', size: [1.7, 2.3, 0.6], range: { w: [0.8, 3.6], h: [1.8, 2.4], d: [0.45, 0.9] }, color: '#f1efea', opts: {}, words: ['クローゼット', '押入れ', '押し入れ', '物入れ', 'くろーぜっと'],
+    build(it) {
+      const g = new THREE.Group(), w = it.w, h = it.h, d = it.d, m = std(it.color, .45), metal = std(METAL, .3, .8), line = std('#cfcac0', .6);
+      g.add(box(w, h, d - 0.02, std('#e8e5df', .7), 0, h / 2, -0.01)); g.add(box(w, 0.05, 0.03, m, 0, h - 0.025, d / 2 - 0.015));
+      const n = Math.max(2, Math.round(w / 0.45)), lw = w / n, dh = h - 0.07;
+      for (let i = 0; i < n; i++) { const x = -w / 2 + lw * (i + 0.5); g.add(box(lw - 0.006, dh, 0.025, m, x, dh / 2 + 0.01, d / 2 - 0.0125)); if (i % 2 === 1) g.add(box(0.012, 0.25, 0.02, metal, x - lw / 2 + 0.04, 1.0, d / 2 + 0.01)); if (i > 0) g.add(box(0.004, dh, 0.004, line, x - lw / 2, dh / 2 + 0.01, d / 2 + 0.001)); }
+      return g;
+    } },
+  // 洗濯機(縦型)と洗濯パン
+  washer: { name: '洗濯機', emoji: '🫧', cat: '水まわり', equip: true, kind: 'floor', size: [0.6, 1.0, 0.6], range: { w: [0.5, 0.75], h: [0.85, 1.1], d: [0.5, 0.75] }, color: '#f4f4f2', opts: {}, words: ['洗濯機', 'せんたくき', 'ランドリー'],
+    build(it) {
+      const g = new THREE.Group(), w = it.w, h = it.h, d = it.d, m = std(it.color, .3);
+      g.add(box(w + 0.04, 0.06, d + 0.04, std('#e9eaec', .5), 0, 0.03, 0));
+      g.add(box(w - 0.02, h - 0.08, d - 0.04, m, 0, 0.06 + (h - 0.08) / 2, 0.01));
+      const lid = box(w - 0.06, 0.02, d * 0.62, std('#d8dde2', .15, .1), 0, h - 0.01, 0.04); g.add(lid);
+      g.add(box(w - 0.06, 0.1, 0.06, std('#e0e3e6', .3), 0, h - 0.04, -d / 2 + 0.06));
+      return g;
+    } },
   plant: { name: '観葉植物', emoji: '🪴', cat: 'みどり', kind: 'floor', size: [0.6, 1.4, 0.6], color: '#4e8a5a', opts: {}, words: ['観葉植物', '植物', 'グリーン', '木', '鉢'],
     build(it) { const g = new THREE.Group(), h = it.h, r = it.w / 2; g.add(cyl(r * .4, r * .32, h * .22, std('#b9b1a6', .8), 0, h * .11, 0)); g.add(cyl(r * .38, r * .38, 0.01, std('#3b2a1a', 1), 0, h * .22, 0)); g.add(cyl(0.02, 0.03, h * .5, std('#6b4a2a', .9), 0, h * .45, 0, 8));
       const leaf = std(it.color, .7); const seed = (it.id || '').length; for (let i = 0; i < 9; i++) { const a = i * 2.4 + seed, rr = r * (0.3 + (i % 3) * 0.25), y = h * (0.55 + (i % 4) * 0.11); const s = sph(r * (0.28 + (i % 2) * 0.1), leaf, Math.cos(a) * rr, y, Math.sin(a) * rr); s.scale.set(1.2, 0.7, 1); g.add(s); } return g; } },

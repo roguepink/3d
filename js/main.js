@@ -550,9 +550,9 @@ class App {
       const mx = (port.a[0] + port.b[0]) / 2, mz = (port.a[1] + port.b[1]) / 2; let e = 0, bd = Infinity; for (let i = 0; i < st.poly.length; i++) { const f = edgeFrame(st, i); const d = Math.abs((mx - f.A[0]) * f.normal.x + (mz - f.A[1]) * f.normal.z); if (d < bd) { bd = d; e = i; } }
       const f = edgeFrame(st, e); const ua = (port.a[0] - f.A[0]) * f.along.x + (port.a[1] - f.A[1]) * f.along.z, ub = (port.b[0] - f.A[0]) * f.along.x + (port.b[1] - f.A[1]) * f.along.z;
       const u0 = Math.min(ua, ub) + 0.04, w = Math.min(Math.abs(ub - ua) - 0.08, 0.9); if (w < 0.5) continue; const sill = port.level * FH;
-      const o = { id: uid(), edge: e, type: 'open', u: u0, w, h: 2.0 }; if (sill) o.sill = sill;
+      const oh = sill ? 2.0 : 2.4; const o = { id: uid(), edge: e, type: 'open', u: u0, w, h: oh }; if (sill) o.sill = sill;
       const nb = neighborAcross(st, e, u0, w, rooms, { y: sill }); if (!nb) { missing++; continue; }
-      st.openings.push(o); const t = { id: uid(), edge: nb.edge, type: 'open', u: nb.u, w, h: 2.0, twin: o.id }; const sl = sill - baseOf(nb.room); if (sl > 0.05) t.sill = sl; nb.room.openings.push(t);
+      st.openings.push(o); const t = { id: uid(), edge: nb.edge, type: 'open', u: nb.u, w, h: oh, twin: o.id }; const sl = sill - baseOf(nb.room); if (sl > 0.05) t.sill = sl; nb.room.openings.push(t);
     }
     return missing;
   }
