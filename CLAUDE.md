@@ -10,7 +10,7 @@
 - 仕上げ: `room.trim = {crown:{on,h(mm),finish}, base:{...}, casing:{on,w,finish}, door:{finish}}`(roomTrim で既定を補う)。finish は textures.js の TRIM_FINISHES。窓の枠なし=ジャンブに壁材(クロス巻き込み)。
 - 窓の枠: 既定は見付 20mm の四方枠(下も上と同じ)。枠なし=クロス巻き込み+窓台だけ左右 20mm・室内側 20mm 出す。出窓は opening.bay='trap'|'box'、bayDepth(台形の既定 230 = 斜め窓 約325mm、箱型 450)。下の板(天板)は厚み30mm、左右は枠(なければ開口)から20mm出す。house.js の buildBay が天板(左右20mm出し)・天井板・外の腰と屋根を作る。台形=左右に斜めのはめ殺し窓+正面は引き違い2枚(計4枚)、角(箱型)=枠なしで左右と上の三方クロス巻き込み(部屋の枠設定に関係なく)+正面は引き違い2枚、下は30mmの板だけ。部屋の形「出窓つき」は長方形+奥の壁に台形出窓。
 - 設備: items.js で `equip:true`、`attachY`(数値 or 'top')が標準の取付高さ、`range` が寸法の範囲。「🔌設備」は openCatalog(true)。
-- つかむ: 選んでいない物は長押し 0.4 秒でつかむ(controls.js の lp)、選んである物はすぐ引っぱれる。hitTest は point を返す(drag の起点)。つかんでいる間は updateInset を止める(_dragging)。
+- つかむ: 選んでいない物は長押し 0.4 秒でつかむ(controls.js の lp)、選んである物はすぐ引っぱれる。hitTest は point を返す(drag の起点)。つかんでいる間は updateInset を止める(_dragging)。 ただし左下(幅45%・下55%)は歩くボタン優先。物が映っていても歩く(物の判定より先に見る)。
 - 操作: ダブルタップ(controls.js の onTap で判定 → main.onDoubleTap)。縁・枠のメッシュは userData.kind='trim' + mergeKey で部位ごとに結合。もどす/進むは snapshot() 単位(矢印1押し・引っぱり開始・スライダー1回の操作・色変更 = 1段階)。
 - ドア: opening に `swing`('in'=その部屋側へ開く/'out')・`hinge`('left'/'right'、部屋の内側から見て)・`open`(0〜1)。共有ドアの片側(twin)から選んだときは plan.doorOwner で持ち主に読みかえ、左右・内外を反転して表示。
 - 編集欄: タブ(色・素材/大きさ/位置)、高さ low/high(つまみ)、👁 押している間だけ消す。開いている間は scene3d.setInset で見えている部分の中心に描き(setViewOffset)、frameItem で選んだ物に寄る(低い小物はしゃがむ、高い物は見上げすぎない距離、ふさがれていたら斜めから)。閉じると restoreView で元の視点へ。

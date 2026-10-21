@@ -20,6 +20,8 @@ export class WalkControls {
     if (this.enabled) { this.active.set(e.pointerId, { x: e.clientX, y: e.clientY }); if (this.active.size === 2 && this.onZoom) { const [a, b] = [...this.active.values()]; this.pinchZ = { d0: Math.hypot(a.x - b.x, a.y - b.y), ids: [...this.active.keys()] }; if (this.look.active) this.look.active = false; if (this.joy.active) { this.joy.active = false; this.move.set(0, 0); this.placeJoy(0, 0, false, true); } this.drag.active = false; return; } }
     if (!this.enabled) { this.tapOnly = { x: e.clientX, y: e.clientY, t0: performance.now(), moved: 0, id: e.pointerId }; return; } const w = this.dom.clientWidth;
     try { this.dom.setPointerCapture && this.dom.setPointerCapture(e.pointerId); } catch {}
+    // 左下は歩くボタンの場所。物が映っていても、歩くほうを先にする
+    if (e.pointerType === 'touch' && e.clientX < w * 0.45 && e.clientY > this.dom.clientHeight * 0.45 && !this.joy.active) { this.joy = { active: true, id: e.pointerId, cx: e.clientX, cy: e.clientY, t0: performance.now() }; this.placeJoy(e.clientX, e.clientY, true); return; }
     // 選んだアイテムの上なら引っぱって動かす
     // 物の上を押したとき:選んである物ならすぐ引っぱれる。選んでいない物は、長押し(0.4秒)でつかむ
     if (this.onDragItem && !this.joy.active && !this.look.active) { const h = this.hitTest(e.clientX / this.dom.clientWidth, e.clientY / this.dom.clientHeight);
@@ -27,7 +29,6 @@ export class WalkControls {
       if (h && h.itemId) { clearTimeout(this.lp && this.lp.timer); const lp = this.lp = { id: e.pointerId, x: e.clientX, y: e.clientY, moved: 0, h, ev: e };
         lp.timer = setTimeout(() => { if (this.lp !== lp || lp.moved > 10) return; this.lp = null; this.look.active = false; this.drag = { active: true, id: lp.id, itemId: h.itemId }; this.onDragItem('grab', lp.ev, h); }, 420);
         this.look = { active: true, id: e.pointerId, x: e.clientX, y: e.clientY, moved: 0, t0: performance.now(), sx: e.clientX, sy: e.clientY }; return; } }
-    if (e.pointerType === 'touch' && e.clientX < w * 0.45 && e.clientY > this.dom.clientHeight * 0.45 && !this.joy.active) { this.joy = { active: true, id: e.pointerId, cx: e.clientX, cy: e.clientY, t0: performance.now() }; this.placeJoy(e.clientX, e.clientY, true); return; }
     if (!this.look.active) { this.look = { active: true, id: e.pointerId, x: e.clientX, y: e.clientY, moved: 0, t0: performance.now(), sx: e.clientX, sy: e.clientY }; }
   }
   moveEv(e) {
