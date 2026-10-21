@@ -3,6 +3,7 @@
 import { WALL_T, wallLength, houseBounds, neighborAcross, edgeFrame, edgeName, normalizeRoom, isRect, resizeRect, translateRoom, insertVertex, removeVertex, chamferVertex, syncBounds, partBox, distSeg, nearestEdge, MODULES, mm, mmRaw, roomJo, shinShin, snapTo, gridCandidates, wallFaces, snapAngle, levelOf, baseOf, floorH, onLevel, hasUpper } from './house.js';
 import { stairLayout, STAIR_KINDS, STAIR_STYLES, STAIR_CELLS, stairKindName } from './stairs.js';
 import { catalogEntry } from './items.js';
+import { SURFACE_LIB, TRIM_FINISHES } from './textures.js';
 
 export class PlanEditor {
   constructor(app, canvas) {
@@ -67,7 +68,7 @@ export class PlanEditor {
       const dims = p.type === 'wall' ? this.field('pl', '長さ(mm)', mmRaw(b.L)) + this.field('pt', '厚み(mm)', mmRaw(p.t || WALL_T)) + this.field('ph', '高さ(mm)', mmRaw(p.h || r.h), 10)
         : p.type === 'beam' ? this.field('pw', '横(mm)', mmRaw(p.w)) + this.field('pd', '奥行(mm)', mmRaw(p.d)) + this.field('pdrop', '下がり(mm)', mmRaw(p.drop || .3), 10)
         : this.field('pw', '横(mm)', mmRaw(p.w)) + this.field('pd', '奥行(mm)', mmRaw(p.d));
-      return `<b>${name}</b>(${r.name})<div class="dims">${dims}</div><div class="row">${p.type !== 'beam' ? '<button data-act="prot">⟳ 90°回す</button>' : ''}<button data-act="pdel" class="danger">消す</button></div>`; }
+      return `<b>${name}</b>(${r.name})<div class="dims">${dims}</div>${p.type === 'beam' ? this.beamInfo(p) : ''}<div class="row">${p.type !== 'beam' ? '<button data-act="prot">⟳ 90°回す</button>' : ''}<button data-act="pdel" class="danger">消す</button></div>`; }
     return '';
   }
   // ドアの持ち主(実際のドアがある側)。となりの部屋から選んだときは、左右と内外が逆に見える
@@ -79,6 +80,12 @@ export class PlanEditor {
       <div><span>丁番の位置</span>${chip('dhinge', 'left', '左', hinge === 'left')}${chip('dhinge', 'right', '右', hinge === 'right')}<small>この部屋の中から ドアを見て</small></div>
       <div><span>開き具合</span>${chip('dopen', '0', '閉める', open < 0.05)}${chip('dopen', '0.5', '半分', open > 0.3 && open < 0.7)}${chip('dopen', '1', '全開', open > 0.85)}</div></div>`;
   }
+  // 梁の仕上げ:クロス巻き込み(天井と同じ/梁だけ別の壁紙)・化粧梁(木の色)
+  beamInfo(p) { const chip = (act, v, label, on) => `<button class="chip text${on ? ' on' : ''}" data-act="${act}" data-v="${v}">${label}</button>`; const wood = p.finish === 'wood';
+    let h = `<div class="lbl">仕上げ</div><div class="chips">${chip('bfin', 'cross', 'クロス巻き込み', !wood)}${chip('bfin', 'wood', '木を見せる(化粧梁)', wood)}</div>`;
+    if (wood) h += `<div class="lbl">木の色</div><div class="chips">${TRIM_FINISHES.filter(f => f.wood).map(f => chip('bwood', f.id, f.name.replace('木目', '').replace(/[()（）]/g, ''), (p.wood || 'wood_medium') === f.id)).join('')}</div>`;
+    else h += `<div class="lbl">クロス</div><div class="chips">${chip('bcross', '', '天井と同じ', !p.cross)}${SURFACE_LIB.wall.filter(x => /^wp_/.test(x.id)).map(x => chip('bcross', x.id, x.name.replace('壁紙', '').replace(/[()()]/g, ''), p.cross && p.cross.lib === x.id)).join('')}</div>`;
+    return h; }
   // 収納の戸:折れ戸・引き違い・襖、開け閉め
   closetInfo(r, o) { const own = o.twin ? this.doorOwner(r, o).owner : o; const chip = (act, v, label, on) => `<button class="chip text${on ? ' on' : ''}" data-act="${act}" data-v="${v}">${label}</button>`;
     return `<div class="lbl">戸の種類</div><div class="chips">${chip('cstyle', 'fold', '折れ戸', (own.style || 'fold') === 'fold')}${chip('cstyle', 'slide', '引き違い', own.style === 'slide')}${chip('cstyle', 'fusuma', '襖(ふすま)', own.style === 'fusuma')}</div><div class="chips">${chip('copen', '0', '閉める', !(own.open > 0.5))}${chip('copen', '1', '開ける', own.open > 0.5)}</div>`; }
@@ -103,6 +110,7 @@ export class PlanEditor {
       const act = b.dataset.act;
       if (act === 'rename') { const n = prompt('部屋の名前', s.room.name); if (n) { s.room.name = n; app.touched(); this.draw(); this.info(null); } }
       if (act === 'stand') { const r = s.room; app.walk.floorY = r.stair ? baseOf(r) : baseOf(r); app.s3.camera.position.set(r.x + r.w / 2, app.walk.floorY + 1.5, r.z + r.d * 0.75); app.walk.yaw = 0; app.setMode('walk'); }
+      if (act === 'bfin' || act === 'bwood' || act === 'bcross') { const p = s.part; app.snapshot(); if (act === 'bfin') p.finish = b.dataset.v; if (act === 'bwood') p.wood = b.dataset.v; if (act === 'bcross') { if (b.dataset.v) p.cross = { lib: b.dataset.v }; else delete p.cross; } app.rebuildHouse(); app.touched(); this.draw(); this.info(null); app.toast(p.finish === 'wood' ? '化粧梁(木を見せる)にしました' : 'クロス巻き込みにしました', 1500); }
       if (act === 'cstyle' || act === 'copen') { const own = s.opening.twin ? this.doorOwner(s.room, s.opening).owner : s.opening; app.snapshot(); if (act === 'cstyle') own.style = b.dataset.v; else own.open = +b.dataset.v; app.rebuildHouse(); app.touched(); this.draw(); this.info(null); }
       if (act === 'rtype') { app.setRoomType(s.room, b.dataset.v); this.draw(); this.info(null); }
       if (act === 'skind' || act === 'sstyle' || act === 'sdir' || act === 'sflip' || act === 'sfit') { app.stairEdit(s.room, act, b.dataset.v); this.fit(); this.draw(); this.info(null); }

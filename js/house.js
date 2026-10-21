@@ -379,7 +379,8 @@ export function buildRoom(room, project, group) {
       if (trim.base.on) { const bb = box(b.L + 0.024, baseH, b.d + 0.024, matBase); bb.position.set(b.cx, baseH / 2, b.cz); bb.rotation.y = b.rot; roomGroup.add(bb); }
       if (h < H - 0.05) { const top = box(b.L + 0.02, 0.03, b.d + 0.04, matWood); top.position.set(b.cx, h + 0.015, b.cz); top.rotation.y = b.rot; roomGroup.add(top); }
     } else if (part.type === 'beam') {
-      const drop = part.drop || 0.3; const m = new THREE.Mesh(new THREE.BoxGeometry(part.w, drop, part.d), surfaceMaterial('wall', room.ceiling || { color: '#f7f7f4' }, { w: Math.max(part.w, part.d), h: drop }, assets)); m.position.set(b.cx, H - drop / 2, b.cz); m.castShadow = true; m.receiveShadow = true;
+      // 梁:クロス巻き込み(既定は天井と同じ。梁だけ別の壁紙も選べる)/ 木をそのまま見せる化粧梁(木の色を選べる)
+      const drop = part.drop || 0.3; const bmat = part.finish === 'wood' ? trimMaterial(part.wood || 'wood_medium') : surfaceMaterial('wall', part.cross || room.ceiling || { color: '#f7f7f4' }, { w: Math.max(part.w, part.d), h: drop }, assets); const m = new THREE.Mesh(new THREE.BoxGeometry(part.w, drop, part.d), bmat); m.position.set(b.cx, H - drop / 2, b.cz); m.castShadow = true; m.receiveShadow = true;
       m.userData = { kind: 'part', part: 'beam', roomId: room.id, partId: part.id, keep: true }; roomGroup.add(m); pick.push(m);
     }
   }

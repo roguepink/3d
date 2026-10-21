@@ -5,7 +5,7 @@
 - ビルドなし・外部ライブラリは three.js(CDN, importmap)だけ。素材画像は `js/textures.js` で描く。
 - 構成: `main.js`(画面と状態) / `scene3d.js`(描画) / `controls.js`(歩く操作) / `house.js`(部屋の形) / `items.js`(置くもの) / `textures.js`(素材) / `commands.js`(日本語の指示) / `photo.js`(写真の取り込み) / `plan.js`(間取り) / `store.js`(保存) / `ai.js`(Gemini 任意) / `demo.js`(見本の家)
 - 座標: x 右(東)、z 手前(南)、y 上。部屋は多角形 `poly:[[x,z],...]`(時計回り、絶対座標)。x,z,w,d は外接する長方形(syncBounds で自動)。壁は多角形の辺 `edge`(番号)、開口は `edge` と `u`(辺の始点=内側から見て左 からの距離)。古い N/E/S/W・pos 形式は normalizeRoom が変換する。
-- 柱型・袖壁・梁は `room.parts`:`{type:'column',x,z,w,d}` / `{type:'wall',x1,z1,x2,z2,h,t}` / `{type:'beam',x,z,w,d,drop}`。歩ける判定(walkable)は多角形+ドアの通り道−柱・袖壁。
+- 柱型・袖壁・梁は `room.parts`:`{type:'column',x,z,w,d}` / `{type:'wall',x1,z1,x2,z2,h,t}` / `{type:'beam',x,z,w,d,drop,finish:'cross'|'wood',wood,cross}`(梁:既定はクロス巻き込み=天井と同じ。cross に壁紙、wood に TRIM_FINISHES の木目)。歩ける判定(walkable)は多角形+ドアの通り道−柱・袖壁。
 - 寸法: 画面は mm 表示。部屋の多角形は内法。芯々 = 内法 + WALL_T(120)。モジュールは `settings.module`('shaku' 910 / 'meter' 1000、localStorage 'oheya-module' が既定)。芯グリッドは k*g − 0.06 の位置。帖数は壁芯面積(内法+周囲×0.06)÷1.62。吸いつき(snap)は plan.js(tolM = 12px)。
 - 仕上げ: `room.trim = {crown:{on,h(mm),finish}, base:{...}, casing:{on,w,finish}, door:{finish}}`(roomTrim で既定を補う)。finish は textures.js の TRIM_FINISHES。窓の枠なし=ジャンブに壁材(クロス巻き込み)。
 - 窓の枠: 既定は見付 20mm の四方枠(下も上と同じ)。枠なし=クロス巻き込み+窓台だけ左右 20mm・室内側 20mm 出す。出窓は opening.bay='trap'|'box'、bayDepth(台形の既定 230 = 斜め窓 約325mm、箱型 450)。下の板(天板)は厚み30mm、左右は枠(なければ開口)から20mm出す。house.js の buildBay が天板(左右20mm出し)・天井板・外の腰と屋根を作る。台形=左右に斜めのはめ殺し窓+正面は引き違い2枚(計4枚)、角(箱型)=枠なしで左右と上の三方クロス巻き込み(部屋の枠設定に関係なく)+正面は引き違い2枚、下は30mmの板だけ。部屋の形「出窓つき」は長方形+奥の壁に台形出窓。

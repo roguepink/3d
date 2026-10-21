@@ -57,7 +57,9 @@ export function demoProject() {
   const stair = room('stair', '階段', 0, 1, 2, 3, 4, { floor: { lib: 'oak' }, stair: { kind: 'u_winder', style: 'box', dir: 'N', flip: false, finish: 'wood_natural' } });
   const osh = room('osh', '押入れ', 0, 0, 4, 3, 5, { closet: 'oshiire' }); // 1間半
   const wa = room('wa', '和室', 0, 0, 5, 3, 8, { floor: { lib: 'tatami' }, walls: { 0: { lib: 'wp_warm' }, 1: { lib: 'wp_warm' }, 2: { lib: 'wp_warm' }, 3: { lib: 'wp_warm' } } });
-  const ldk = room('ldk', 'LDK', 0, 3, 2, 9, 8, { walls: { 0: W0, 1: { lib: 'wp_greige' }, 2: W0, 3: W0 } }); // テレビの後ろ(東)をアクセントクロス
+  const ldk = room('ldk', 'LDK', 0, 3, 2, 9, 8, { walls: { 0: W0, 1: { lib: 'wp_greige' }, 2: W0, 3: W0 } });
+  // 梁:2階の子供部屋1とWICの間の壁を受ける大きな梁(LDKの真ん中、南北に通す)。最初はクロス巻き込み・天井と同じ。木を見せる化粧梁にもできる
+  ldk.parts.push({ id: 'beam1', type: 'beam', x: 6 * G - 0.075, z: ldk.z, w: 0.15, d: ldk.d, drop: 0.3, finish: 'cross' }); // テレビの後ろ(東)をアクセントクロス
   // ---------- 2階 ----------
   //    x: 0  1  2  3  4  5  6  7  8
   // z0  収A 収A ト ト ホ 子2 子2 子2 子2
