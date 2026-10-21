@@ -40,3 +40,13 @@
 - ユニットバス:items の `unitbath`。壁・天井・床は部屋の素材(ub_white など浴室パネル・ub_floor_*)。浴室のドアは opening.style='bath'。
 - 見本の家(demo.js)は 3LDK・2階建て(9×7マス)。merge.js は材質が配列のメッシュをまとめない(階段の段)。
 - 構文チェック:`jsc` の checkModuleSyntax で全 js を確認できる(書きまちがいで起動できなくなるのを防ぐ)。
+
+## 収納・ニッチ・玄関・床のつなぎ(2026-10-21)
+- 収納は「部屋」:`room.closet` = cl(枕棚1,800+パイプ1,700)/ wic(L字)/ oshiire(中段780+枕棚1,800)/ sic(可動棚)/ storage(棚)。中身は house.js の buildClosetInside。cl・oshiire は歩いて入れない。間取りの部屋の欄「部屋の使い方」で切りかえ(app.setRoomType)。
+- 収納の戸は opening.type='closet'、style = fold(折れ戸)/ slide(引き違い)/ fusuma(襖)、open 0/1。持ち主は収納の部屋で、戸は部屋側の面。歩く・全体でタップすると開け閉め(app.toggleCloset)。
+- ニッチは opening.type='niche'(u, w, h, sill, depth≦0.105)。外側の面には穴をあけない。間取りの「▭ニッチ」か「置く」の niche(c.opening)で付ける。
+- 玄関の土間は `room.drop`(0.15)。baseOf から drop を引く(部屋の床=0 のまま)。h は 2.4+drop。ホールへの開口は sill=drop → 上がり框が自動で付く。
+- ドアの下(sill≦0.02)は壁の厚みにも床を張る。となりと床が違うときはフローリング色の見切り(6mm)。地面は -0.45(基礎)。
+- 置いたトイレにはペーパーホルダー・タオルリング、洗面台にはタオル掛けが自動で付く(app.addAccessories)。
+- 観葉植物は js/plants.js(10種類、高さ・広がり・鉢の色)。
+- 見本の家:専門家(設計士・IC)の案 → 自動チェック(カーテンと窓・開口の通り抜け・家具のはみ出し)。_check の audit 用スクリプトは scratchpad。
