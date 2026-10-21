@@ -159,6 +159,8 @@ export const SURFACE_LIB = {
     { id: 'tile_k', bump: 0.008, name: 'タイル(黒 60cm)', size: 1.2, rough: .2, draw: (g, w, h, r) => drawTile(g, w, h, r, { base: '#3a3c40', grout: '#5a5c60', size: .6, mottle: .05 }) },
     { id: 'carpet_w', bump: 0.006, name: 'カーペット(アイボリー)', size: 1, rough: .95, draw: (g, w, h, r) => drawCarpet(g, w, h, r, { base: '#e9e2d2' }) },
     { id: 'cf_tile', bump: 0.003, name: 'クッションフロア(タイル柄)', size: 1.2, rough: .3, draw: (g, w, h, r) => drawTile(g, w, h, r, { base: '#e6e2da', grout: '#cfc9bf', size: .3, mottle: .04 }) },
+    // 押入れの床:ベニヤ板(中段・枕棚と同じ色。板は910mm幅)
+    { id: 'plywood', bump: 0.002, name: 'ベニヤ板(押入れ)', size: 1.82, rough: .7, draw: (g, w, h, r) => drawWood(g, w, h, r, { base: '#d9c39d', dark: '#c4aa80', plankW: 0.91, tile: 1.82, grainAlpha: .1 }) },
     // 洗面所・トイレ向け:クッションフロア・塩ビタイル
     { id: 'cf_white', bump: 0.002, name: 'クッションフロア(白)', size: 1.2, rough: .35, draw: (g, w, h, r) => drawPlain(g, w, h, r, { base: '#f1f0ec', alpha: .03 }) },
     { id: 'cf_marble', bump: 0.002, name: 'クッションフロア(大理石柄)', size: 1.2, rough: .25, draw: (g, w, h, r) => { drawMarble(g, w, h, r, { base: '#f0eeea', vein: '#a8a9ad' }); g.fillStyle = 'rgba(0,0,0,.08)'; for (const k of [0, .5]) { g.fillRect(k * w, 0, 1.5, h); g.fillRect(0, k * h, w, 1.5); } } },

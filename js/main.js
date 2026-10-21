@@ -225,7 +225,7 @@ class App {
   }
   // 部屋の使い方(収納にすると、出入り口は収納の戸になり、中に棚やハンガーパイプが付く)
   setRoomType(room, v) {
-    this.snapshot(); if (v) room.closet = v; else delete room.closet; const style = v === 'oshiire' ? 'fusuma' : v === 'sic' || v === 'wic' || v === 'storage' ? 'slide' : 'fold';
+    this.snapshot(); if (v) room.closet = v; else delete room.closet; if (v === 'oshiire') room.floor = { lib: 'plywood' }; const style = v === 'oshiire' ? 'fusuma' : v === 'sic' || v === 'wic' || v === 'storage' ? 'slide' : 'fold';
     for (const o of room.openings) { if (o.twin || o.type === 'window' || o.type === 'niche') continue; if (v && o.type === 'door') { o.type = 'closet'; o.style = style; o.open = 0; } else if (!v && o.type === 'closet') { o.type = 'door'; o.open = 0.9; } }
     for (const o of room.openings) if (!o.twin) for (const r2 of this.project.rooms) for (const t of (r2.openings || [])) if (t.twin === o.id && (t.type === 'door' || t.type === 'closet')) t.type = o.type;
     // となりの部屋が持ち主のドアは、こちら(収納)を持ち主にする
