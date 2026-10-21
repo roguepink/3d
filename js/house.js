@@ -178,6 +178,77 @@ function buildBay(og, o, h, ctx) {
   for (const sx of [-1, 1]) bar(0.03, h.h, 0.07, sx * (wf / 2 + 0.005), y, zf + 0.01);
 }
 
+// ---------- ニッチ(壁のくぼみ) ----------
+// 奥・左右・上は壁紙の巻き込み。下だけ板(厚み30mm)を左右20mm・部屋側20mm出す(出窓と同じ考え)
+function buildNiche(og, o, h, wallMat, boardMat, roomId, pick) {
+  const D = Math.min(o.depth || 0.1, WALL_T - 0.015), w = h.w, y0 = h.sill, H = h.h, EAR = 0.02;
+  const back = new THREE.Mesh(new THREE.PlaneGeometry(w, H), wallMat); back.position.set(0, y0 + H / 2, -D); og.add(back);
+  for (const sx of [-1, 1]) { const sd = new THREE.Mesh(new THREE.PlaneGeometry(D, H), wallMat); sd.rotation.y = -sx * Math.PI / 2; sd.position.set(sx * w / 2, y0 + H / 2, -D / 2); og.add(sd); }
+  const top = new THREE.Mesh(new THREE.PlaneGeometry(w, D), wallMat); top.rotation.x = Math.PI / 2; top.position.set(0, y0 + H, -D / 2); og.add(top);
+  const bd = box(w + EAR * 2, 0.03, D + EAR, boardMat); bd.position.set(0, y0 - 0.015, -D / 2 + EAR / 2); og.add(bd);
+  for (const m of [back, bd]) { m.userData = { kind: 'niche', roomId, openingId: o.id }; pick.push(m); }
+}
+// ---------- クローゼット・押入れの戸 ----------
+// style: fold(折れ戸) / slide(引き違い) / fusuma(襖)。open 0=閉 1=開。戸は部屋側(収納の外)の面にそろえる
+const matCloset = new THREE.MeshStandardMaterial({ color: '#f3f1ec', roughness: .5 });
+const matFusuma = new THREE.MeshStandardMaterial({ color: '#efe7d3', roughness: .85 });
+const matFusumaFrame = new THREE.MeshStandardMaterial({ color: '#3a2a1d', roughness: .5 });
+const matPull = new THREE.MeshStandardMaterial({ color: '#8f8a80', roughness: .35, metalness: .6 });
+function buildClosetDoor(og, o, h, ctx) {
+  const style = o.style || 'fold', open = Math.max(0, Math.min(1, o.open || 0)), w = h.w, H = h.h - 0.01, t = 0.03, zf = -WALL_T + 0.022;
+  const tag = m => { m.userData = { kind: 'closetdoor', roomId: ctx.roomId, edge: ctx.edge, openingId: o.id }; ctx.pick.push(m); return m; };
+  if (style === 'slide' || style === 'fusuma') {
+    const pw = w / 2 + 0.02, mat = style === 'fusuma' ? matFusuma : matCloset;
+    const panel = (cx, z) => { const g = new THREE.Group(); g.position.set(cx, 0, z); const p = tag(box(pw, H, t, mat)); p.position.y = H / 2; g.add(p);
+      if (style === 'fusuma') { for (const [bw, bh, x, y] of [[pw, 0.03, 0, H - 0.015], [pw, 0.03, 0, 0.015], [0.022, H, -pw / 2 + 0.011, H / 2], [0.022, H, pw / 2 - 0.011, H / 2]]) { const b = box(bw, bh, t + 0.006, matFusumaFrame); b.position.set(x, y, 0); g.add(b); } }
+      return g; };
+    // 左の戸は奥のレール、右の戸は手前のレール。開くと右の戸が左へ重なる
+    const L = panel(-w / 2 + pw / 2, zf + 0.0), R = panel(w / 2 - pw / 2 - open * (w - pw), zf - 0.035); og.add(L); og.add(R);
+    for (const [g, sx] of [[L, 1], [R, -1]]) { const pull = style === 'fusuma' ? new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.008, 16), matFusumaFrame) : box(0.012, 0.3, 0.012, matPull); if (style === 'fusuma') pull.rotation.x = Math.PI / 2; for (const zz of [t / 2 + 0.004, -t / 2 - 0.004]) { const q = pull.clone(); q.position.set(sx * (pw / 2 - 0.08), 0.95, zz); g.add(q); } }
+    const rail = box(w, 0.012, 0.075, ctx.frame); rail.position.set(0, 0.006, zf - 0.018); og.add(rail);
+  } else {
+    // 折れ戸:幅 1m までは2枚1組を片側へ、それより広いと2組を両側へたたむ
+    const pairs = w > 1.0 ? 2 : 1, a = w / (pairs * 2), th = open * 1.3;
+    for (let p = 0; p < pairs; p++) {
+      const sdir = pairs === 1 ? -1 : (p === 0 ? -1 : 1), x0 = sdir * w / 2, d = -sdir;
+      const A = new THREE.Group(); A.position.set(x0, 0, zf); A.rotation.y = d * th; const la = tag(box(a - 0.004, H, t, matCloset)); la.position.set(d * a / 2, H / 2, 0); A.add(la); og.add(A);
+      const B = new THREE.Group(); B.position.set(x0 + d * a * Math.cos(th), 0, zf - a * Math.sin(th)); B.rotation.y = -d * th; const lb = tag(box(a - 0.004, H, t, matCloset)); lb.position.set(d * a / 2, H / 2, 0); B.add(lb);
+      const knob = box(0.012, 0.22, 0.02, matPull); knob.position.set(d * (a - 0.05), 0.95, -t / 2 - 0.01); B.add(knob); og.add(B);
+    }
+    const rail = box(w, 0.012, 0.05, ctx.frame); rail.position.set(0, H + 0.004, zf); og.add(rail);
+  }
+}
+// ---------- クローゼット・押入れの中 ----------
+// cl:枕棚(床から1,800)+ハンガーパイプ(1,700)/ wic:L字に枕棚とパイプ / oshiire:中段(780)+枕棚(1,800)/ sic:可動棚 / storage:棚
+const matShelf = new THREE.MeshStandardMaterial({ color: '#e9e4da', roughness: .6 });
+const matPly = new THREE.MeshStandardMaterial({ color: '#d9c39d', roughness: .7 });
+const MATS = {}; const mat = c => MATS[c] || (MATS[c] = new THREE.MeshStandardMaterial({ color: c, roughness: .9 }));
+const CLOTHES = ['#3d4a5c', '#b9a789', '#6d7f6a', '#e2ddd3', '#8a5a4a', '#2f2f33', '#a7b4c2'];
+export function closetDoorEdge(room) { const o = (room.openings || []).find(x => x.type === 'closet') || (room.openings || []).find(x => x.type !== 'window' && x.type !== 'niche'); return o ? o.edge : 0; }
+function buildClosetInside(room, group) {
+  const kind = room.closet, de = closetDoorEdge(room), f = edgeFrame(room, de), L = f.L;
+  let depth = 0; for (const [x, z] of room.poly) depth = Math.max(depth, (x - f.A[0]) * f.normal.x + (z - f.A[1]) * f.normal.z);
+  const put = (lu, ly, ls, u, y, sd, mat) => { const m = box(lu, ly, ls, mat); m.position.copy(wallPoint(room, de, u, y, sd)); m.rotation.y = f.rotY; m.userData = { kind: 'closetin', roomId: room.id, mergeKey: 'closetin' }; group.add(m); return m; };
+  const pipe = (u0, u1, s, y) => { const len = u1 - u0; const c = new THREE.Mesh(new THREE.CylinderGeometry(0.0125, 0.0125, len, 10), matPull); c.rotation.z = Math.PI / 2; const g = new THREE.Group(); g.add(c); g.position.copy(wallPoint(room, de, (u0 + u1) / 2, y, s)); g.rotation.y = f.rotY; group.add(g);
+    // 掛けてある服(少しだけ)
+    let k = 0; for (let u = u0 + 0.12; u < u1 - 0.1; u += 0.09 + ((k * 37) % 5) * 0.02, k++) { if (k % 4 === 3) continue; const hgt = 0.75 + ((k * 53) % 4) * 0.12; put(0.035, hgt, 0.42, u, y - 0.06 - hgt / 2, s, mat(CLOTHES[k % CLOTHES.length])); } };
+  const pipeSide = (s0, s1, u, y) => { const len = s1 - s0; const c = new THREE.Mesh(new THREE.CylinderGeometry(0.0125, 0.0125, len, 10), matPull); c.rotation.x = Math.PI / 2; const g = new THREE.Group(); g.add(c); g.position.copy(wallPoint(room, de, u, y, (s0 + s1) / 2)); g.rotation.y = f.rotY; group.add(g); };
+  if (kind === 'cl' || kind === 'wic') {
+    const sd = Math.min(0.4, depth * 0.5); put(L, 0.022, sd, L / 2, 1.8, depth - sd / 2, matShelf);
+    const ps = depth - Math.min(0.33, depth / 2); pipe(0.03, L - 0.03, ps, 1.7);
+    if (kind === 'wic' && depth > 1.2) { put(sd, 0.022, depth - sd - 0.75, sd / 2, 1.8, (depth - sd - 0.75) / 2 + 0.75, matShelf); pipeSide(0.75, depth - sd, 0.33, 1.7); }
+  } else if (kind === 'oshiire') {
+    put(L, 0.03, depth - 0.02, L / 2, 0.765, depth / 2 + 0.01, matPly); put(L, 0.06, 0.04, L / 2, 0.75, 0.04, matPly); put(L, 0.02, depth - 0.02, L / 2, 1.8, depth / 2 + 0.01, matPly);
+    // 布団(中段の上)
+    const fw = Math.min(1.0, L * 0.55); for (let i = 0; i < 4; i++) put(fw, 0.1, Math.min(0.7, depth - 0.1), fw / 2 + 0.05, 0.83 + i * 0.105, depth / 2 + 0.02, mat(['#f2efe6', '#c9d6e3', '#efe3cf', '#e6e9ee'][i]));
+  } else if (kind === 'sic' || kind === 'storage') {
+    const sd = kind === 'sic' ? 0.35 : 0.45, ys = kind === 'sic' ? [0.12, 0.42, 0.72, 1.02, 1.32, 1.62, 1.92] : [0.4, 0.9, 1.4, 1.9];
+    for (const y of ys) put(L, 0.02, sd, L / 2, y, depth - sd / 2, matShelf);
+    if (kind === 'sic' && depth > 1.0) for (const y of ys.slice(0, 5)) put(sd, 0.02, depth - sd - 0.6, L - sd / 2, y, (depth - sd - 0.6) / 2 + 0.6, matShelf);
+    // 靴(シューズインクローゼットの棚に少しだけ)
+    if (kind === 'sic') { let k = 0; for (const y of ys.slice(0, 4)) for (let u = 0.12; u < L - 0.15; u += 0.26, k++) { if ((k * 7) % 5 === 0) continue; put(0.2, 0.08 + (k % 3) * 0.04, 0.26, u + 0.1, y + 0.05 + (k % 3) * 0.02, depth - 0.18, mat(['#2f2f33', '#7a5b45', '#e9e6df', '#4b5a73'][k % 4])); } }
+  }
+}
 export function wallSpec(room, e) { return (room.walls && (room.walls[e] !== undefined ? room.walls[e] : room.walls[String(e)])) || { lib: 'wp_white' }; }
 
 export function buildRoom(room, project, group) {
@@ -202,7 +273,7 @@ export function buildRoom(room, project, group) {
   for (let e = 0; e < n; e++) {
     const f = edgeFrame(room, e), L = f.L;
     const ops = room.openings.filter(o => o.edge === e);
-    const holes = ops.map(o => ({ u: o.u, w: o.w, sill: o.type === 'window' ? (o.sill ?? 0.9) : (o.sill || 0), h: o.h, op: o }));
+    const holes = ops.map(o => ({ u: o.u, w: o.w, sill: (o.type === 'window' || o.type === 'niche') ? (o.sill ?? (o.type === 'niche' ? 1.0 : 0.9)) : (o.sill || 0), h: o.h, op: o }));
     const wall = new THREE.Mesh(wallGeometry(L, H, holes), surfaceMaterial('wall', wallSpec(room, e), { w: L, h: H }, assets));
     wall.position.copy(f.origin); wall.rotation.y = f.rotY; wall.receiveShadow = true;
     wall.userData = { kind: 'wall', roomId: room.id, edge: e, keep: true }; roomGroup.add(wall); pick.push(wall);
@@ -210,7 +281,7 @@ export function buildRoom(room, project, group) {
     const cap = box(L + WALL_T * 2, 0.02, WALL_T, matCap); cap.castShadow = false;
     cap.position.copy(wallPoint(room, e, L / 2, outerH + 0.01, -WALL_T / 2)); cap.rotation.y = f.rotY; roomGroup.add(cap);
     // 外側の面(外から見たときだけ見える)
-    const outer = new THREE.Mesh(wallGeometry(L, outerH, holes), matOuter);
+    const outer = new THREE.Mesh(wallGeometry(L, outerH, holes.filter(h => h.op.type !== 'niche')), matOuter);
     outer.position.copy(wallPoint(room, e, 0, 0, -WALL_T)); outer.rotation.y = f.rotY; outer.receiveShadow = true; outer.userData.keep = true; roomGroup.add(outer);
     // 廻り縁(あり/なし・高さ・仕上げ)
     if (trim.crown.on) { const crown = box(L, crownH, Math.min(0.03, crownH * 0.6)); crown.material = matCrown; crown.castShadow = false; crown.userData = { kind: 'trim', part: 'crown', roomId: room.id, mergeKey: 'crown' }; crown.position.copy(wallPoint(room, e, L / 2, H - crownH / 2, Math.min(0.03, crownH * 0.6) / 2)); crown.rotation.y = f.rotY; roomGroup.add(crown); }
@@ -223,6 +294,7 @@ export function buildRoom(room, project, group) {
     for (const h of holes) {
       const o = h.op, cu = h.u + h.w / 2, isWin = o.type === 'window';
       const og = new THREE.Group(); og.position.copy(wallPoint(room, e, cu, 0, 0)); og.rotation.y = f.rotY; roomGroup.add(og); const tagTrim = m => { m.userData = { kind: 'trim', part: isWin ? 'casing' : 'door', roomId: room.id, openingId: o.id, mergeKey: isWin ? 'casing' : 'door' }; return m; };
+      if (o.type === 'niche') { buildNiche(og, o, h, wall.material, trimMaterial(o.finish || trim.casing.finish || 'white'), room.id, pick); continue; }
       // 箱型の出窓は、枠なし(三方クロス巻き込み)
       const casingOn = isWin ? (trim.casing.on && o.bay !== 'box') : true; const mFrame = isWin ? matCase : matDoorFrame; const wallMat = wall.material;
       const bay = isWin && (o.bay === 'trap' || o.bay === 'box'); const EAR = 0.02; // 窓台・出窓天板の左右の出(20mm)
@@ -253,6 +325,8 @@ export function buildRoom(room, project, group) {
         const s5 = s4.clone(); s5.position.x = h.w / 2 - fw / 2; og.add(s5);
       } else if (bay) {
         buildBay(og, o, h, { mFrame, matGlass, matSash, matOuter, wallMat, roomId: room.id, edge: e, pick, tagTrim, ear: (casingOn ? caseW : 0) + 0.02 });
+      } else if (o.type === 'closet' && !o.twin) {
+        buildClosetDoor(og, o, h, { roomId: room.id, edge: e, pick, frame: matDoorFrame });
       } else if (o.type === 'door' && !o.twin) {
         // 丁番:部屋の内側から見て左(left)/右(right)。開く向き:内開き(in=この部屋側)/外開き(out)
         const sx = o.hinge === 'right' ? -1 : 1, sz = o.swing === 'out' ? -1 : 1;
@@ -268,6 +342,8 @@ export function buildRoom(room, project, group) {
       }
     }
   }
+  // クローゼット・押入れの中(枕棚・ハンガーパイプ・中段・棚)
+  if (room.closet) buildClosetInside(room, roomGroup);
   // 階段
   if (room.stair) { const sg = new THREE.Group(); buildStair(room, FLOOR_H, sg, { tread: trimMaterial(room.stair.finish || 'wood_natural'), riser: trimMaterial(room.stair.riser || 'white'), rail: trimMaterial(room.stair.railFinish || 'wood_walnut'), metal: matSash, wall: surfaceMaterial('wall', wallSpec(room, 0), { w: 2, h: 2 }, assets) }); sg.traverse(o => { if (o.isMesh) { o.userData.roomId = room.id; o.userData.kind = 'stair'; pick.push(o); } }); roomGroup.add(sg); }
   // 柱型・袖壁・梁
@@ -330,7 +406,7 @@ export function groundAt(p, rooms, gy = 0, margin = 0.25) {
   let best = null; const take = y => { if (Math.abs(y - gy) <= STEP_MAX && (best === null || y > best)) best = y; };
   for (const r of rooms) {
     if (!r.poly) normalizeRoom(r); const b = baseOf(r);
-    if (!r.stair && Math.abs(b - gy) > STEP_MAX) continue;
+    if (!r.stair && Math.abs(b - gy) > STEP_MAX) continue; if (r.closet === 'cl' || r.closet === 'oshiire') continue;
     if (!pointInPoly(p.x, p.z, r.poly) || distToPolyEdges(p.x, p.z, r.poly) < (r.stair ? Math.min(margin, 0.17) : margin)) continue;
     if (r.stair) { for (const y of stairHeights(r, p.x, p.z, FLOOR_H)) take(b + y); } else take(b);
   }

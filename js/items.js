@@ -214,6 +214,26 @@ export const CATALOG = {
       g.add(box(w - 0.06, 0.1, 0.06, std('#e0e3e6', .3), 0, h - 0.04, -d / 2 + 0.06));
       return g;
     } },
+  // 靴箱(下駄箱)。ふつうはカウンター型(高さ900)。トール型は天井近くまで、浮かせると足もとに靴が置ける
+  shoebox: { name: '靴箱(下駄箱)', emoji: '👞', cat: '家具', kind: 'floor', size: [1.2, 0.9, 0.38], range: { w: [0.6, 2.7], h: [0.8, 2.4], d: [0.3, 0.45] }, color: '#d8c6a6', opts: { tall: false, float: false }, words: ['靴箱', '下駄箱', 'くつばこ', 'げたばこ', 'シューズボックス'], params: [['tall', 'トール型(天井近くまで)', 'bool'], ['float', '床から浮かせる', 'bool']],
+    build(it) {
+      const g = new THREE.Group(), w = it.w, d = it.d, m = std(it.color, .5), top = std('#cdb894', .4), metal = std(METAL, .3, .8);
+      const H = it.opts.tall ? Math.max(it.h, 2.0) : it.h, y0 = it.opts.float ? 0.3 : 0.06, bh = H - y0 - (it.opts.tall ? 0 : 0.03);
+      if (!it.opts.float) g.add(box(w - 0.02, y0, d - 0.06, std('#3b3833', .8), 0, y0 / 2, -0.02));
+      g.add(box(w, bh, d - 0.02, std('#e2dccf', .7), 0, y0 + bh / 2, -0.01));
+      const n = Math.max(2, Math.round(w / 0.45)), lw = w / n; for (let i = 0; i < n; i++) { const x = -w / 2 + lw * (i + .5); g.add(box(lw - 0.005, bh - 0.006, 0.02, m, x, y0 + bh / 2, d / 2 - 0.01)); g.add(box(0.012, 0.12, 0.02, metal, x + (i % 2 ? -1 : 1) * (lw / 2 - 0.04), y0 + (it.opts.tall ? 1.0 : bh - 0.12), d / 2 + 0.01)); }
+      if (!it.opts.tall) g.add(box(w + 0.02, 0.03, d + 0.01, top, 0, y0 + bh + 0.015, 0));
+      return g;
+    } },
+  // トイレ・洗面所の小物
+  paperholder: { name: 'ペーパーホルダー', emoji: '🧻', cat: '水まわり', equip: true, kind: 'wall', size: [0.15, 0.12, 0.1], attachY: 0.7, color: '#c9c9c6', opts: {}, words: ['ペーパーホルダー', 'トイレットペーパー', '紙巻器', 'ペーパー'],
+    build(it) { const g = new THREE.Group(), m = std(it.color, .25, .7); g.add(box(it.w, 0.05, 0.012, m, 0, 0.02, 0.006)); const roll = cyl(0.055, 0.055, 0.11, std('#fbfbf9', .9), 0, -0.01, 0.065, 20); roll.rotation.z = Math.PI / 2; g.add(roll); g.add(box(it.w + 0.01, 0.006, 0.1, m, 0, 0.05, 0.06)); return g; } },
+  towelring: { name: 'タオルリング', emoji: '⭕', cat: '水まわり', equip: true, kind: 'wall', size: [0.2, 0.25, 0.08], attachY: 1.1, color: '#c9c9c6', opts: {}, words: ['タオルリング', 'タオル輪'],
+    build(it) { const g = new THREE.Group(), m = std(it.color, .25, .8); const base = cyl(0.022, 0.022, 0.03, m, 0, 0.08, 0.015, 12); base.rotation.x = Math.PI / 2; g.add(base); const ring = new THREE.Mesh(new THREE.TorusGeometry(0.075, 0.007, 8, 24), m); ring.position.set(0, 0.0, 0.05); g.add(ring); g.add(box(0.2, 0.22, 0.02, std('#dfe7ef', .95), 0, -0.07, 0.05)); return g; } },
+  towelbar: { name: 'タオル掛け', emoji: '🧺', cat: '水まわり', equip: true, kind: 'wall', size: [0.6, 0.05, 0.08], range: { w: [0.3, 0.9] }, attachY: 1.0, color: '#c9c9c6', opts: {}, words: ['タオル掛け', 'タオルかけ', 'タオルバー'],
+    build(it) { const g = new THREE.Group(), m = std(it.color, .25, .8), w = it.w; const bar = cyl(0.009, 0.009, w, m, 0, 0, 0.06, 10); bar.rotation.z = Math.PI / 2; g.add(bar); for (const sx of [-1, 1]) { const b = cyl(0.012, 0.012, 0.06, m, sx * w / 2, 0, 0.03, 10); b.rotation.x = Math.PI / 2; g.add(b); } g.add(box(w * 0.7, 0.45, 0.025, std('#e9e1d3', .95), 0, -0.2, 0.06)); return g; } },
+  // ニッチ:置くと壁のくぼみ(開口)になる
+  niche: { name: 'ニッチ(壁のくぼみ)', emoji: '▭', cat: '壁かざり', kind: 'wall', size: [0.35, 0.5, 0.1], opening: true, color: '#ffffff', opts: {}, words: ['ニッチ', 'にっち', '飾り棚のくぼみ'], build() { return new THREE.Group(); } },
   plant: { name: '観葉植物', emoji: '🪴', cat: 'みどり', kind: 'floor', size: [0.6, 1.4, 0.6], color: '#4e8a5a', opts: {}, words: ['観葉植物', '植物', 'グリーン', '木', '鉢'],
     build(it) { const g = new THREE.Group(), h = it.h, r = it.w / 2; g.add(cyl(r * .4, r * .32, h * .22, std('#b9b1a6', .8), 0, h * .11, 0)); g.add(cyl(r * .38, r * .38, 0.01, std('#3b2a1a', 1), 0, h * .22, 0)); g.add(cyl(0.02, 0.03, h * .5, std('#6b4a2a', .9), 0, h * .45, 0, 8));
       const leaf = std(it.color, .7); const seed = (it.id || '').length; for (let i = 0; i < 9; i++) { const a = i * 2.4 + seed, rr = r * (0.3 + (i % 3) * 0.25), y = h * (0.55 + (i % 4) * 0.11); const s = sph(r * (0.28 + (i % 2) * 0.1), leaf, Math.cos(a) * rr, y, Math.sin(a) * rr); s.scale.set(1.2, 0.7, 1); g.add(s); } return g; } },

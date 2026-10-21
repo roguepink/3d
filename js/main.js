@@ -209,12 +209,25 @@ class App {
     const u = o.userData; const pt = h.point.clone(); pt.y -= this.base(u.roomId); return { kind: u.kind, roomId: u.roomId, edge: u.edge, part: u.part, partId: u.partId, openingId: u.openingId, point: pt, world: h.point, normal: n, distance: h.distance };
   }
   onTap(nx, ny, e) {
-    if (this.mode !== 'walk') { if (this.mode === 'orbit') { const h = this.hitAt(nx, ny); if (h && h.kind === 'item') { this.select(h.itemId); this.setPin(null); } else if (h && h.kind) { this.select(null); this.setPin(h); this.toast('ここに置きます(＋置く)', 1500); } else { this.select(null); this.setPin(null); } } return; }
+    if (this.mode !== 'walk') { if (this.mode === 'orbit') { const h = this.hitAt(nx, ny); if (h && h.kind === 'closetdoor') { this.toggleCloset(h); return; } if (h && h.kind === 'item') { this.select(h.itemId); this.setPin(null); } else if (h && h.kind) { this.select(null); this.setPin(h); this.toast('ここに置きます(＋置く)', 1500); } else { this.select(null); this.setPin(null); } } return; }
     const h = this.hitAt(nx, ny);
+    if (h && h.kind === 'closetdoor') { this.toggleCloset(h); return; }
     if (h && h.kind === 'item') { this.select(h.itemId); return; }
     if (h && (h.kind === 'floor' || h.kind === 'wall' || h.kind === 'ceiling' || h.kind === 'window')) { this.select(null); this.setPin(h); this.toast('ここに置きます。「＋置く」で選ぶか、「ここにカーテン」と言ってください', 2200); return; }
     this.select(null); this.setPin(null);
   }
+  // 部屋の使い方(収納にすると、出入り口は収納の戸になり、中に棚やハンガーパイプが付く)
+  setRoomType(room, v) {
+    this.snapshot(); if (v) room.closet = v; else delete room.closet; const style = v === 'oshiire' ? 'fusuma' : v === 'sic' || v === 'wic' || v === 'storage' ? 'slide' : 'fold';
+    for (const o of room.openings) { if (o.twin || o.type === 'window' || o.type === 'niche') continue; if (v && o.type === 'door') { o.type = 'closet'; o.style = style; o.open = 0; } else if (!v && o.type === 'closet') { o.type = 'door'; o.open = 0.9; } }
+    for (const o of room.openings) if (!o.twin) for (const r2 of this.project.rooms) for (const t of (r2.openings || [])) if (t.twin === o.id && (t.type === 'door' || t.type === 'closet')) t.type = o.type;
+    // となりの部屋が持ち主のドアは、こちら(収納)を持ち主にする
+    for (const t of room.openings.filter(o => o.twin)) { for (const r2 of this.project.rooms) { const own = (r2.openings || []).find(o => o.id === t.twin); if (!own || own.type === 'window') continue; if (v && (own.type === 'door' || own.type === 'closet')) { delete t.twin; t.type = 'closet'; t.style = style; t.open = 0; own.type = 'closet'; own.twin = t.id; delete own.swing; delete own.hinge; } } }
+    if (v) { const hasF = /クローゼット|押入|収納|納戸|シューズ|物入/.test(room.name); if (!hasF) room.name = { cl: 'クローゼット', wic: 'ウォークインクローゼット', oshiire: '押入れ', sic: 'シューズクローク', storage: '納戸' }[v]; }
+    this.rebuildHouse(); this.rebuildItems(); this.applyLevels(); this.touched(); this.toast(v ? '収納にしました。戸をタップすると開きます' : 'ふつうの部屋にしました', 2200);
+  }
+  // クローゼット・押入れの戸:タップで開け閉め(中が見える)
+  toggleCloset(h) { const room = this.room(h.roomId); const o = room && room.openings.find(x => x.id === h.openingId); if (!o) return; o.open = (o.open || 0) > 0.5 ? 0 : 1; this.rebuildHouse(); this.applyLevels(); this.applyCeilingVisibility(); this.touched(); this.toast(o.open ? '開けました(もう一度タップで閉めます)' : '閉めました', 1400); }
   // ダブルタップ:何でも選んで直せる
   onDoubleTap(nx, ny) {
     const h = this.hitAt(nx, ny); if (!h) return; const room = h.roomId && this.room(h.roomId);
@@ -240,7 +253,9 @@ class App {
   }
   // 種類と場所から、置き場所を決めて置く
   place(type, t, over = {}) {
-    const c = catalogEntry(type); if (!c || !this.project.rooms.length) { this.toast('先に部屋を作ってください'); return null; } this.snapshot();
+    const c = catalogEntry(type); if (!c || !this.project.rooms.length) { this.toast('先に部屋を作ってください'); return null; }
+    if (c.opening) return this.placeNiche(t);
+    this.snapshot();
     const it = newItem(type, over); const room = (t && t.roomId && this.room(t.roomId)) || this.currentRoom(); if (!room) return null; it.roomId = room.id; normalizeRoom(room);
     const p = t ? t.point.clone() : new THREE.Vector3(room.x + room.w / 2, 0, room.z + room.d / 2);
     const isWin = ['curtain', 'lace', 'roller', 'blind', 'vblind', 'shade', 'pleats', 'shoji'].includes(type);
@@ -278,7 +293,7 @@ class App {
       else if (dist < 0.9 || type === 'rug') it.rot = type === 'rug' ? 0 : f.rotY; else { const cam = this.s3.camera.position; it.rot = Math.atan2(cam.x - it.x, cam.z - it.z); }
       if (type !== 'rug' && dist < it.d / 2 + 0.02) { const push = it.d / 2 + 0.02 - dist; it.x += f.normal.x * push; it.z += f.normal.z * push; }
     }
-    this.project.items.push(it); this.addItemMesh(it); this.updateShadowLights(); this.setPin(null); this.touched(); return it;
+    this.project.items.push(it); this.addItemMesh(it); if (type === 'toilet' || type === 'washstand') this.addAccessories(it); this.updateShadowLights(); this.setPin(null); this.touched(); return it;
   }
 
   // ---------- 選ぶ・直す ----------
@@ -585,8 +600,32 @@ class App {
   }
   addOpening(room, o) {
     this.snapshot(); o.id = o.id || uid(); room.openings = room.openings || []; room.openings.push(o);
-    normalizeRoom(room); if (o.type === 'door') { const nb = neighborAcross(room, o.edge, o.u, o.w, this.project.rooms); if (nb) { const r2 = nb.room; r2.openings = r2.openings || []; r2.openings.push({ id: uid(), edge: nb.edge, type: 'door', u: nb.u, w: o.w, h: o.h, twin: o.id }); } }
+    normalizeRoom(room); if (o.type === 'door' || o.type === 'open' || o.type === 'closet') { const nb = neighborAcross(room, o.edge, o.u, o.w, this.project.rooms, { y: baseOf(room) + (o.sill || 0) });
+      // 収納の部屋との間なら、収納の戸(折れ戸)にする。戸の持ち主は収納の側
+      if (room.closet && o.type === 'door') { o.type = 'closet'; o.style = room.closet === 'oshiire' ? 'fusuma' : 'fold'; o.open = 0; }
+      if (nb && nb.room.closet && !room.closet && o.type === 'door') { room.openings.pop(); const own = { id: o.id, edge: nb.edge, type: 'closet', style: nb.room.closet === 'oshiire' ? 'fusuma' : 'fold', u: nb.u, w: o.w, h: o.h, open: 0 }; nb.room.openings.push(own); room.openings.push({ id: uid(), edge: o.edge, type: 'closet', u: o.u, w: o.w, h: o.h, twin: own.id }); this.rebuildHouse(); this.touched(); return own; }
+      if (nb) { const r2 = nb.room; r2.openings = r2.openings || []; r2.openings.push({ id: uid(), edge: nb.edge, type: o.type, u: nb.u, w: o.w, h: o.h, twin: o.id }); } }
     this.rebuildHouse(); this.touched(); return o;
+  }
+  // ニッチ:たたいた壁に、くぼみ(幅350・高さ500・奥行100)を作る
+  placeNiche(t) {
+    const room = (t && t.roomId && this.room(t.roomId)) || this.currentRoom(); if (!room) return null; normalizeRoom(room);
+    let edge = t && (t.kind === 'wall') ? t.edge : null, u = null, v = null; if (edge === null) { const p = (t && t.point) || this.defaultTarget()?.point || new THREE.Vector3(room.x + room.w / 2, 0, room.z + room.d / 2); edge = nearestEdge(room, p); } else ({ u, v } = wallUV(room, edge, t.point));
+    const L = wallLength(room, edge), w = 0.35, h = 0.5; if (L < w + 0.2) { this.toast('この壁は短すぎます'); return null; }
+    if (u === null) u = L / 2; const uu = Math.max(0.1, Math.min(L - w - 0.1, u - w / 2)); const sill = v !== null ? Math.max(0.3, Math.min(room.h - h - 0.2, v - h / 2)) : 1.0;
+    const clash = room.openings.some(o => o.edge === edge && uu < o.u + o.w + 0.05 && uu + w > o.u - 0.05 && (o.type !== 'window' && o.type !== 'niche' ? true : sill < (o.sill ?? 0) + o.h && sill + h > (o.sill ?? 0)));
+    if (clash) { this.toast('窓やドアと重なります。少しずらした所をタップしてください'); return null; }
+    this.addOpening(room, { edge, type: 'niche', u: uu, w, h, sill, depth: 0.1 }); this.setPin(null); this.toast('ニッチを付けました。間取りで大きさを直せます', 2200); return null;
+  }
+  // トイレにはペーパーホルダーとタオルリング、洗面台にはタオル掛けを、横の壁に自動で付ける
+  wallItemAt(type, room, edge, u, y) { const f = edgeFrame(room, edge); const it = newItem(type, { roomId: room.id }); u = Math.max(it.w / 2 + 0.02, Math.min(f.L - it.w / 2 - 0.02, u)); const p = wallPoint(room, edge, u, 0, 0); it.x = p.x; it.z = p.z; it.y = y; it.rot = f.rotY; it.edge = edge; this.project.items.push(it); this.addItemMesh(it); return it; }
+  sideWall(room, x, z, dir) { let best = null; for (let e = 0; e < room.poly.length; e++) { const f = edgeFrame(room, e); if (f.normal.x * dir.x + f.normal.z * dir.z > -0.7) continue; const t = (x - f.A[0]) * f.along.x + (z - f.A[1]) * f.along.z; if (t < 0.05 || t > f.L - 0.05) continue; const d = edgeDistance(room, e, x, z); if (d > 0 && (!best || d < best.d)) best = { e, d, t }; } return best; }
+  addAccessories(it) {
+    const room = this.room(it.roomId); if (!room) return; const fx = Math.sin(it.rot || 0), fz = Math.cos(it.rot || 0); const sides = [{ x: fz, z: -fx }, { x: -fz, z: fx }];
+    const cands = sides.map(d => this.sideWall(room, it.x, it.z, d)).filter(Boolean).sort((a, b) => a.d - b.d); const sw = cands[0];
+    const at = (k) => { const px = it.x + fx * k, pz = it.z + fz * k; const f = edgeFrame(room, sw.e); return (px - f.A[0]) * f.along.x + (pz - f.A[1]) * f.along.z; };
+    if (it.type === 'toilet') { if (sw && sw.d < 1.2) { this.wallItemAt('paperholder', room, sw.e, at(0.2), 0.7); this.wallItemAt('towelring', room, sw.e, at(0.75), 1.1); } else { const back = this.sideWall(room, it.x, it.z, { x: -fx, z: -fz }); if (back) { this.wallItemAt('paperholder', room, back.e, back.t + 0.45, 0.7); this.wallItemAt('towelring', room, back.e, back.t - 0.45, 1.1); } } }
+    if (it.type === 'washstand') { if (sw && sw.d < 0.9) this.wallItemAt('towelbar', room, sw.e, at(0.15), 1.0); else { const back = this.sideWall(room, it.x, it.z, { x: -fx, z: -fz }); if (back) this.wallItemAt('towelbar', room, back.e, back.t + it.w / 2 + 0.4, 1.0); } }
   }
   removeOpening(room, id) { const o = (room.openings || []).find(x => x.id === id); if (!o) return; this.snapshot(); room.openings = room.openings.filter(x => x.id !== id); for (const r of this.project.rooms) r.openings = (r.openings || []).filter(x => x.twin !== id && x.id !== o.twin); this.rebuildHouse(); this.touched(); }
 
