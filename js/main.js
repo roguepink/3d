@@ -36,8 +36,11 @@ class App {
   // ---------- 画面の部品 ----------
   toast(msg, ms = 2600) { const t = $('#toast'); t.textContent = msg; t.classList.remove('hidden'); clearTimeout(this._tt); this._tt = setTimeout(() => t.classList.add('hidden'), ms); }
   dialog(html, buttons) { return new Promise(res => { const d = $('#dialog'); $('#dialogBody').innerHTML = html; const b = $('#dialogBtns'); b.innerHTML = ''; for (const btn of buttons) { const el = document.createElement('button'); el.textContent = btn.label; if (btn.primary) el.className = 'primary'; if (btn.danger) el.className = 'danger'; el.onclick = () => { d.classList.add('hidden'); res(btn.value !== undefined ? btn.value : btn.label); }; b.appendChild(el); } d.classList.remove('hidden'); }); }
-  openSheet(id) { for (const s of $$('.sheet')) if (s.id !== id) s.classList.add('hidden'); $('#' + id).classList.remove('hidden'); if (this.s3) setTimeout(() => this.updateInset(), 30); }
-  closeSheets() { for (const s of $$('.sheet')) s.classList.add('hidden'); if (this.s3) this.updateInset(); }
+  openSheet(id) { for (const s of $$('.sheet')) if (s.id !== id) s.classList.add('hidden'); $('#' + id).classList.remove('hidden'); if (this.s3) setTimeout(() => this.updateInset(), 30); this.updateBack(); }
+  closeSheets() { for (const s of $$('.sheet')) s.classList.add('hidden'); if (this.s3) this.updateInset(); this.updateBack(); }
+  // 戻るボタン:歩く画面のまま何も開いていないときだけ隠す
+  updateBack() { const b = $('#btnBack'); if (!b) return; const start = $('#start') && !$('#start').classList.contains('hidden'); const sheet = $$('.sheet').some(s => !s.classList.contains('hidden')); const show = !start && (this.mode !== 'walk' || sheet); b.classList.toggle('hidden', !show); document.body.classList.toggle('show-back', show); }
+  goBack() { if (this.selectedId) this.select(null); this.closeSheets(); if (this.mode !== 'walk') this.setMode('walk'); this.updateBack(); }
   bindUI() {
     for (const b of $$('[data-close]')) b.onclick = () => $('#' + b.dataset.close).classList.add('hidden');
     for (const b of $$('#modes .mode')) b.onclick = () => this.setMode(b.dataset.mode);
@@ -67,6 +70,7 @@ class App {
     const gyro = () => { const on = this.walk.setGyro(!this.walk.gyro.on); setTimeout(() => { const now = this.walk.gyro.on; $('#mGyro').textContent = now ? '📱 傾きで見回す:ON(押すと止める)' : '📱 スマホを動かして見回す'; $('#btnGyro').classList.toggle('on', now); this.toast(now ? 'スマホを動かすと見回せます(もう一度押すと止まります)' : '傾き操作を止めました'); }, 300); void on; }; $('#mGyro').onclick = gyro; $('#btnGyro').onclick = () => { this.setMode('walk'); gyro(); };
     $('#mQuality').onclick = () => { const q = { normal: 'high', high: 'low', low: 'normal' }[this.s3.quality]; this.s3.quality = q; this.s3.applyQuality(); localStorage.setItem('oheya-quality', q); $('#mQuality').textContent = '🎚 画質:' + { low: 'かるい', normal: 'ふつう', high: 'きれい' }[q]; };
     for (const b of $$('#levelBar button')) b.onclick = () => this.goLevel(b.dataset.lv === 'all' ? 'all' : +b.dataset.lv);
+    $('#btnBack').onclick = () => this.goBack();
     $('#mAI').onclick = () => this.aiSettings();
     $('#mModule').onclick = () => { this.setModule(this.module() === 'shaku' ? 'meter' : 'shaku'); };
     $('#mHelp').onclick = () => this.help();
@@ -183,7 +187,7 @@ class App {
   setMode(m) {
     this.mode = m; this.s3.mode = m === 'walk' ? 'walk' : 'orbit'; document.body.classList.toggle('plan-mode', m === 'plan'); document.body.classList.toggle('orbit-mode', m === 'orbit');
     for (const b of $$('#modes .mode')) b.classList.toggle('on', b.dataset.mode === m);
-    this.walk.enabled = m === 'walk'; this.s3.orbit.enabled = m === 'orbit';
+    this.walk.enabled = m === 'walk'; this.s3.orbit.enabled = m === 'orbit'; setTimeout(() => this.updateBack(), 0);
     $('#plan').classList.toggle('hidden', m !== 'plan'); if (m === 'plan') this.plan.show(); else { this.plan.hide(); if (this.plan.ceil) this.plan.setCeil(false); }
     if (m === 'orbit') { if (this.levelView === undefined || this.levelView === null && !this._lvAll) this.levelView = hasUpper(this.project.rooms) ? this.walkLevel() : null; this.fitOrbit(); } this.applyCeilingVisibility(); this.applyLevels(); this.closeSheets();
   }

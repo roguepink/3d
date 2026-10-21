@@ -190,3 +190,8 @@ body.plan-mode #levelBar, body.sheet-open #levelBar { display:none; }
 .stair-info .warn { font-size:13px; color:#ffb4a8; margin:6px 0; line-height:1.6; }
 .stair-info .warn button { margin-top:4px; }
 .sheet-head .peek { width:40px; height:40px; font-size:18px; margin-right:6px; }
+/* 戻るボタン:どの画面でも左上の同じ場所。間取り・全体・欄を開いているときに出る */
+#btnBack { position:fixed; left:10px; top:calc(env(safe-area-inset-top) + 8px); z-index:100; width:44px; height:44px; padding:0; border:none; border-radius:14px; background:var(--accent); color:#1a1a1a; font-size:20px; font-weight:900; line-height:1; display:flex; flex-direction:column; align-items:center; justify-content:center; box-shadow:0 4px 14px rgba(0,0,0,.45); }
+#btnBack small { font-size:11px; font-weight:800; margin-top:1px; }
+#btnBack.hidden { display:none; }
+body.show-back #btnHome { visibility:hidden; }
