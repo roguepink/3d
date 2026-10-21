@@ -1,8 +1,8 @@
-// 見本の家:木造2階建ての 3LDK(延床 約31坪)。尺モジュール(910mm)で、1階・2階とも 8,190×6,370(芯々)
-// 1階:LDK(約19帖)・パントリー(通り抜け)・玄関・廊下・トイレ・洗面脱衣室・浴室(1坪のユニットバス)・階段(折り返し・回り段)
-// 2階:主寝室(約10帖)・子供部屋(約8帖・約6帖)・ホール・トイレ・収納・納戸
-// 階高 2,900(1階の床→2階の床)、天井高 2,400、浴室の天井 2,200、階段は15段上がり(1段 約193mm・回り段の前後の踏面をそろえる)
-// 設計士・インテリアコーディネーター・法規の目で見直し済み(通路幅・家事動線・収納・階段の壁・カーテン丈・照明)
+// 見本の家:木造2階建ての 4LDK(3LDK+和室)。総2階・延床 約36坪(119.2㎡)。尺モジュール(910mm)で、1階・2階とも 8,190×7,280(芯々 9×8マス)
+// 1階:LDK(約18帖・南)・和室(4.5帖・南西、押入れ1間)・玄関(土間を1段下げる)+シューズインクローゼット・ホール・物入れ・トイレ・洗面脱衣室・浴室(1坪)・階段(折り返し・回り段)
+// 2階:主寝室(8帖・南西、WIC 1.5坪)・子供部屋1(6帖・南東)・子供部屋2(6帖・北東)・トイレ(1階のトイレの真上)・ホール・収納3か所
+// 子供部屋1と子供部屋2の間は、奥行き1マスの収納の帯を2つに分け、北半分は子供部屋2から、南半分(東)は子供部屋1から使う(交互の背中合わせ)
+// 階高 2,900、天井高 2,400、浴室の天井 2,200。玄関とシューズインクローゼットは 150 下げた土間(天井は 1階の床から 2,400 のまま)
 import { newItem } from './items.js';
 
 const G = 0.91, T = 0.06; // 尺のマス、壁の半分の厚み(壁の中心から内側の面まで)
@@ -21,92 +21,159 @@ const OPP = { N: 'S', S: 'N', E: 'W', W: 'E' };
 // 2つの部屋をつなぐ開口(a が持ち主、b は同じ穴)
 function link(a, side, b, s, w, props = {}) { const o = opening(a, side, s, w, props); const t = { id: 'd' + (++seq), edge: SIDE[OPP[side]], u: uOf(b, OPP[side], s, w), w, h: o.h, type: o.type, twin: o.id }; if (props.twinSill !== undefined) t.sill = props.twinSill; delete o.twinSill; b.openings.push(t); return o; }
 function win(r, side, s, w, h, sill, props = {}) { return opening(r, side, s, w, { type: 'window', h, sill, ...props }); }
+// 壁のニッチ(奥行き約100mm)
+function niche(r, side, s, w, h, sill) { return opening(r, side, s, w, { type: 'niche', h, sill, depth: 0.1 }); }
 
 export function demoProject() {
   seq = 0; const FH = 2.9;
-  // ---------- 1階 ----------
-  const bath = room('bath', '浴室', 0, 0, 0, 2, 2, { h: 2.2, floor: { lib: 'ub_floor_g' }, ceiling: { lib: 'ub_ceil' }, walls: { 0: { lib: 'ub_white' }, 1: { lib: 'ub_white' }, 2: { lib: 'ub_white' }, 3: { lib: 'ub_wood' } }, trim: { crown: { on: false }, base: { on: false }, casing: { on: false }, door: { finish: 'white' } } });
-  const wash = room('wash', '洗面脱衣室', 0, 2, 0, 4, 2, { floor: { lib: 'cf_tile' } });
-  const wc1 = room('wc1', 'トイレ', 0, 4, 0, 5, 2, { floor: { lib: 'cf_stone' }, walls: { 0: { lib: 'wp_tex' }, 1: W0, 2: W0, 3: W0 } });
-  const stair = room('stair', '階段', 0, 5, 0, 7, 2, { floor: { lib: 'oak' }, stair: { kind: 'u_winder', style: 'box', dir: 'S', flip: false, finish: 'wood_natural' } });
-  const genkan = room('genkan', '玄関', 0, 7, 0, 9, 2, { floor: { lib: 'tile_g' } });
-  const pantry = room('pantry', 'パントリー', 0, 0, 2, 2, 3);
-  const hall1 = room('hall1', '廊下', 0, 2, 2, 9, 3);
-  const ldk = room('ldk', 'LDK', 0, 0, 3, 9, 7, { walls: { 0: W0, 1: { lib: 'wp_tex' }, 2: W0, 3: W0 } });
+  // ---------- 1階(x 0〜9マス、z 0〜8マス) ----------
+  //    x: 0  1  2  3  4  5  6  7  8
+  // z0  玄 玄 ト ト 物 洗 洗 浴 浴
+  // z1  玄 玄 ホ ホ ホ 洗 洗 浴 浴
+  // z2  S  階 階 L  L  L  L  L  L
+  // z3  S  階 階 L  L  L  L  L  L
+  // z4  S  押 押 L  L  L  L  L  L
+  // z5  和 和 和 L  L  L  L  L  L
+  // z6  和 和 和 L  L  L  L  L  L
+  // z7  和 和 和 L  L  L  L  L  L      (S=シューズインクローゼット)
+  const genkan = room('genkan', '玄関', 0, 0, 0, 2, 2, { drop: 0.15, h: 2.55, floor: { lib: 'tile_g' } });
+  const wc1 = room('wc1', 'トイレ', 0, 2, 0, 4, 1, { floor: { lib: 'cf_marble' }, walls: { 0: W0, 1: { lib: 'wp_tex' }, 2: W0, 3: W0 } });
+  const mono1 = room('mono1', '物入れ', 0, 4, 0, 5, 1, { closet: 'storage' });
+  const wash = room('wash', '洗面脱衣室', 0, 5, 0, 7, 2, { floor: { lib: 'cf_tile' } });
+  const bath = room('bath', '浴室', 0, 7, 0, 9, 2, { h: 2.2, floor: { lib: 'ub_floor_g' }, ceiling: { lib: 'ub_ceil' }, walls: { 0: { lib: 'ub_white' }, 1: { lib: 'ub_wood' }, 2: { lib: 'ub_white' }, 3: { lib: 'ub_white' } }, trim: { crown: { on: false }, base: { on: false }, casing: { on: false }, door: { finish: 'white' } } });
+  const hall1 = room('hall1', 'ホール', 0, 2, 1, 5, 2);
+  const sic = room('sic', 'シューズクローク', 0, 0, 2, 1, 5, { closet: 'sic', drop: 0.15, h: 2.55, floor: { lib: 'tile_g' } });
+  const stair = room('stair', '階段', 0, 1, 2, 3, 4, { floor: { lib: 'oak' }, stair: { kind: 'u_winder', style: 'box', dir: 'N', flip: false, finish: 'wood_natural' } });
+  const osh = room('osh', '押入れ', 0, 1, 4, 3, 5, { closet: 'oshiire' });
+  const wa = room('wa', '和室', 0, 0, 5, 3, 8, { floor: { lib: 'tatami' }, walls: { 0: { lib: 'wp_warm' }, 1: { lib: 'wp_warm' }, 2: { lib: 'wp_warm' }, 3: { lib: 'wp_warm' } } });
+  const ldk = room('ldk', 'LDK', 0, 3, 2, 9, 8, { walls: { 0: W0, 1: { lib: 'wp_greige' }, 2: W0, 3: W0 } }); // テレビの後ろ(東)をアクセントクロス
   // ---------- 2階 ----------
-  const kid2 = room('kid2', '子供部屋2', 1, 0, 0, 4, 3, { floor: { lib: 'whiteash' }, walls: { 0: W0, 1: W0, 2: W0, 3: { lib: 'wp_green' } } });
-  const sto = room('sto', 'クローゼット', 1, 4, 0, 5, 2);
-  const wc2 = room('wc2', 'トイレ(2階)', 1, 7, 0, 8, 2, { floor: { lib: 'cf_stone' } });
-  const nando = room('nando', '納戸', 1, 8, 0, 9, 2);
-  const hall2 = room('hall2', 'ホール', 1, 4, 2, 9, 3);
-  const master = room('master', '主寝室', 1, 0, 3, 5, 7, { walls: { 0: { lib: 'wp_navy' }, 1: W0, 2: W0, 3: W0 } });
-  const kid1 = room('kid1', '子供部屋1', 1, 5, 3, 9, 7, { floor: { lib: 'whiteash' }, walls: { 0: { lib: 'wp_blue' }, 1: W0, 2: W0, 3: W0 } });
+  //    x: 0  1  2  3  4  5  6  7  8
+  // z0  収A 収A ト ト ホ 子2 子2 子2 子2
+  // z1  収B ホ ホ ホ ホ 子2 子2 子2 子2
+  // z2  収B 階 階 収C ホ 子2 子2 子2 子2
+  // z3  収B 階 階 収C ホ c2 c2 c1 c1     (c2=子供部屋2のクローゼット、c1=子供部屋1のクローゼット)
+  // z4  主 主 主 主 ホ ホ 子1 子1 子1
+  // z5  主 主 主 主 W  W  子1 子1 子1
+  // z6  主 主 主 主 W  W  子1 子1 子1
+  // z7  主 主 主 主 W  W  子1 子1 子1     (W=主寝室のウォークインクローゼット)
+  const stoA = room('stoA', '収納', 1, 0, 0, 2, 1, { closet: 'storage' });
+  const wc2 = room('wc2', 'トイレ(2階)', 1, 2, 0, 4, 1, { floor: { lib: 'cf_hex' } }); // 1階のトイレの真上
+  const hall2a = room('hall2a', 'ホール', 1, 1, 1, 4, 2);
+  const hall2b = room('hall2b', '廊下', 1, 4, 0, 5, 4);
+  const hall2c = room('hall2c', '廊下', 1, 4, 4, 6, 5);
+  const stoB = room('stoB', '納戸', 1, 0, 1, 1, 4, { closet: 'storage' });
+  const stoC = room('stoC', '物入れ', 1, 3, 2, 4, 4, { closet: 'storage' }); // 階段の横の残り
+  const kid2 = room('kid2', '子供部屋2', 1, 5, 0, 9, 3, { floor: { lib: 'whiteash' }, walls: { 0: W0, 1: { lib: 'wp_green' }, 2: W0, 3: W0 } });
+  const cl2 = room('cl2', 'クローゼット', 1, 5, 3, 7, 4, { closet: 'cl' });
+  const cl1 = room('cl1', 'クローゼット', 1, 7, 3, 9, 4, { closet: 'cl' });
+  const master = room('master', '主寝室', 1, 0, 4, 4, 8, { walls: { 0: { lib: 'wp_navy' }, 1: W0, 2: W0, 3: W0 } }); // ベッドの頭(北)をアクセントクロス
+  const wic = room('wic', 'WIC', 1, 4, 5, 6, 8, { closet: 'wic' });
+  const kid1 = room('kid1', '子供部屋1', 1, 6, 4, 9, 8, { floor: { lib: 'whiteash' }, walls: { 0: W0, 1: { lib: 'wp_blue' }, 2: W0, 3: W0 } });
 
   // ---------- 出入り口・窓(1階) ----------
-  link(wash, 'W', bath, 0.95, 0.75, { swing: 'in', hinge: 'right', open: 0.85, style: 'bath' }); // 洗濯機の場所をあけるため南寄り
-  link(wash, 'S', hall1, 2.3, 0.75, { swing: 'in', hinge: 'left', open: 0.8 });
-  link(wc1, 'S', hall1, 3.78, 0.65, { swing: 'out', hinge: 'right', open: 0.75 });
-  link(stair, 'S', hall1, 4.65, 0.76, { type: 'open', h: 2.4 });           // 1階の上り口(天井まで開けて頭をぶつけない)
-  link(stair, 'S', hall2, 5.51, 0.76, { type: 'open', sill: FH, twinSill: 0 }); // 2階の出口
-  link(genkan, 'S', hall1, 6.6, 1.3, { type: 'open', h: 2.2 });
-  opening(genkan, 'N', 6.95, 0.9, { h: 2.1, swing: 'out', hinge: 'left', open: 0 }); // 玄関ドア
-  link(ldk, 'N', hall1, 6.3, 0.8, { swing: 'in', hinge: 'right', open: 0.85 });
-  link(pantry, 'S', ldk, 0.2, 0.7, { swing: 'out', hinge: 'left', open: 0.6 });
-  link(pantry, 'E', hall1, 1.95, 0.7, { type: 'open' }); // 通り抜け:キッチン→パントリー→廊下→洗面所
-  win(ldk, 'S', 0.9, 1.69, 2.0, 0.0); win(ldk, 'S', 5.0, 1.69, 2.0, 0.0); win(ldk, 'E', 2.95, 0.78, 1.1, 0.9); win(ldk, 'W', 3.6, 0.78, 1.1, 0.9);
-  win(wash, 'N', 2.4, 0.6, 0.6, 1.3); win(bath, 'N', 0.95, 0.6, 0.4, 1.5); win(wc1, 'N', 3.9, 0.4, 0.5, 1.4);
-  win(stair, 'N', 5.4, 0.6, 0.9, FH + 0.7); // 階段の窓(2階の高さ)
+  opening(genkan, 'N', 0.55, 0.9, { h: 2.1, swing: 'out', hinge: 'left', open: 0 }); // 玄関ドア(土間の床から)
+  link(genkan, 'E', hall1, 1.0, 0.75, { type: 'open', sill: 0.15, twinSill: 0, h: 2.2 }); // 上がり框
+  link(sic, 'N', genkan, 0.1, 0.7, { type: 'open', h: 2.0 }); // 土間からシューズインクローゼットへ(どちらも土間なので段なし)
+  link(ldk, 'N', hall1, 3.0, 0.8, { swing: 'in', hinge: 'left', open: 0.85 });
+  link(wc1, 'S', hall1, 1.95, 0.65, { swing: 'out', hinge: 'right', open: 0.7 });
+  link(mono1, 'S', hall1, 3.75, 0.7, { type: 'closet', style: 'fold', open: 0 });
+  link(wash, 'W', hall1, 1.0, 0.7, { swing: 'in', hinge: 'left', open: 0.8 });
+  link(wash, 'E', bath, 0.95, 0.75, { swing: 'in', hinge: 'right', open: 0.85, style: 'bath' });
+  link(stair, 'N', hall1, 1.88, 0.76, { type: 'open', h: 2.4 });                // 1階の上り口(北の辺の東半分)
+  link(stair, 'N', hall2a, 1.0, 0.76, { type: 'open', sill: FH, twinSill: 0 });  // 2階の出口(北の辺の西半分)
+  link(osh, 'S', wa, 1.0, 1.64, { type: 'closet', style: 'fusuma', open: 0 });   // 押入れ1間(襖)
+  link(wa, 'E', ldk, 4.75, 1.4, { type: 'open', h: 2.0 });                         // 和室とLDKを広くつなぐ
+  win(ldk, 'S', 4.0, 1.69, 2.0, 0.0); win(ldk, 'S', 6.25, 1.69, 2.0, 0.0); win(ldk, 'E', 3.6, 0.78, 1.1, 0.9);
+  win(wa, 'S', 0.5, 1.69, 1.1, 0.9); win(wa, 'W', 5.3, 0.78, 1.1, 0.9);
+  win(wash, 'N', 5.55, 0.6, 0.5, 1.5); win(bath, 'E', 0.65, 0.6, 0.4, 1.5); win(wc1, 'N', 2.2, 0.4, 0.5, 1.4);
+  niche(genkan, 'S', 1.1, 0.5, 0.6, 1.0);   // 玄関:正面の飾りニッチ(W500×H600)
+  niche(wc1, 'E', 0.205, 0.5, 0.4, 1.0);    // トイレ:便器の後ろのニッチ(W500×H400)
   // ---------- 出入り口・窓(2階) ----------
-  link(kid2, 'E', hall2, 1.92, 0.7, { swing: 'in', hinge: 'right', open: 0.85 });
-  link(kid2, 'E', sto, 0.25, 1.2, { type: 'open' }); // 子供部屋2のウォークインクローゼット
-  link(wc2, 'S', hall2, 6.45, 0.65, { swing: 'out', hinge: 'right', open: 0.7 });
-  link(nando, 'S', hall2, 7.36, 0.7, { swing: 'in', hinge: 'left', open: 0.3 });
-  link(master, 'N', hall2, 3.76, 0.7, { swing: 'in', hinge: 'right', open: 0.85 });
-  link(kid1, 'N', hall2, 4.7, 0.75, { swing: 'in', hinge: 'left', open: 0.85 });
-  win(kid2, 'N', 1.0, 1.69, 1.1, 0.9); win(kid2, 'W', 0.9, 0.78, 1.1, 0.9);
-  win(master, 'S', 1.4, 1.69, 1.1, 0.9); // バルコニーがないので腰窓 win(master, 'W', 4.2, 0.78, 1.1, 0.9);
-  win(kid1, 'S', 5.7, 1.69, 1.1, 0.9); win(kid1, 'E', 4.3, 0.78, 1.1, 0.9);
-  win(wc2, 'N', 6.6, 0.4, 0.5, 1.4);
+  link(hall2a, 'E', hall2b, 0.98, 0.77, { type: 'open', h: 2.4 });
+  link(hall2b, 'S', hall2c, 3.72, 0.75, { type: 'open', h: 2.4 });
+  link(wc2, 'S', hall2a, 1.95, 0.65, { swing: 'out', hinge: 'right', open: 0.7 });
+  link(stoA, 'S', hall2a, 1.0, 0.7, { type: 'closet', style: 'fold', open: 0 });
+  link(stoB, 'E', hall2a, 1.0, 0.7, { type: 'closet', style: 'fold', open: 0 });
+  link(stoC, 'E', hall2b, 2.0, 1.5, { type: 'closet', style: 'slide', open: 0 });
+  link(kid2, 'W', hall2b, 1.0, 0.7, { swing: 'in', hinge: 'left', open: 0.85 });
+  link(cl2, 'N', kid2, 4.65, 1.3, { type: 'closet', style: 'fold', open: 0 });
+  link(cl1, 'S', kid1, 6.5, 1.6, { type: 'closet', style: 'fold', open: 0 });
+  link(master, 'E', hall2c, 3.75, 0.7, { swing: 'in', hinge: 'left', open: 0.85 });
+  link(wic, 'W', master, 4.75, 0.7, { type: 'open', h: 2.0 });
+  link(kid1, 'W', hall2c, 3.75, 0.7, { swing: 'in', hinge: 'right', open: 0.85 });
+  // 2階はバルコニーなし → 掃き出し窓は付けない
+  win(master, 'S', 0.8, 1.69, 1.1, 0.9); win(master, 'W', 5.6, 0.78, 1.1, 0.9);
+  win(kid1, 'S', 6.2, 1.69, 1.1, 0.9); win(kid1, 'E', 4.2, 0.78, 1.1, 0.9);
+  win(kid2, 'N', 6.6, 0.78, 1.1, 0.9); win(kid2, 'E', 0.3, 0.78, 1.1, 0.9);
+  win(wc2, 'N', 2.2, 0.4, 0.5, 1.4); win(hall2b, 'N', 3.795, 0.6, 0.9, 1.0);
+  niche(hall2c, 'S', 3.85, 0.5, 0.6, 1.0);  // 2階の廊下のつきあたり(W500×H600)
 
-  const rooms = [bath, wash, wc1, stair, genkan, pantry, hall1, ldk, kid2, sto, wc2, nando, hall2, master, kid1];
+  const rooms = [genkan, wc1, mono1, wash, bath, hall1, sic, stair, osh, wa, ldk, stoA, wc2, hall2a, hall2b, hall2c, stoB, stoC, kid2, cl2, cl1, master, wic, kid1];
   const items = [];
   const add = (type, roomId, x, y, z, rot, over = {}) => { const it = newItem(type, { roomId, x, y, z, rot, ...over }); items.push(it); return it; };
   const H = Math.PI / 2, P = Math.PI;
-  // LDK(内側 x 0.06〜8.13、z 2.79〜6.31)
-  add('kitchen', 'ldk', 2.35, 0, 3.12, 0, { w: 2.55 });
-  // 食卓は縦向き(キッチンの前の通路 約880mm をとる)
-  add('table', 'ldk', 2.35, 0, 5.0, H, { w: 1.35 });
-  add('chair', 'ldk', 1.55, 0, 4.7, H); add('chair', 'ldk', 1.55, 0, 5.3, H); add('chair', 'ldk', 3.15, 0, 4.7, -H); add('chair', 'ldk', 3.15, 0, 5.3, -H);
-  add('pendant', 'ldk', 2.35, 2.4, 4.7, 0, { color: '#2f2f33', opts: { on: true, drop: 0.7, power: 1 } }); add('pendant', 'ldk', 2.35, 2.4, 5.3, 0, { color: '#2f2f33', opts: { on: true, drop: 0.7, power: 1 } });
-  add('downlight', 'ldk', 1.6, 2.4, 3.3, 0); add('downlight', 'ldk', 2.35, 2.4, 3.3, 0); add('downlight', 'ldk', 3.1, 2.4, 3.3, 0); // キッチンの手もと
-  add('tvboard', 'ldk', 7.9, 0, 4.7, -H, { w: 1.6 }); add('sofa', 'ldk', 5.6, 0, 4.7, H, { color: '#8c95a3', w: 2.0 });
-  add('lowtable', 'ldk', 6.6, 0, 4.7, H); add('rug', 'ldk', 6.6, 0, 4.7, H, { w: 2.2, d: 1.6, color: '#bfae94' });
-  add('ceilingLight', 'ldk', 6.6, 2.4, 4.7, 0, { w: 0.6 }); add('plant', 'ldk', 7.8, 0, 6.0, 0);
+  // LDK(内側 x 2.79〜8.13、z 1.88〜7.22)
+  add('kitchen', 'ldk', 6.8, 0, 2.205, 0, { w: 2.55 });                 // 壁付けI型(前の通路 865mm)
+  add('table', 'ldk', 6.8, 0, 4.32, 0, { w: 1.4 });                     // 椅子4脚つき
+  add('pendant', 'ldk', 6.45, 2.4, 4.32, 0, { color: '#2f2f33', opts: { on: true, drop: 0.7, power: 1 } }); add('pendant', 'ldk', 7.15, 2.4, 4.32, 0, { color: '#2f2f33', opts: { on: true, drop: 0.7, power: 1 } });
+  add('downlight', 'ldk', 6.0, 2.4, 2.4, 0); add('downlight', 'ldk', 6.8, 2.4, 2.4, 0); add('downlight', 'ldk', 7.6, 2.4, 2.4, 0); // キッチンの手もと
+  add('tvboard', 'ldk', 7.93, 0, 6.05, -H, { w: 1.6 }); add('sofa', 'ldk', 5.3, 0, 6.05, H, { color: '#8c95a3', w: 1.8 });
+  add('lowtable', 'ldk', 6.5, 0, 6.05, H); add('rug', 'ldk', 6.4, 0, 6.05, H, { w: 2.0, d: 1.6, color: '#bfae94' });
+  add('ceilingLight', 'ldk', 6.5, 2.4, 6.05, 0, { w: 0.6 });
+  add('monstera', 'ldk', 3.3, 0, 6.75, 0, { w: 0.9, h: 1.0, d: 0.9 }); add('umbellata', 'ldk', 3.25, 0, 4.2, 0, { w: 0.8, h: 1.6, d: 0.8 });
   // カーテン:掃き出し窓は床から10mm・窓の上+100mm、腰窓は窓台の下150mmまで、幅は窓より左右に約150mmずつ広く
-  add('curtain', 'ldk', 1.745, 1.055, 6.31, P, { w: 2.0, h: 2.09, color: '#cbb89a', opts: { open: 0.35, lace: true } });
-  add('curtain', 'ldk', 5.845, 1.055, 6.31, P, { w: 2.0, h: 2.09, color: '#cbb89a', opts: { open: 0.35, lace: true } });
-  add('curtain', 'ldk', 8.13, 1.425, 3.34, -H, { w: 1.1, h: 1.35, color: '#cbb89a', opts: { open: 0.3 } }); add('curtain', 'ldk', 0.06, 1.425, 3.99, H, { w: 1.1, h: 1.35, color: '#cbb89a', opts: { open: 0.3 } });
-  add('aircon', 'ldk', 8.13, 2.17, 5.9, -H); add('switch', 'ldk', 6.15, 1.2, 2.79, 0);
-  // 1階の水まわり・廊下・玄関
-  add('unitbath', 'bath', 0.91, 0, 0.91, H, { w: 1.7, d: 1.7, color: '#f6f6f3' });
-  add('downlight', 'bath', 0.91, 2.2, 0.91, 0);
-  add('washer', 'wash', 2.2, 0, 0.38, 0); add('washstand', 'wash', 3.305, 0, 0.62, -H, { w: 0.75 }); add('ceilingLight', 'wash', 2.73, 2.4, 1.0, 0, { w: 0.35 });
-  add('toilet', 'wc1', 4.095, 0, 0.44, 0); add('downlight', 'wc1', 4.095, 2.4, 1.0, 0);
-  add('downlight', 'hall1', 3.0, 2.4, 2.275, 0); add('downlight', 'hall1', 5.2, 2.4, 2.275, 0); add('downlight', 'hall1', 7.3, 2.4, 2.275, 0);
-  add('shelf', 'genkan', 6.63, 0, 0.9, H, { w: 0.9 }); add('downlight', 'genkan', 7.3, 2.4, 0.9, 0); add('mirror', 'genkan', 8.13, 1.3, 1.0, -H, { w: 0.45, h: 1.1 });
-  add('shelf', 'pantry', 0.85, 0, 2.05, 0, { w: 1.4 }); add('downlight', 'pantry', 0.91, 2.4, 2.275, 0);
-  add('wallLight', 'stair', 4.61, 3.1, 0.6, H); add('wallLight', 'stair', 6.31, FH + 1.9, 1.2, -H);
-  // 2階
-  add('bed', 'master', 2.0, 0, 3.85, 0); add('curtain', 'master', 2.245, 1.425, 6.31, P, { w: 2.0, h: 1.35, color: '#6c7a9c', fabric: 'linen', opts: { open: 0.25, lace: true } }); add('curtain', 'master', 0.06, 1.425, 4.59, H, { w: 1.1, h: 1.35, color: '#6c7a9c', fabric: 'linen', opts: { open: 0.2 } });
-  add('ceilingLight', 'master', 2.25, 2.4, 4.6, 0, { w: 0.55 }); add('closet', 'master', 4.19, 0, 5.4, -H, { w: 1.7 }); add('aircon', 'master', 0.06, 2.17, 5.7, H);
-  add('bed', 'kid1', 6.9, 0, 3.85, 0, { w: 1.0 }); add('desk', 'kid1', 4.91, 0, 5.8, H, { w: 1.0 }); add('chair', 'kid1', 5.46, 0, 5.8, -H); add('closet', 'kid1', 7.83, 0, 3.55, -H, { w: 1.45 });
-  add('curtain', 'kid1', 8.13, 1.425, 4.69, -H, { w: 1.1, h: 1.35, color: '#9fb2bd', opts: { open: 0.3 } });
-  add('curtain', 'kid1', 6.545, 1.425, 6.31, P, { w: 2.0, h: 1.35, color: '#9fb2bd', opts: { open: 0.3, lace: true } }); add('ceilingLight', 'kid1', 6.37, 2.4, 4.6, 0, { w: 0.5 });
-  add('bed', 'kid2', 1.09, 0, 2.16, H, { w: 1.0 }); add('desk', 'kid2', 2.2, 0, 0.36, 0, { w: 1.0 }); add('chair', 'kid2', 2.2, 0, 0.91, P);
-  add('curtain', 'kid2', 0.06, 1.425, 1.29, H, { w: 1.1, h: 1.35, color: '#b9c9a5', opts: { open: 0.3 } }); add('downlight', 'sto', 4.095, 2.4, 0.91, 0);
-  add('curtain', 'kid2', 1.845, 1.425, 0.06, 0, { w: 2.0, h: 1.35, color: '#b9c9a5', opts: { open: 0.3, lace: true } }); add('ceilingLight', 'kid2', 1.82, 2.4, 1.35, 0, { w: 0.5 });
-  add('toilet', 'wc2', 6.825, 0, 0.44, 0); add('downlight', 'wc2', 6.825, 2.4, 1.0, 0);
-  add('downlight', 'hall2', 4.6, 2.4, 2.275, 0); add('downlight', 'hall2', 7.2, 2.4, 2.275, 0);
-  add('shelf', 'nando', 7.735, 0, 0.35, 0, { w: 0.7 }); add('downlight', 'nando', 7.735, 2.4, 0.91, 0);
-  return { v: 1, name: '見本の家(3LDK・2階建て)', rooms, items, assets: {}, settings: { night: false, module: 'shaku', floorH: FH }, camera: { x: 7.6, z: 6.0, yaw: Math.PI / 3.2, gy: 0 } };
+  add('curtain', 'ldk', 4.845, 1.055, 7.22, P, { w: 1.99, h: 2.09, color: '#cbb89a', opts: { open: 0.35, lace: true } });
+  add('curtain', 'ldk', 7.095, 1.055, 7.22, P, { w: 1.99, h: 2.09, color: '#cbb89a', opts: { open: 0.35, lace: true } });
+  add('curtain', 'ldk', 8.13, 1.425, 3.99, -H, { w: 1.08, h: 1.35, color: '#cbb89a', opts: { open: 0.3 } });
+  add('aircon', 'ldk', 2.79, 2.17, 3.0, H); add('switch', 'ldk', 3.95, 1.2, 1.88, 0);
+  // 和室(内側 x 0.06〜2.67、z 4.61〜7.22)
+  add('lowtable', 'wa', 1.365, 0, 5.915, 0, { color: '#6b4a33' }); add('ceilingLight', 'wa', 1.365, 2.4, 5.915, 0, { w: 0.45, opts: { on: true, warm: true, power: 1 } });
+  add('shoji', 'wa', 1.345, 1.45, 7.22, P, { w: 1.69, h: 1.1 }); add('shoji', 'wa', 0.06, 1.45, 5.69, H, { w: 0.78, h: 1.1 });
+  add('downlight', 'osh', 1.82, 2.4, 4.095, 0);
+  // 玄関(土間。高さは土間の床から)・シューズインクローゼット
+  add('shoebox', 'genkan', 0.25, 0, 0.75, H, { opts: { tall: false, float: true } }); // 幅1,200の浮かせる靴箱(下に間接照明・スリッパ置き)
+  add('downlight', 'genkan', 0.91, 2.55, 0.91, 0); add('switch', 'genkan', 1.6, 1.2, 0.06, 0);
+  add('sansevieria', 'genkan', 1.6, 0, 0.25, 0, { w: 0.3 });
+  add('downlight', 'sic', 0.455, 2.55, 3.185, 0);
+  // ホール・物入れ・トイレ・洗面・浴室
+  add('downlight', 'hall1', 2.6, 2.4, 1.365, 0); add('downlight', 'hall1', 3.9, 2.4, 1.365, 0); add('switch', 'hall1', 2.75, 1.2, 0.97, 0);
+  add('downlight', 'mono1', 4.095, 2.4, 0.455, 0);
+  add('toilet', 'wc1', 3.205, 0, 0.455, -H); add('paperholder', 'wc1', 2.95, 0.7, 0.06, 0); add('towelring', 'wc1', 3.25, 1.1, 0.85, P); add('downlight', 'wc1', 2.73, 2.4, 0.455, 0);
+  add('washstand', 'wash', 5.0, 0, 0.335, 0, { w: 0.75 }); add('washer', 'wash', 5.85, 0, 0.38, 0); add('towelbar', 'wash', 4.61, 1.0, 0.7, H, { w: 0.45 });
+  add('ceilingLight', 'wash', 5.46, 2.4, 0.91, 0, { w: 0.35 }); add('switch', 'wash', 4.61, 1.2, 0.85, H);
+  add('unitbath', 'bath', 7.28, 0, 0.91, -H, { w: 1.7, d: 1.7, color: '#f6f6f3' }); add('downlight', 'bath', 7.28, 2.2, 0.91, 0);
+  add('wallLight', 'stair', 0.97, 3.1, 2.7, H); add('wallLight', 'stair', 2.67, FH + 1.9, 2.7, -H);
+  // 2階 主寝室(内側 x 0.06〜3.58、z 3.70〜7.22)
+  add('bed', 'master', 1.82, 0, 4.725, 0); add('ceilingLight', 'master', 1.82, 2.4, 5.46, 0, { w: 0.55 }); add('aircon', 'master', 0.06, 2.17, 4.4, H); add('switch', 'master', 3.58, 1.2, 4.62, -H);
+  add('curtain', 'master', 1.645, 1.425, 7.22, P, { w: 1.99, h: 1.35, color: '#6c7a9c', fabric: 'linen', opts: { open: 0.25, lace: true } });
+  add('curtain', 'master', 0.06, 1.425, 5.99, H, { w: 1.08, h: 1.35, color: '#6c7a9c', fabric: 'linen', opts: { open: 0.2 } });
+  add('downlight', 'wic', 4.55, 2.4, 5.915, 0);
+  // 子供部屋1(内側 x 5.52〜8.13、z 3.70〜7.22)
+  add('bed', 'kid1', 7.105, 0, 6.5, -H, { w: 1.0 }); add('desk', 'kid1', 5.82, 0, 5.25, H, { w: 0.9 }); add('chair', 'kid1', 6.4, 0, 5.25, -H);
+  add('ceilingLight', 'kid1', 6.825, 2.4, 5.46, 0, { w: 0.5 }); add('switch', 'kid1', 5.52, 1.2, 4.62, H); add('downlight', 'cl1', 7.28, 2.4, 3.185, 0);
+  add('curtain', 'kid1', 7.045, 1.425, 7.22, P, { w: 1.99, h: 1.35, color: '#9fb2bd', opts: { open: 0.3, lace: true } });
+  add('curtain', 'kid1', 8.13, 1.425, 4.59, -H, { w: 1.08, h: 1.35, color: '#9fb2bd', opts: { open: 0.3 } });
+  // 子供部屋2(内側 x 4.61〜8.13、z 0.06〜2.67)
+  add('bed', 'kid2', 7.07, 0, 2.1, -H, { w: 1.0 }); add('desk', 'kid2', 5.3, 0, 0.36, 0, { w: 1.0 }); add('chair', 'kid2', 5.3, 0, 0.95, P);
+  add('ceilingLight', 'kid2', 6.37, 2.4, 1.365, 0, { w: 0.5 }); add('switch', 'kid2', 4.61, 1.2, 0.85, H); add('downlight', 'cl2', 5.46, 2.4, 3.185, 0);
+  add('curtain', 'kid2', 6.99, 1.425, 0.06, 0, { w: 1.08, h: 1.35, color: '#b9c9a5', opts: { open: 0.3 } });
+  add('curtain', 'kid2', 8.13, 1.425, 0.69, -H, { w: 1.08, h: 1.35, color: '#b9c9a5', opts: { open: 0.3 } });
+  // 2階のトイレ・ホール・収納
+  add('toilet', 'wc2', 3.205, 0, 0.455, -H); add('paperholder', 'wc2', 2.95, 0.7, 0.06, 0); add('towelring', 'wc2', 3.25, 1.1, 0.85, P); add('downlight', 'wc2', 2.73, 2.4, 0.455, 0);
+  add('switch', 'hall2a', 2.75, 1.2, 0.97, 0);
+  add('downlight', 'hall2a', 2.3, 2.4, 1.365, 0); add('downlight', 'hall2b', 4.095, 2.4, 0.9, 0); add('downlight', 'hall2b', 4.095, 2.4, 2.7, 0); add('downlight', 'hall2c', 4.55, 2.4, 4.095, 0);
+  add('downlight', 'stoA', 0.91, 2.4, 0.455, 0); add('downlight', 'stoB', 0.455, 2.4, 2.275, 0); add('downlight', 'stoC', 3.185, 2.4, 2.73, 0);
+  return { v: 1, name: '見本の家(4LDK・2階建て)', rooms, items, assets: {}, settings: { night: false, module: 'shaku', floorH: FH }, camera: { x: 7.5, z: 7.0, yaw: Math.PI / 3.2, gy: 0 } };
 }
+
+// ---------- すき間がないことの確認(マスの数。1マス = 0.91×0.91 = 0.8281㎡) ----------
+// 外形 9×8 = 72マス(59.62㎡ = 18.0坪)/階。延床 144マス = 119.24㎡ = 36.1坪
+// 1階:玄関 2×2=4 + トイレ 2×1=2 + 物入れ 1×1=1 + 洗面 2×2=4 + 浴室 2×2=4 + ホール 3×1=3
+//      + シューズインクローゼット 1×3=3 + 階段 2×2=4 + 押入れ 2×1=2 + 和室 3×3=9 + LDK 6×6=36
+//      = 4+2+1+4+4+3+3+4+2+9+36 = 72 = 9×8 ✓(行ごと:z0 2+2+1+2+2=9、z1 2+3+2+2=9、z2〜z4 1+2+6=9、z5〜z7 3+6=9)
+// 2階:収納A 2×1=2 + トイレ 2×1=2 + 廊下(縦) 1×4=4 + 子供部屋2 4×3=12 + 納戸 1×3=3 + ホール 3×1=3 + 階段 2×2=4
+//      + 物入れ 1×2=2 + クローゼット(子2) 2×1=2 + クローゼット(子1) 2×1=2 + 主寝室 4×4=16 + 廊下(横) 2×1=2
+//      + WIC 2×3=6 + 子供部屋1 3×4=12
+//      = 2+2+4+12+3+3+4+2+2+2+16+2+6+12 = 72 = 9×8 ✓(行ごと:z0 2+2+1+4=9、z1 1+3+1+4=9、z2 1+2+1+1+4=9、z3 1+2+1+1+2+2=9、z4 4+2+3=9、z5〜z7 4+2+3=9)
+// 帖数(壁芯÷1.62):LDK 18.4帖、和室 4.6帖、主寝室 8.2帖、子供部屋 6.1帖×2、WIC 3.1帖、玄関 2.0帖+SIC 1.5帖
