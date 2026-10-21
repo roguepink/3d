@@ -27,3 +27,15 @@
 - 起動に失敗したら、1回だけ自動で控え(caches と sw)を捨てて開きなおす。だめなら「最新にして開きなおす」ボタン。保存した部屋(IndexedDB)は消さない。
 - 開いている間に新しい版が出たら「🆕 新しい版があります」ボタン。押すと保存して開きなおし、続きから戻る。
 - sw.js はネット優先。控えは ?v= を外した名前で1つだけ。オフラインは控えで開く(headless Chrome+CDP で確認済み)。
+
+## 2階建て・階段(2026-10-21)
+- 部屋の `level`(0=1階, 1=2階)。階高は `settings.floorH`(既定 2.9m)。house.js の `baseOf(room)` = level×階高。部屋のグループは y をその高さに上げる。
+- アイテムの y・ヒットの point は「その部屋の床から」の高さ(2階でも床=0)。hitAt は point(部屋の床から)と world を返す。setPin・addItemMesh・updateItemPose で baseOf を足す。
+- 歩く:controls の `floorY`(足もとの高さ、家全体)。`groundAt(p, rooms, gy)` が次の足もと(±0.3m まで、届く中でいちばん高い面)。目の高さは floorY+eye をなめらかに追う。
+- 階段は部屋に `stair:{kind, style, dir, flip, finish}`(js/stairs.js)。1階の床から2階の天井までの吹き抜け(h = 階高+2.4 を normalizeRoom が入れる)。kind: u_winder(折り返し回り段・いちばん多い) / u_landing / l_winder / l_landing / straight / spiral。style: box / open。段数 = round(階高/0.205)(2.9m なら14段・207mm)。
+- 階段の出入り口は type:'open'(枠だけ)。2階の出口は sill = 階高。`neighborAcross(..., {y})` で相手の階を決める。`app.regenStairOpenings` が ports から作り直す(前に部屋がある所だけ)。`app.addStair()` は階段+1階ホール+2階ホールを作る。
+- 間取り:上の「1階/2階」で切りかえ(階段は両方に出る)。ほかの階は点線。階段を選ぶと形・つくり・向き・左右・階高を変えられる。
+- 全体表示:左上の「2階/1階/全部」。歩くときは今の階の照明だけ点ける(applyLevels)。「2階へ」と言うと上がる。
+- ユニットバス:items の `unitbath`。壁・天井・床は部屋の素材(ub_white など浴室パネル・ub_floor_*)。浴室のドアは opening.style='bath'。
+- 見本の家(demo.js)は 3LDK・2階建て(9×7マス)。merge.js は材質が配列のメッシュをまとめない(階段の段)。
+- 構文チェック:`jsc` の checkModuleSyntax で全 js を確認できる(書きまちがいで起動できなくなるのを防ぐ)。

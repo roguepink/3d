@@ -173,3 +173,19 @@ body.ready #loadingNote { display:none; }
 #bootFix { position:fixed; left:16px; right:16px; bottom:24px; z-index:9999; background:#2a2d36; color:#fff; border-radius:16px; padding:16px; font-size:16px; line-height:1.6; box-shadow:0 8px 30px rgba(0,0,0,.5); text-align:center; }
 #bootFix button { margin-top:10px; width:100%; padding:14px; font-size:17px; font-weight:bold; border:0; border-radius:12px; background:#ffb84d; color:#222; }
 #updBar { position:fixed; left:50%; transform:translateX(-50%); top:calc(env(safe-area-inset-top) + 64px); z-index:9000; padding:12px 18px; font-size:16px; font-weight:bold; border:0; border-radius:999px; background:#ffb84d; color:#222; box-shadow:0 6px 20px rgba(0,0,0,.4); white-space:nowrap; }
+/* 1階・2階の切りかえ */
+#levelBar { position:fixed; left:10px; top:calc(env(safe-area-inset-top) + 76px); z-index:30; display:flex; flex-direction:column; gap:4px; background:var(--panel); border-radius:14px; padding:4px; backdrop-filter:blur(8px); }
+#levelBar button { min-width:52px; height:44px; border:none; border-radius:10px; background:transparent; color:var(--text, #fff); font-size:15px; font-weight:700; }
+#levelBar button.on { background:var(--accent); color:#222; }
+#levelBar .orbit-only { display:none; }
+body.orbit-mode #levelBar .orbit-only { display:block; }
+body.plan-mode #levelBar, body.sheet-open #levelBar { display:none; }
+.plan-levels { display:inline-flex; gap:2px; background:#11131a; border-radius:10px; padding:2px; }
+.plan-levels button { min-width:46px; }
+.plan-levels button.on { background:var(--accent); color:#222; }
+.stair-info { margin-top:8px; border-top:1px solid var(--line); padding-top:8px; }
+.stair-info .lbl { font-size:13px; color:var(--muted); margin:6px 0 4px; }
+.stair-info .chips { display:flex; flex-wrap:wrap; gap:6px; }
+.stair-info .note { font-size:13px; color:var(--muted); margin:6px 0; line-height:1.5; }
+.stair-info .warn { font-size:13px; color:#ffb4a8; margin:6px 0; line-height:1.6; }
+.stair-info .warn button { margin-top:4px; }

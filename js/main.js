@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import { Scene3D } from './scene3d.js';
 import { WalkControls } from './controls.js';
-import { buildHouse, walkable, roomAt, houseBounds, edgeFrame, wallPoint, wallUV, wallLength, edgeName, edgeForCompass, nearestEdge, edgeDistance, frameFromRot, clampIntoRoom, insideRoom, neighborAcross, normalizeRoom, shapePoly, chamferVertex, isRect, resizeRect, WALL_T, MODULES, ROOM_PRESETS, ROOM_SHAPES, shapeIconSVG, mm, mmRaw, joOf, innerOf, shinShin, roomJo, roomTrim } from './house.js';
+import { buildHouse, walkable, groundAt, baseOf, levelOf, setFloorH, floorH, hasUpper, onLevel, roomAt, houseBounds, edgeFrame, wallPoint, wallUV, wallLength, edgeName, edgeForCompass, nearestEdge, edgeDistance, frameFromRot, clampIntoRoom, insideRoom, neighborAcross, normalizeRoom, shapePoly, chamferVertex, isRect, resizeRect, WALL_T, MODULES, ROOM_PRESETS, ROOM_SHAPES, shapeIconSVG, mm, mmRaw, joOf, innerOf, shinShin, roomJo, roomTrim } from './house.js';
 import { CATALOG, CATEGORIES, EQUIP_CATEGORIES, newItem, buildItem, catalogEntry, typeByWord } from './items.js';
 import { SURFACE_LIB, COLORS, colorByName, swatchCanvas, clearMaterialCache, libEntry, TRIM_FINISHES, trimMaterial, trimFinish } from './textures.js';
 import { demoProject } from './demo.js';
@@ -11,6 +11,7 @@ import { parseCommand } from './commands.js';
 import { openPhotoWizard } from './photo.js';
 import { PlanEditor } from './plan.js';
 import * as AI from './ai.js';
+import { stairLayout as stairLayoutOf, STAIR_CELLS, stairKindName } from './stairs.js';
 import { thumbnail } from './thumbs.js';
 
 const $ = s => document.querySelector(s), $$ = s => Array.from(document.querySelectorAll(s));
@@ -20,7 +21,7 @@ class App {
   constructor() {
     this.canvas = $('#gl'); this.s3 = new Scene3D(this.canvas);
     this.project = null; this.selectedId = null; this.pin = null; this.mode = 'walk'; this.dirty = false; this.itemGroups = new Map(); this.currentRoomId = null;
-    this.walk = new WalkControls(this.s3.camera, this.canvas, { canWalk: p => this.project ? walkable(p, this.project.rooms) : true, onTap: (x, y, e) => this.onTap(x, y, e), joyEl: $('#joy'), knobEl: $('#joyKnob'),
+    this.walk = new WalkControls(this.s3.camera, this.canvas, { canWalk: p => this.project ? walkable(p, this.project.rooms, 0.25, this.walk.floorY) : true, ground: p => this.project ? groundAt(p, this.project.rooms, this.walk.floorY) : 0, onTap: (x, y, e) => this.onTap(x, y, e), joyEl: $('#joy'), knobEl: $('#joyKnob'),
       hitTest: (x, y) => { const h = this.hitAt(x, y); return h && h.itemId ? { itemId: h.itemId, selected: h.itemId === this.selectedId, point: h.point } : null; }, onDragItem: (ph, e, h) => this.dragItem(ph, e, h),
       onDoubleTap: (x, y, e) => this.onDoubleTap(x, y, e), onZoom: (k, step, pinch) => { if (step) { this.setZoom(this.s3.zoom * k); return; } if (pinch) { if (!pinch.z0) pinch.z0 = this.s3.zoom; this.setZoom(pinch.z0 * k, true); } else this.zoomLabel(true); } });
     this.plan = new PlanEditor(this, $('#planCanvas'));
@@ -62,6 +63,7 @@ class App {
     $('#mImport').onchange = e => { const f = e.target.files[0]; if (!f) return; f.text().then(t => { try { const p = JSON.parse(t); if (!p.rooms) throw 0; this.load(p); this.closeSheets(); this.toast('読み込みました'); } catch { this.toast('このファイルは読めませんでした'); } }); e.target.value = ''; };
     const gyro = () => { const on = this.walk.setGyro(!this.walk.gyro.on); setTimeout(() => { const now = this.walk.gyro.on; $('#mGyro').textContent = now ? '📱 傾きで見回す:ON(押すと止める)' : '📱 スマホを動かして見回す'; $('#btnGyro').classList.toggle('on', now); this.toast(now ? 'スマホを動かすと見回せます(もう一度押すと止まります)' : '傾き操作を止めました'); }, 300); void on; }; $('#mGyro').onclick = gyro; $('#btnGyro').onclick = () => { this.setMode('walk'); gyro(); };
     $('#mQuality').onclick = () => { const q = { normal: 'high', high: 'low', low: 'normal' }[this.s3.quality]; this.s3.quality = q; this.s3.applyQuality(); localStorage.setItem('oheya-quality', q); $('#mQuality').textContent = '🎚 画質:' + { low: 'かるい', normal: 'ふつう', high: 'きれい' }[q]; };
+    for (const b of $$('#levelBar button')) b.onclick = () => this.goLevel(b.dataset.lv === 'all' ? 'all' : +b.dataset.lv);
     $('#mAI').onclick = () => this.aiSettings();
     $('#mModule').onclick = () => { this.setModule(this.module() === 'shaku' ? 'meter' : 'shaku'); };
     $('#mHelp').onclick = () => this.help();
@@ -111,13 +113,14 @@ class App {
 
   // ---------- 読み込み・組み立て ----------
   // いまの視点のまま組み立て直す
-  reload() { const cam = { x: this.s3.camera.position.x, z: this.s3.camera.position.z, yaw: this.walk.yaw, pitch: this.walk.pitch }; const mode = this.mode; this.load(this.project); this.s3.camera.position.set(cam.x, 1.5, cam.z); this.walk.yaw = cam.yaw; this.walk.pitch = cam.pitch; this.setMode(mode); }
+  reload() { const cam = { x: this.s3.camera.position.x, z: this.s3.camera.position.z, yaw: this.walk.yaw, pitch: this.walk.pitch, gy: this.walk.floorY, lv: this.levelView }; const mode = this.mode; this.load(this.project); this.walk.floorY = cam.gy; this.levelView = cam.lv; this.s3.camera.position.set(cam.x, cam.gy + 1.5, cam.z); this.walk.yaw = cam.yaw; this.walk.pitch = cam.pitch; this.setMode(mode); }
   load(p) {
-    this.project = p; p.assets = p.assets || {}; p.items = p.items || []; p.settings = p.settings || {}; for (const r of (p.rooms || [])) normalizeRoom(r); this.selectedId = null; this.setPin(null);
+    this.project = p; p.assets = p.assets || {}; p.items = p.items || []; p.settings = p.settings || {}; setFloorH(p.settings.floorH || 2.9); for (const r of (p.rooms || [])) normalizeRoom(r); this.selectedId = null; this.setPin(null);
     clearMaterialCache(); this.rebuildHouse(); this.rebuildItems(); this.setDaytime(p.settings.daytime || (p.settings.night ? 'night' : 'day'), true);
     const b = houseBounds(p.rooms); this.s3.setSunTarget((b.minX + b.maxX) / 2, (b.minZ + b.maxZ) / 2, Math.max(b.maxX - b.minX, b.maxZ - b.minZ) / 2 + 2);
-    if (p.camera) { this.s3.camera.position.set(p.camera.x, 1.5, p.camera.z); this.walk.yaw = p.camera.yaw || 0; this.walk.pitch = 0; }
-    else if (p.rooms[0]) { const r = p.rooms[0]; this.s3.camera.position.set(r.x + r.w / 2, 1.5, r.z + r.d * 0.8); this.walk.yaw = 0; this.walk.pitch = 0; }
+    if (p.camera) { this.walk.floorY = p.camera.gy || 0; this.s3.camera.position.set(p.camera.x, this.walk.floorY + 1.5, p.camera.z); this.walk.yaw = p.camera.yaw || 0; this.walk.pitch = 0; }
+    else if (p.rooms[0]) { const r = p.rooms.find(x => !levelOf(x) && !x.stair) || p.rooms[0]; this.walk.floorY = baseOf(r); this.s3.camera.position.set(r.x + r.w / 2, this.walk.floorY + 1.5, r.z + r.d * 0.8); this.walk.yaw = 0; this.walk.pitch = 0; }
+    this.levelView = null; this.applyLevels();
     this.fitOrbit(); this.setMode(this.mode === 'plan' ? 'plan' : 'walk'); this.setModule(this.module(), true); this.dirty = false; this.touched();
   }
   rebuildHouse() {
@@ -125,14 +128,14 @@ class App {
     const { group, pick } = buildHouse(this.project); g.add(group); this.housePick = pick;
     // 全体表示のときの部屋の名前
     this.labels = new THREE.Group(); this.labels.name = 'labels'; g.add(this.labels);
-    for (const r of this.project.rooms) { const c = document.createElement('canvas'); c.width = 256; c.height = 80; const x = c.getContext('2d'); x.fillStyle = 'rgba(0,0,0,.55)'; x.beginPath(); if (x.roundRect) x.roundRect(8, 8, 240, 64, 18); else x.rect(8, 8, 240, 64); x.fill(); x.fillStyle = '#fff'; x.font = 'bold 34px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(r.name, 128, 42); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, depthTest: false, transparent: true })); sp.position.set(r.x + r.w / 2, r.h + 0.5, r.z + r.d / 2); sp.scale.set(1.6, 0.5, 1); sp.renderOrder = 20; this.labels.add(sp); }
+    for (const r of this.project.rooms) { const c = document.createElement('canvas'); c.width = 256; c.height = 80; const x = c.getContext('2d'); x.fillStyle = 'rgba(0,0,0,.55)'; x.beginPath(); if (x.roundRect) x.roundRect(8, 8, 240, 64, 18); else x.rect(8, 8, 240, 64); x.fill(); x.fillStyle = '#fff'; x.font = 'bold 34px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(r.name, 128, 42); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, depthTest: false, transparent: true })); sp.position.set(r.x + r.w / 2, baseOf(r) + Math.min(r.h, 2.5) + 0.5, r.z + r.d / 2); sp.userData.level = levelOf(r); sp.scale.set(1.6, 0.5, 1); sp.renderOrder = 20; this.labels.add(sp); }
     this.applyCeilingVisibility();
   }
   rebuildItems() { const g = this.s3.itemGroup; while (g.children.length) g.remove(g.children[0]); this.itemGroups.clear(); for (const it of this.project.items) this.addItemMesh(it); this.updateShadowLights(); this.applyEquipVisibility(); }
   applyEquipVisibility() { for (const [id, g] of this.itemGroups) { const it = this.item(id); const e = it && catalogEntry(it.type); if (e && e.equip) g.visible = !this.hideEquip; } }
-  addItemMesh(it) { let m = null; try { if (!it.opts) it.opts = {}; m = buildItem(it, this.project.assets); } catch (e) { console.warn('item build failed', it.type, e); } if (!m) return; this.s3.itemGroup.add(m); this.itemGroups.set(it.id, m); return m; }
+  addItemMesh(it) { let m = null; try { if (!it.opts) it.opts = {}; m = buildItem(it, this.project.assets); } catch (e) { console.warn('item build failed', it.type, e); } if (!m) return; m.position.y += this.base(it.roomId); this.s3.itemGroup.add(m); this.itemGroups.set(it.id, m); return m; }
   rebuildItem(it, keep) { if (!keep) this.snapshot(); const old = this.itemGroups.get(it.id); if (old) this.s3.itemGroup.remove(old); this.addItemMesh(it); this.updateShadowLights(); this.updateSelHelper(); this.touched(); }
-  updateItemPose(it) { const m = this.itemGroups.get(it.id); if (m) { m.position.set(it.x, it.y, it.z); m.rotation.y = it.rot || 0; } this.updateSelHelper(); this.touched(); }
+  updateItemPose(it) { const m = this.itemGroups.get(it.id); if (m) { m.position.set(it.x, it.y + this.base(it.roomId), it.z); m.rotation.y = it.rot || 0; } this.updateSelHelper(); this.touched(); }
   updateShadowLights() {
     const cam = this.s3.camera.position; let n = 0;
     const cands = this.project.items.filter(it => ['ceilingLight', 'pendant', 'chandelier'].includes(it.type)).map(it => ({ it, d: Math.hypot(it.x - cam.x, it.z - cam.z) })).sort((a, b) => a.d - b.d);
@@ -142,13 +145,35 @@ class App {
   // もどす(取り消し)用に、変える前の状態をとっておく
   snapshot() { if (!this.project) return; this._undo = (this._undo || []); this._undo.push(JSON.stringify({ ...this.project, assets: undefined })); if (this._undo.length > 50) this._undo.shift(); this._redo = []; this.histButtons(); }
   histButtons() { const u = !(this._undo && this._undo.length), r = !(this._redo && this._redo.length); for (const id of ['btnUndo', 'plUndo']) { const b = $('#' + id); if (b) b.disabled = u; } for (const id of ['btnRedo', 'plRedo']) { const b = $('#' + id); if (b) b.disabled = r; } }
-  _restore(json) { const assets = this.project.assets; const p = JSON.parse(json); p.assets = assets; const cam = { x: this.s3.camera.position.x, z: this.s3.camera.position.z, yaw: this.walk.yaw, pitch: this.walk.pitch }; const mode = this.mode; this.load(p); this.s3.camera.position.set(cam.x, 1.5, cam.z); this.walk.yaw = cam.yaw; this.walk.pitch = cam.pitch; this.setMode(mode); if (mode === 'plan') { this.plan.sel = null; this.plan.info(null); this.plan.draw(); } }
+  _restore(json) { const assets = this.project.assets; const p = JSON.parse(json); p.assets = assets; const cam = { x: this.s3.camera.position.x, z: this.s3.camera.position.z, yaw: this.walk.yaw, pitch: this.walk.pitch, gy: this.walk.floorY, lv: this.levelView }; const mode = this.mode; this.load(p); this.walk.floorY = cam.gy; this.levelView = cam.lv; this.s3.camera.position.set(cam.x, cam.gy + 1.5, cam.z); this.walk.yaw = cam.yaw; this.walk.pitch = cam.pitch; this.setMode(mode); if (mode === 'plan') { this.plan.sel = null; this.plan.info(null); this.plan.draw(); } }
   undo() { if (!this._undo || !this._undo.length) { this.toast('もどすものがありません'); return; } (this._redo = this._redo || []).push(JSON.stringify({ ...this.project, assets: undefined })); this._restore(this._undo.pop()); this.toast('ひとつ前にもどしました'); this.histButtons(); }
   redo() { if (!this._redo || !this._redo.length) { this.toast('進むものがありません'); return; } (this._undo = this._undo || []).push(JSON.stringify({ ...this.project, assets: undefined })); this._restore(this._redo.pop()); this.toast('ひとつ進めました'); this.histButtons(); }
-  touched() { this.dirty = true; clearTimeout(this._save); this._save = setTimeout(() => { if (this.project && this.project.rooms.length) { this.project.camera = { x: this.s3.camera.position.x, z: this.s3.camera.position.z, yaw: this.walk.yaw }; saveProject(this.project, 'current').then(() => { this.dirty = false; }).catch(() => {}); } }, 1500); if (this.mode === 'plan') this.plan.draw(); }
+  touched() { this.dirty = true; clearTimeout(this._save); this._save = setTimeout(() => { if (this.project && this.project.rooms.length) { this.project.camera = { x: this.s3.camera.position.x, z: this.s3.camera.position.z, yaw: this.walk.yaw, gy: this.walk.floorY }; saveProject(this.project, 'current').then(() => { this.dirty = false; }).catch(() => {}); } }, 1500); if (this.mode === 'plan') this.plan.draw(); }
   item(id) { return this.project.items.find(i => i.id === id) || null; }
   room(id) { return this.project.rooms.find(r => r.id === id) || null; }
-  currentRoom() { return roomAt(this.s3.camera.position, this.project.rooms) || this.project.rooms[0] || null; }
+  currentRoom() { return roomAt(this.s3.camera.position, this.project.rooms, { gy: this.walk.floorY }) || this.project.rooms[0] || null; }
+  base(roomId) { return baseOf(this.room(roomId)); }
+  // いま歩いている階(階段の中は、近いほうの階)
+  walkLevel() { return Math.max(0, Math.round(this.walk.floorY / floorH())); }
+  // 見える階と照明:歩くときは今いる階の照明だけ点ける(下の階に光がもれないように)。全体表示は選んだ階まで見せる
+  applyLevels() {
+    if (!this.project) return; const upper = hasUpper(this.project.rooms); const lvWalk = this.walkLevel();
+    const showTo = this.mode === 'orbit' && this.levelView != null ? this.levelView : 9;
+    for (const g of this.s3.houseGroup.children) for (const rg of (g.children || [])) { if (rg.userData && rg.userData.level !== undefined) { const r = this.room(rg.userData.roomId); rg.visible = !r || levelOf(r) <= showTo || !!r.stair; } }
+    for (const it of this.project.items) { const g = this.itemGroups.get(it.id); if (!g) continue; const r = this.room(it.roomId); const lv = levelOf(r); g.visible = lv <= showTo;
+      const on = this.mode === 'orbit' ? lv <= showTo : (lv === lvWalk || (r && r.stair)); for (const l of g.userData.lights || []) l.visible = on; }
+    const topLv = Math.min(showTo, Math.max(0, ...this.project.rooms.map(r => levelOf(r)))); if (this.labels) for (const sp of this.labels.children) sp.visible = sp.userData.level === topLv;
+    const bar = $('#levelBar'); if (bar) { bar.classList.toggle('hidden', !(upper && this.mode !== 'plan')); for (const b of bar.querySelectorAll('button')) b.classList.toggle('on', this.mode === 'orbit' ? String(this.levelView ?? 'all') === b.dataset.lv : String(lvWalk) === b.dataset.lv); }
+    this._lvShown = lvWalk;
+  }
+  // 階を移る(階段の上り口・2階の出口の前へ)
+  goLevel(lv) {
+    if (this.mode === 'orbit') { this.levelView = lv === 'all' ? null : lv; this._lvAll = lv === 'all'; this.applyLevels(); this.fitOrbit(); return; }
+    const rooms = this.project.rooms; const stair = rooms.find(r => r.stair); let spot = null;
+    if (stair) { const exit = (stair.openings || []).find(o => o.type !== 'window' && Math.round((o.sill || 0) / floorH()) === lv); if (exit) { const f = edgeFrame(stair, exit.edge); const c = f.origin.clone().addScaledVector(f.along, exit.u + exit.w / 2).addScaledVector(f.normal, -(WALL_T + 0.7)); spot = { x: c.x, z: c.z, yaw: Math.atan2(f.normal.x, f.normal.z) + Math.PI }; } }
+    if (!spot) { const r = rooms.find(x => levelOf(x) === lv && !x.stair); if (!r) { this.toast(lv ? '2階はまだありません' : '1階がありません'); return; } spot = { x: r.x + r.w / 2, z: r.z + r.d / 2, yaw: this.walk.yaw }; }
+    this.walk.floorY = lv * floorH(); this.s3.camera.position.set(spot.x, this.walk.floorY + this.walk.eye, spot.z); this.walk.yaw = spot.yaw; this.walk.pitch = 0; this.setMode('walk'); this.applyLevels(); this.updateShadowLights(); this.toast(lv ? '2階に上がりました' : '1階に下りました');
+  }
 
   // ---------- モード ----------
   setMode(m) {
@@ -156,9 +181,9 @@ class App {
     for (const b of $$('#modes .mode')) b.classList.toggle('on', b.dataset.mode === m);
     this.walk.enabled = m === 'walk'; this.s3.orbit.enabled = m === 'orbit';
     $('#plan').classList.toggle('hidden', m !== 'plan'); if (m === 'plan') this.plan.show(); else this.plan.hide();
-    if (m === 'orbit') this.fitOrbit(); this.applyCeilingVisibility(); this.closeSheets();
+    if (m === 'orbit') { if (this.levelView === undefined || this.levelView === null && !this._lvAll) this.levelView = hasUpper(this.project.rooms) ? this.walkLevel() : null; this.fitOrbit(); } this.applyCeilingVisibility(); this.applyLevels(); this.closeSheets();
   }
-  fitOrbit() { const b = houseBounds(this.project ? this.project.rooms : []); const cx = (b.minX + b.maxX) / 2, cz = (b.minZ + b.maxZ) / 2, size = Math.max(b.maxX - b.minX, b.maxZ - b.minZ, 3); this.s3.orbitCam.position.set(cx + size * 0.25, size * 1.15 + 2, cz + size * 1.0); this.s3.orbit.target.set(cx, 0.5, cz); this.s3.orbit.update(); }
+  fitOrbit() { const b = houseBounds(this.project ? this.project.rooms : []); const cx = (b.minX + b.maxX) / 2, cz = (b.minZ + b.maxZ) / 2, size = Math.max(b.maxX - b.minX, b.maxZ - b.minZ, 3); const asp = this.s3.orbitCam.aspect || 1, k = Math.max(1, 0.8 / asp); const ty = this.project && hasUpper(this.project.rooms) && this.levelView != null ? this.levelView * floorH() : 0; this.s3.orbitCam.position.set(cx + size * 0.25 * k, ty + (size * 1.15 + 2) * k, cz + size * 1.0 * k); this.s3.orbit.target.set(cx, ty + 0.5, cz); this.s3.orbit.update(); }
   setNight(on, silent) { this.setDaytime(on ? 'night' : 'day', silent); }
   setZoom(z, quiet) { const v = this.s3.setZoom(z); this.zoomLabel(); if (!quiet) { clearTimeout(this._zt); } return v; }
   zoomLabel(fade) { const z = this.s3.zoom; const txt = Math.abs(z - 1) < 0.03 ? '標準' : z > 1 ? `アップ ×${z.toFixed(1)}` : `広く ×${z.toFixed(2)}`; $('#zoomReset').textContent = txt; $('#zoomReset').classList.toggle('on', Math.abs(z - 1) >= 0.03); }
@@ -171,15 +196,16 @@ class App {
     if (this.spin) { this.walk.yaw += dt * (Math.PI * 2 / 14); this.spin -= dt; if (this.spin <= 0) { this.spin = 0; this.toast('一周しました'); } }
     this.walk.update(dt);
     if (this.mode === 'walk') { this._ct = (this._ct || 0) + dt; if (this._ct > 0.12) { this._ct = 0; this.center = this.hitAt(0.5, 0.5); $('#crosshair').classList.toggle('hit', !!(this.center && this.center.kind)); } }
-    const r = roomAt(this.s3.camera.position, this.project.rooms); if (r && r.id !== this.currentRoomId) { this.currentRoomId = r.id; this.updateShadowLights(); }
+    const r = this.currentRoom(); if (r && r.id !== this.currentRoomId) { this.currentRoomId = r.id; this.updateShadowLights(); } if (this.walkLevel() !== this._lvShown) this.applyLevels();
     if (this.pinMesh.visible) { const s = this.pinMesh.position.distanceTo(this.s3.activeCamera().position) * 0.5 + 0.5; this.pinMesh.scale.setScalar(s); }
   }
   // 画面の位置 → 何に当たったか
   hitAt(nx, ny) {
     const h = this.s3.pick(nx, ny, [this.s3.houseGroup, this.s3.itemGroup]); if (!h) return null;
     const o = h.object; const n = h.face ? h.face.normal.clone().transformDirection(o.matrixWorld) : new THREE.Vector3(0, 1, 0);
-    if (o.userData.itemId) return { kind: 'item', itemId: o.userData.itemId, point: h.point, normal: n, roomId: (this.item(o.userData.itemId) || {}).roomId, distance: h.distance };
-    const u = o.userData; return { kind: u.kind, roomId: u.roomId, edge: u.edge, part: u.part, partId: u.partId, openingId: u.openingId, point: h.point, normal: n, distance: h.distance };
+    // point は部屋の床からの高さ(2階の部屋でも 0 が床)。world は家全体の位置
+    if (o.userData.itemId) { const rid = (this.item(o.userData.itemId) || {}).roomId; const pt = h.point.clone(); pt.y -= this.base(rid); return { kind: 'item', itemId: o.userData.itemId, point: pt, world: h.point, normal: n, roomId: rid, distance: h.distance }; }
+    const u = o.userData; const pt = h.point.clone(); pt.y -= this.base(u.roomId); return { kind: u.kind, roomId: u.roomId, edge: u.edge, part: u.part, partId: u.partId, openingId: u.openingId, point: pt, world: h.point, normal: n, distance: h.distance };
   }
   onTap(nx, ny, e) {
     if (this.mode !== 'walk') { if (this.mode === 'orbit') { const h = this.hitAt(nx, ny); if (h && h.kind === 'item') { this.select(h.itemId); this.setPin(null); } else if (h && h.kind) { this.select(null); this.setPin(h); this.toast('ここに置きます(＋置く)', 1500); } else { this.select(null); this.setPin(null); } } return; }
@@ -195,9 +221,10 @@ class App {
     if (h.kind === 'floor' || h.kind === 'wall' || h.kind === 'ceiling') { this.select(null); this.setPin(h); this.openSurfaces(h.kind === 'floor' ? '床' : h.kind === 'wall' ? '壁' : '天井'); return; }
     if (h.kind === 'trim') { this.select(null); this.setPin(null); this.openSurfaces('縁・枠'); setTimeout(() => { const idx = { crown: 0, base: 1, casing: 2, door: 3 }[h.part] ?? 0; const sec = document.querySelectorAll('#surfCards .trim-sec')[idx]; if (sec) { sec.classList.add('flash'); sec.scrollIntoView({ block: 'nearest' }); setTimeout(() => sec.classList.remove('flash'), 1600); } }, 50); return; }
     if ((h.kind === 'window' || h.kind === 'door') && room) { const o = (room.openings || []).find(x => x.id === h.openingId) || (room.openings || []).find(x => x.twin === h.openingId); if (!o) return; this.select(null); this.setMode('plan'); this.plan.sel = { kind: 'opening', room, opening: o }; this.plan.info(null); this.plan.draw(); this.toast('窓・ドアの寸法はここで直せます。「歩く」で戻ります', 2500); return; }
+    if (h.kind === 'stair' && room) { this.select(null); this.setMode('plan'); this.plan.setLevel(levelOf(room)); this.plan.sel = { kind: 'room', room }; this.plan.info(null); this.plan.draw(); this.toast('階段の形・つくり・向きは、下の欄で変えられます。「歩く」で戻ります', 2600); return; }
     if (h.kind === 'part' && room) { const part = (room.parts || []).find(p => p.id === h.partId); if (!part) return; this.select(null); this.setMode('plan'); this.plan.sel = { kind: 'part', room, part }; this.plan.info(null); this.plan.draw(); this.toast('寸法はここで直せます。引っぱって動かせます。「歩く」で戻ります', 2500); return; }
   }
-  setPin(h) { this.pin = h; this.pinMesh.visible = !!h; if (h) { this.pinMesh.position.copy(h.point).addScaledVector(h.normal, 0.01); this.pinMesh.lookAt(h.point.clone().add(h.normal)); } }
+  setPin(h) { this.pin = h; this.pinMesh.visible = !!h; if (h) { const w = h.point.clone(); w.y += this.base(h.roomId); this.pinMesh.position.copy(w).addScaledVector(h.normal, 0.01); this.pinMesh.lookAt(w.clone().add(h.normal)); } }
   target() { return this.pin || this.center || this.defaultTarget(); }
   defaultTarget() { const r = this.currentRoom(); if (!r) return null; const cam = this.s3.camera.position; const dir = new THREE.Vector3(-Math.sin(this.walk.yaw), 0, -Math.cos(this.walk.yaw)); const p = cam.clone().addScaledVector(dir, 1.5); p.y = 0; p.x = Math.min(r.x + r.w - 0.3, Math.max(r.x + 0.3, p.x)); p.z = Math.min(r.z + r.d - 0.3, Math.max(r.z + 0.3, p.z)); return { kind: 'floor', roomId: r.id, point: p, normal: new THREE.Vector3(0, 1, 0) }; }
 
@@ -295,10 +322,10 @@ class App {
   // 選んだ物が見える部分にちょうど収まるように、カメラを向けて寄る(閉じたら戻る)
   frameItem(id, keepSaved) {
     const g = this.itemGroups.get(id), it = this.item(id); if (!g || !it) return;
-    const box = new THREE.Box3().setFromObject(g, true); const c = box.getCenter(new THREE.Vector3()), sz = box.getSize(new THREE.Vector3());
+    const box = new THREE.Box3().setFromObject(g, true); const cw = box.getCenter(new THREE.Vector3()), sz = box.getSize(new THREE.Vector3()); const gyI = this.base(it.roomId); const c = this.mode === 'walk' ? cw.clone().setY(cw.y - gyI) : cw;
     const vr = this.s3.visibleRect(); const cam = this.s3.camera;
     if (this.mode === 'walk') {
-      if (!this._savedView) this._savedView = { x: cam.position.x, z: cam.position.z, yaw: this.walk.yaw, pitch: this.walk.pitch, eye: this.walk.eye };
+      if (!this._savedView) this._savedView = { x: cam.position.x, z: cam.position.z, yaw: this.walk.yaw, pitch: this.walk.pitch, eye: this.walk.eye, gy: this.walk.floorY };
       const vf = 2 * Math.atan(Math.tan(cam.fov * Math.PI / 360) * vr.h / vr.H), hf = 2 * Math.atan(Math.tan(cam.fov * Math.PI / 360) * cam.aspect * vr.w / vr.W);
       const r = Math.max(sz.x, sz.y, sz.z, 0.08) * 0.5; let d = Math.max(r / Math.tan(Math.min(vf, hf) / 2) * 1.5, 0.45); d = Math.min(d, 4);
       // 低い所の小さい物は、しゃがんで見る(目の高さを下げる)
@@ -309,10 +336,10 @@ class App {
       if (ec.kind === 'wall' || nearWall) { dir = new THREE.Vector3(-Math.sin(it.rot || 0), 0, -Math.cos(it.rot || 0)); } else { dir = new THREE.Vector3(c.x - cam.position.x, 0, c.z - cam.position.z); if (dir.lengthSq() < 1e-4) dir.set(-Math.sin(this.walk.yaw), 0, -Math.cos(this.walk.yaw)); dir.normalize(); }
       // 正面から順に、角度と距離を少しずつ変えて、立てる場所を探す(柱や袖壁でふさがれていたら、ななめから見る)
       const rooms = this.project.rooms; let pos = null; const up = new THREE.Vector3(0, 1, 0);
-      search: for (const a of [0, 0.3, -0.3, 0.6, -0.6, 0.9, -0.9, 1.2, -1.2]) { const dr = dir.clone().applyAxisAngle(up, a); for (const k of [1, 0.85, 0.7, 1.2, 1.45, 0.55]) { const dd = d * k; const p = new THREE.Vector3(c.x - dr.x * dd, cam.position.y, c.z - dr.z * dd); if (walkable(p, rooms, 0.15)) { pos = p; break search; } } }
+      search: for (const a of [0, 0.3, -0.3, 0.6, -0.6, 0.9, -0.9, 1.2, -1.2]) { const dr = dir.clone().applyAxisAngle(up, a); for (const k of [1, 0.85, 0.7, 1.2, 1.45, 0.55]) { const dd = d * k; const p = new THREE.Vector3(c.x - dr.x * dd, cam.position.y, c.z - dr.z * dd); if (walkable(p, rooms, 0.15, gyI)) { pos = p; break search; } } }
       if (!pos) pos = cam.position.clone();
       const to = new THREE.Vector3(c.x - pos.x, c.y - eyeT, c.z - pos.z); const yaw = Math.atan2(-to.x, -to.z), pitch = Math.max(-1.25, Math.min(1.25, Math.atan2(to.y, Math.hypot(to.x, to.z))));
-      this.animateView({ x: pos.x, z: pos.z, yaw, pitch, eye: eyeT });
+      this.animateView({ x: pos.x, z: pos.z, yaw, pitch, eye: eyeT, gy: gyI });
     } else if (this.mode === 'orbit') {
       if (!this._savedOrbit) this._savedOrbit = { pos: this.s3.orbitCam.position.clone(), target: this.s3.orbit.target.clone() };
       const r = Math.max(sz.x, sz.y, sz.z, 0.3); const off = this.s3.orbitCam.position.clone().sub(this.s3.orbit.target).normalize().multiplyScalar(Math.max(1.6, r * 3.2)); this.s3.orbit.target.copy(c); this.s3.orbitCam.position.copy(c.clone().add(off)); this.s3.orbit.update();
@@ -323,7 +350,7 @@ class App {
     if (this._savedOrbit && this.mode === 'orbit') { this.s3.orbitCam.position.copy(this._savedOrbit.pos); this.s3.orbit.target.copy(this._savedOrbit.target); this.s3.orbit.update(); }
     this._savedView = null; this._savedOrbit = null; this._framedAt = null;
   }
-  animateView(to) { const cam = this.s3.camera; const from = { x: cam.position.x, z: cam.position.z, yaw: this.walk.yaw, pitch: this.walk.pitch, eye: this.walk.eye }; if (to.eye === undefined) to.eye = from.eye; let dyaw = to.yaw - from.yaw; dyaw = Math.atan2(Math.sin(dyaw), Math.cos(dyaw)); const t0 = performance.now(), T = 450; this._anim = t => { const k = Math.min(1, (t - t0) / T), e = k < .5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2; cam.position.x = from.x + (to.x - from.x) * e; cam.position.z = from.z + (to.z - from.z) * e; this.walk.yaw = from.yaw + dyaw * e; this.walk.pitch = from.pitch + (to.pitch - from.pitch) * e; this.walk.eye = from.eye + (to.eye - from.eye) * e; if (k >= 1) { this._anim = null; this._framedAt = { x: to.x, z: to.z }; } }; }
+  animateView(to) { const cam = this.s3.camera; const from = { x: cam.position.x, z: cam.position.z, yaw: this.walk.yaw, pitch: this.walk.pitch, eye: this.walk.eye }; if (to.eye === undefined) to.eye = from.eye; let dyaw = to.yaw - from.yaw; dyaw = Math.atan2(Math.sin(dyaw), Math.cos(dyaw)); const t0 = performance.now(), T = 450; this._anim = t => { const k = Math.min(1, (t - t0) / T), e = k < .5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2; cam.position.x = from.x + (to.x - from.x) * e; cam.position.z = from.z + (to.z - from.z) * e; if (to.gy !== undefined && k >= 1) this.walk.floorY = to.gy; this.walk.yaw = from.yaw + dyaw * e; this.walk.pitch = from.pitch + (to.pitch - from.pitch) * e; this.walk.eye = from.eye + (to.eye - from.eye) * e; if (k >= 1) { this._anim = null; this._framedAt = { x: to.x, z: to.z }; } }; }
   updateSelHelper() { const g = this.selectedId && this.itemGroups.get(this.selectedId); if (!g) { this.selHelper.visible = false; return; } this.selHelper.box.setFromObject(g, true); this.selHelper.visible = true; }
   editMove(op) {
     const it = this.item(this.selectedId); if (!it) return; const c = catalogEntry(it.type), room = this.room(it.roomId) || this.currentRoom(), step = (this.moveStep || (c.equip ? 10 : 100)) / 1000;
@@ -346,7 +373,7 @@ class App {
       const yaw = this.walk.yaw; const fwd = this.mode === 'walk' ? new THREE.Vector3(-Math.sin(yaw), 0, -Math.cos(yaw)) : new THREE.Vector3().subVectors(this.s3.orbit.target, this.s3.orbitCam.position).setY(0).normalize(); const rmA = this.room(it.roomId) || room; if (rmA) { const ef = edgeFrame(rmA, nearestEdge(rmA, new THREE.Vector3(it.x, 0, it.z))); let best = null, bd = -2; for (const a of [ef.along, ef.along.clone().negate(), ef.normal, ef.normal.clone().negate()]) { const dt = a.dot(fwd); if (dt > bd) { bd = dt; best = a; } } fwd.copy(best); }
       const right = new THREE.Vector3(-fwd.z, 0, fwd.x);
       const v = { u: fwd, d: fwd.clone().negate(), r: right, l: right.clone().negate() }[m]; let nx = it.x + v.x * step, nz = it.z + v.z * step;
-      const r2 = roomAt(new THREE.Vector3(nx, 0, nz), this.project.rooms) || room; if (r2) { it.roomId = r2.id; [nx, nz] = clampIntoRoom(r2, nx, nz, Math.min(0.3, Math.min(it.w, it.d) / 2)); } it.x = nx; it.z = nz;
+      const r2 = roomAt(new THREE.Vector3(nx, 0, nz), this.project.rooms, { level: levelOf(room) }) || room; if (r2) { it.roomId = r2.id; [nx, nz] = clampIntoRoom(r2, nx, nz, Math.min(0.3, Math.min(it.w, it.d) / 2)); } it.x = nx; it.z = nz;
     }
     this.updateItemPose(it); this.refreshPosNums();
   }
@@ -378,9 +405,9 @@ class App {
     if (phase === 'start') { this.snapshot(); const p0 = (h && h.point) || new THREE.Vector3(it.x, it.y, it.z); this._drag = { off: new THREE.Vector3(it.x - p0.x, 0, it.z - p0.z) }; return; }
     if (!this._drag) return;
     if (phase === 'end') { this.touched(); this.refreshPosNums(); if (this._dragging) { this._dragging = false; this.updateInset(); } return; }
-    if (c.kind === 'wall') { const hit = this.s3.pick(nx, ny, [this.s3.houseGroup]); if (!hit) return; const u = hit.object.userData; const r = this.room(u.roomId); if (!r) return; if (u.kind === 'part') { const n = hit.face ? hit.face.normal.clone().transformDirection(hit.object.matrixWorld) : null; if (!n || Math.abs(n.y) > 0.5) return; it.rot = Math.atan2(n.x, n.z); it.x = hit.point.x + n.x * 0.004; it.z = hit.point.z + n.z * 0.004; it.y = Math.min(r.h - it.h / 2, Math.max(it.h / 2, hit.point.y)); it.edge = null; it.roomId = r.id; this.updateItemPose(it); return; } if (!(u.kind === 'wall' || u.kind === 'window')) return; const f = edgeFrame(r, u.edge); const { u: uu, v } = wallUV(r, u.edge, hit.point); const L = f.L; const cu = Math.min(L - it.w / 2, Math.max(it.w / 2, uu)); const wp = wallPoint(r, u.edge, cu, 0, 0); it.x = wp.x; it.z = wp.z; it.y = Math.min(r.h - it.h / 2, Math.max(it.h / 2, v)); it.rot = f.rotY; it.edge = u.edge; it.roomId = r.id; this.updateItemPose(it); return; }
-    const y = c.kind === 'ceiling' ? room.h : it.y; const ray = this.s3.raycaster; ray.setFromCamera(new THREE.Vector2(nx * 2 - 1, -(ny * 2 - 1)), this.s3.activeCamera()); const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -y); const p = new THREE.Vector3(); if (!ray.ray.intersectPlane(plane, p)) return;
-    p.add(this._drag.off); const r2 = roomAt(p, this.project.rooms) || room; it.roomId = r2.id; const [cx, cz] = clampIntoRoom(r2, p.x, p.z, Math.min(0.3, Math.min(it.w, it.d) / 2)); it.x = cx; it.z = cz; this.updateItemPose(it);
+    if (c.kind === 'wall') { const hit0 = this.s3.pick(nx, ny, [this.s3.houseGroup]); if (!hit0) return; const u = hit0.object.userData; const r = this.room(u.roomId); if (!r) return; const hit = { ...hit0, point: hit0.point.clone().setY(hit0.point.y - baseOf(r)) }; if (u.kind === 'part') { const n = hit.face ? hit.face.normal.clone().transformDirection(hit.object.matrixWorld) : null; if (!n || Math.abs(n.y) > 0.5) return; it.rot = Math.atan2(n.x, n.z); it.x = hit.point.x + n.x * 0.004; it.z = hit.point.z + n.z * 0.004; it.y = Math.min(r.h - it.h / 2, Math.max(it.h / 2, hit.point.y)); it.edge = null; it.roomId = r.id; this.updateItemPose(it); return; } if (!(u.kind === 'wall' || u.kind === 'window')) return; const f = edgeFrame(r, u.edge); const { u: uu, v } = wallUV(r, u.edge, hit.point); const L = f.L; const cu = Math.min(L - it.w / 2, Math.max(it.w / 2, uu)); const wp = wallPoint(r, u.edge, cu, 0, 0); it.x = wp.x; it.z = wp.z; it.y = Math.min(r.h - it.h / 2, Math.max(it.h / 2, v)); it.rot = f.rotY; it.edge = u.edge; it.roomId = r.id; this.updateItemPose(it); return; }
+    const y = (c.kind === 'ceiling' ? room.h : it.y) + baseOf(room); const ray = this.s3.raycaster; ray.setFromCamera(new THREE.Vector2(nx * 2 - 1, -(ny * 2 - 1)), this.s3.activeCamera()); const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -y); const p = new THREE.Vector3(); if (!ray.ray.intersectPlane(plane, p)) return;
+    p.add(this._drag.off); const r2 = roomAt(p, this.project.rooms, { level: levelOf(room) }) || room; it.roomId = r2.id; const [cx, cz] = clampIntoRoom(r2, p.x, p.z, Math.min(0.3, Math.min(it.w, it.d) / 2)); it.x = cx; it.z = cz; this.updateItemPose(it);
   }
 
   // ---------- 床・壁・天井 ----------
@@ -487,6 +514,7 @@ class App {
       case 'redo': this.redo(); return;
       case 'spin': this.setMode('walk'); this.spin = 14; this.toast('ゆっくり一周します(14秒)'); return;
       case 'list': this.listItems(); return;
+      case 'level': this.goLevel(cmd.level); return;
       case 'eye': this.walk.eye = cmd.eye; this.toast(cmd.eye > 1.3 ? '立った高さで見ています' : '座った高さで見ています'); return;
       case 'help': this.help(); return;
       case 'info': this.toast(cmd.text, 5000); return;
@@ -501,6 +529,39 @@ class App {
     return tryWall(edge, u) || (anyWall ? order.map(e => tryWall(e, null)).find(Boolean) || null : null);
   }
   // 柱型・袖壁・梁を足す
+  // ---------- 階段 ----------
+  // 階段を足す:折り返し(回り段)1,820×1,820 と、上り口の前の1階ホール・2階の出口の前の2階ホールも作る(すぐ上り下りできるように)
+  addStair() {
+    const p = this.project; if (!p) return null; const G = MODULES[this.module()].grid; const b = houseBounds(p.rooms);
+    const x = p.rooms.length ? b.maxX + WALL_T + 0.5 : 0, z = p.rooms.length ? b.minZ : 0; this.snapshot();
+    const st = { id: 'st' + uid(), name: '階段', level: 0, x, z, w: 2 * G - WALL_T, d: 2 * G - WALL_T, h: 5, floor: { lib: 'oak' }, ceiling: { color: '#f7f6f2' }, walls: {}, openings: [], parts: [], stair: { kind: 'u_winder', style: 'box', dir: 'S', flip: false, finish: 'wood_natural' } };
+    st.poly = shapePoly('rect', x, z, st.w, st.d); normalizeRoom(st); p.rooms.push(st);
+    const hall = lv => { const r = { id: 'h' + lv + uid(), name: lv ? 'ホール(2階)' : 'ホール', level: lv, x, z: z + st.d + WALL_T, w: st.w, d: G - WALL_T, h: 2.4, floor: { lib: 'oak' }, ceiling: { color: '#f7f6f2' }, walls: {}, openings: [], parts: [] }; r.poly = shapePoly('rect', r.x, r.z, r.w, r.d); normalizeRoom(r); p.rooms.push(r); return r; };
+    hall(0); hall(1); this.regenStairOpenings(st); this.load(p); this.setMode('plan'); this.toast('階段と、上り口・2階の出口の前のホールを作りました。引っぱって家につなげてください', 4000); return st;
+  }
+  // 階段の出入り口を作り直す(上り口=1階、出口=2階。前に部屋がある所だけ)
+  regenStairOpenings(st) {
+    const rooms = this.project.rooms, FH = floorH(); normalizeRoom(st);
+    const lay = stairLayoutOf(st, FH); const keepWin = st.openings.filter(o => o.type === 'window'); const oldIds = new Set(st.openings.filter(o => o.type !== 'window').map(o => o.id));
+    for (const r of rooms) r.openings = (r.openings || []).filter(o => !oldIds.has(o.twin)); st.openings = keepWin; let missing = 0;
+    for (const port of lay.ports) {
+      const mx = (port.a[0] + port.b[0]) / 2, mz = (port.a[1] + port.b[1]) / 2; let e = 0, bd = Infinity; for (let i = 0; i < st.poly.length; i++) { const f = edgeFrame(st, i); const d = Math.abs((mx - f.A[0]) * f.normal.x + (mz - f.A[1]) * f.normal.z); if (d < bd) { bd = d; e = i; } }
+      const f = edgeFrame(st, e); const ua = (port.a[0] - f.A[0]) * f.along.x + (port.a[1] - f.A[1]) * f.along.z, ub = (port.b[0] - f.A[0]) * f.along.x + (port.b[1] - f.A[1]) * f.along.z;
+      const u0 = Math.min(ua, ub) + 0.04, w = Math.min(Math.abs(ub - ua) - 0.08, 0.9); if (w < 0.5) continue; const sill = port.level * FH;
+      const o = { id: uid(), edge: e, type: 'open', u: u0, w, h: 2.0 }; if (sill) o.sill = sill;
+      const nb = neighborAcross(st, e, u0, w, rooms, { y: sill }); if (!nb) { missing++; continue; }
+      st.openings.push(o); const t = { id: uid(), edge: nb.edge, type: 'open', u: nb.u, w, h: 2.0, twin: o.id }; const sl = sill - baseOf(nb.room); if (sl > 0.05) t.sill = sl; nb.room.openings.push(t);
+    }
+    return missing;
+  }
+  stairEdit(st, act, v) {
+    this.snapshot(); const s = st.stair, G = MODULES[this.module()].grid;
+    if (act === 'skind') s.kind = v; if (act === 'sstyle') s.style = v;
+    if (act === 'sdir') s.dir = { S: 'W', W: 'N', N: 'E', E: 'S' }[s.dir || 'S']; if (act === 'sflip') s.flip = !s.flip;
+    if (act === 'sfit') { const c = STAIR_CELLS[s.kind || 'u_winder']; const side = (s.dir === 'E' || s.dir === 'W'); resizeRect(st, (side ? c[1] : c[0]) * G - WALL_T, (side ? c[0] : c[1]) * G - WALL_T); }
+    const miss = act === 'sstyle' ? 0 : this.regenStairOpenings(st); this.rebuildHouse(); this.rebuildItems(); this.applyLevels(); this.touched();
+    this.toast(act === 'sstyle' ? (s.style === 'open' ? 'オープン階段にしました' : '箱階段にしました') : act === 'skind' ? `${stairKindName(s.kind)}にしました${miss ? '。上り口か出口の前に部屋がありません' : ''}` : miss ? '上り口か出口の前に部屋がありません。部屋を動かしてつなげてください' : '向きを変えました', 2600);
+  }
   addPart(room, kind, at, cmd = {}) {
     normalizeRoom(room); this.snapshot(); room.parts = room.parts || []; const id = uid(); const H = room.h;
     const pt = at ? new THREE.Vector3(at.x, 0, at.z) : new THREE.Vector3(room.x + room.w / 2, 0, room.z + room.d / 2);
@@ -534,12 +595,12 @@ class App {
   makeNewRoom() {
     if (!this.project) this.project = this.blankProject(); const w = Math.max(0.6, ((parseFloat($('#nrW').value) || 3640) - 120) / 1000), d = Math.max(0.6, ((parseFloat($('#nrD').value) || 2730) - 120) / 1000), h = Math.max(1.8, (parseFloat($('#nrH').value) || 2400) / 1000); const name = $('#nrName').value || '部屋';
     const b = houseBounds(this.project.rooms); const x = this.project.rooms.length ? b.maxX + WALL_T : 0, z = this.project.rooms.length ? b.minZ : 0; if (this._shape === 'bay') { /* 出窓は北側にはみ出す */ }
-    const shape = this._shape || 'rect'; const room = { id: 'r' + Date.now().toString(36), name, x, z, w, d, h, poly: shapePoly(shape, x, z, w, d, MODULES[this.module()].half), floor: { lib: 'oak' }, ceiling: { color: '#f7f6f2' }, walls: {}, openings: [], parts: [] }; normalizeRoom(room);
+    const shape = this._shape || 'rect'; const lv = this.mode === 'plan' ? this.plan.level : this.walkLevel(); const room = { id: 'r' + Date.now().toString(36), name, level: lv, x, z, w, d, h, poly: shapePoly(shape, x, z, w, d, MODULES[this.module()].half), floor: { lib: 'oak' }, ceiling: { color: '#f7f6f2' }, walls: {}, openings: [], parts: [] }; normalizeRoom(room);
     if (shape === 'column') room.parts.push({ id: uid(), type: 'column', x: x + w - 0.45, z, w: 0.45, d: 0.45 });
     if (shape === 'bay') { const e0 = edgeForCompass(room, 'N') ?? 0; const L = wallLength(room, e0); const bw = Math.min(2.03, L - 0.6); room.openings.push({ id: uid(), edge: e0, type: 'window', u: (L - bw) / 2, w: bw, h: 1.17, sill: 0.9, bay: 'trap', bayDepth: 0.23 }); }
     else if ($('#nrWin').checked) { let best = null, bl = 0; for (let e = 0; e < room.poly.length; e++) { const f = edgeFrame(room, e); if (f.normal.z > 0.7 && f.L > bl) { best = e; bl = f.L; } } if (best !== null) { const ww = Math.min(1.65, bl - 0.6); if (ww > 0.5) room.openings.push({ id: uid(), edge: best, type: 'window', u: (bl - ww) / 2, w: ww, h: bl > 2 ? 1.8 : 1.1, sill: bl > 2 ? 0.4 : 0.9 }); } }
     const first = !this.project.rooms.length; this.project.rooms.push(room); if (first) { this.project.name = name; this.project.items.push(newItem('ceilingLight', { roomId: room.id, x: x + w / 2, y: h, z: z + d / 2 })); }
-    this.load(this.project); this.closeSheets(); this.s3.camera.position.set(x + w / 2, 1.5, z + d * 0.8); this.walk.yaw = 0; this.walk.pitch = 0;
+    this.load(this.project); this.closeSheets(); this.walk.floorY = baseOf(room); this.s3.camera.position.set(x + w / 2, this.walk.floorY + 1.5, z + d * 0.8); this.walk.yaw = 0; this.walk.pitch = 0;
     if (this._afterRoom) { const f = this._afterRoom; this._afterRoom = null; f(); return; }
     this.toast(first ? `部屋ができました(内法 ${mm(w)}×${mm(d)}mm)。「＋置く」でカーテンや照明を置けます` : '部屋を足しました(右どなりに置きました。間取りで動かせます)');
   }

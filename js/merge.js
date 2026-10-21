@@ -8,7 +8,7 @@ export function mergeGroup(root, filter) {
   const inv = new THREE.Matrix4().copy(root.matrixWorld).invert();
   const buckets = new Map(); const remove = [];
   root.traverse(o => {
-    if (!o.isMesh || o.isInstancedMesh || o.userData.keep || (filter && !filter(o))) return;
+    if (!o.isMesh || o.isInstancedMesh || o.userData.keep || Array.isArray(o.material) || (filter && !filter(o))) return;
     const g = o.geometry; if (!g.attributes.position || !g.attributes.normal || !g.attributes.uv) return;
     if (g.index === null && buckets.size === 0) { /* 非インデックスでも可 */ }
     const m = new THREE.Matrix4().multiplyMatrices(inv, o.matrixWorld);

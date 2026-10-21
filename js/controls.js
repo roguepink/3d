@@ -10,7 +10,7 @@ export class WalkControls {
     this.joy = { active: false, id: null, cx: 0, cy: 0 }; this.look = { active: false, id: null, x: 0, y: 0, moved: 0, t0: 0 };
     this.drag = { active: false, id: null };
     this.gyro = { on: false, q: new THREE.Quaternion(), screen: 0, base: null };
-    this.joyEl = opts.joyEl; this.knobEl = opts.knobEl;
+    this.ground = opts.ground; this.floorY = 0; this.joyEl = opts.joyEl; this.knobEl = opts.knobEl;
     dom.addEventListener('pointerdown', e => this.down(e)); dom.addEventListener('pointermove', e => this.moveEv(e)); dom.addEventListener('pointerup', e => this.up(e)); dom.addEventListener('pointercancel', e => this.up(e));
     window.addEventListener('keydown', e => { if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return; this.keys[e.code] = true; }); window.addEventListener('keyup', e => { this.keys[e.code] = false; });
     dom.addEventListener('contextmenu', e => e.preventDefault());
@@ -78,11 +78,13 @@ export class WalkControls {
     if (f || s) {
       const dir = new THREE.Vector3(-Math.sin(this.yaw), 0, -Math.cos(this.yaw)); const right = new THREE.Vector3(Math.cos(this.yaw), 0, -Math.sin(this.yaw));
       const step = dir.multiplyScalar(f * sp * dt).add(right.multiplyScalar(s * sp * dt));
+      // 歩ける所だけ進む(階段では足もとの高さが変わる)
+      const tryAt = q => { const g = this.ground ? this.ground(q) : (this.canWalk(q) ? this.floorY : null); if (g === null || g === undefined) return false; this.camera.position.x = q.x; this.camera.position.z = q.z; this.floorY = g; return true; };
       const p = this.camera.position.clone().add(step);
-      if (this.canWalk(p)) this.camera.position.copy(p);
-      else { const px = this.camera.position.clone(); px.x += step.x; if (this.canWalk(px)) this.camera.position.copy(px); else { const pz = this.camera.position.clone(); pz.z += step.z; if (this.canWalk(pz)) this.camera.position.copy(pz); } }
+      if (!tryAt(p)) { const px = this.camera.position.clone(); px.x += step.x; if (!tryAt(px)) { const pz = this.camera.position.clone(); pz.z += step.z; tryAt(pz); } }
     }
-    this.camera.position.y = this.eye;
+    // 目の高さ=足もと+目の高さ。段を上り下りするときは、なめらかに
+    const ty = this.floorY + this.eye, cy = this.camera.position.y; this.camera.position.y = Math.abs(ty - cy) > 0.8 ? ty : cy + (ty - cy) * Math.min(1, dt * 9);
     this.camera.rotation.set(0, 0, 0); this.camera.rotation.order = 'YXZ'; this.camera.rotation.y = this.yaw; this.camera.rotation.x = this.pitch;
   }
   lookAt(x, z) { const dx = x - this.camera.position.x, dz = z - this.camera.position.z; this.yaw = Math.atan2(-dx, -dz); this.pitch = 0; }

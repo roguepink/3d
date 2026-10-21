@@ -55,6 +55,9 @@ export function parseCommand(raw, app) {
   const side = sideWord ? relativeSide(sideWord, app) : null;
   const all = /全部|すべて|全て|どの壁も|全体/.test(t);
 
+  // 階の移動(「2階へ」「1階に下りる」)
+  if (/(2|二)階(へ|に|まで)?(上が|あが|行|い|へ$|に$|$)/.test(t) && !/(部屋|作|つく|足)/.test(t)) return { action: 'level', level: 1 };
+  if (/(1|一)階(へ|に|まで)?(下り|お|降|行|い|へ$|に$|$)/.test(t) && !/(部屋|作|つく|足)/.test(t)) return { action: 'level', level: 0 };
   // 使い方・モード・撮影
   if (/使い方|ヘルプ|どうやって|何ができる/.test(t)) return { action: 'help' };
   if (/^(進めて|すすめて|やり直し|やりなおし|リドゥ|進む|もどすのをやめ|戻すのをやめ)/.test(t)) return { action: 'redo' };

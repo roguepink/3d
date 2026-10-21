@@ -56,6 +56,9 @@
   <div id="zoomPad"><button id="zoomOut" title="広く">－</button><button id="zoomReset" title="標準にもどす">標準</button><button id="zoomIn" title="アップ">＋</button></div>
 </div>
 
+<!-- 1階・2階 -->
+<div id="levelBar" class="hidden"><button data-lv="1">2階</button><button data-lv="0">1階</button><button data-lv="all" class="orbit-only">全部</button></div>
+
 <!-- 選んだものの編集 -->
 <section id="edit" class="sheet hidden low">
   <div class="grab" id="editGrab" title="引っぱると高さが変わります"><span></span></div>
@@ -188,7 +191,9 @@
 <section id="plan" class="full hidden">
   <div class="plan-top">
     <b>間取り</b>
+    <span id="plLevels" class="plan-levels hidden"><button data-lv="0">1階</button><button data-lv="1">2階</button></span>
     <button id="plAddRoom">＋部屋</button>
+    <button id="plStair">🪜階段</button>
     <button id="plDoor">🚪ドア</button>
     <button id="plWindow">🪟窓</button>
     <button id="plVertex">◆角</button>
@@ -209,7 +214,7 @@
 // 起動係:毎回「いまの版」を確かめてから部品を読む。
 // 更新の直後に、古い部品と新しい部品が混ざって開けなくなるのを防ぐ。
 (function () {
-  var FILES = ['main', 'scene3d', 'controls', 'house', 'items', 'textures', 'demo', 'store', 'commands', 'photo', 'plan', 'ai', 'merge', 'thumbs'];
+  var FILES = ['main', 'scene3d', 'controls', 'house', 'items', 'textures', 'demo', 'store', 'commands', 'photo', 'plan', 'ai', 'merge', 'thumbs', 'stairs'];
   var THREE_URL = 'https://cdn.jsdelivr.net/npm/three@0.186.1/';
   var started = false, retried = false;
   try { retried = sessionStorage.getItem('oheya-retry') === '1'; } catch (e) {}

@@ -173,6 +173,28 @@ export const CATALOG = {
       if (it.opts.hood !== false) { g.add(box(0.6, 0.45, 0.5, std('#d9dcdf', .35, .5), cx, 1.75, -d / 2 + 0.25)); g.add(box(0.3, 0.6, 0.3, std('#d9dcdf', .35, .5), cx, 2.25, -d / 2 + 0.15)); light(g, '#fff6e8', 1.5, cx, 1.5, 0); } return g; } },
   bathtub: { name: '浴槽', emoji: '🛁', cat: '水まわり', equip: true, kind: 'floor', size: [1.6, 0.6, 0.75], range: { w: [1.2, 1.8], h: [0.5, 0.7], d: [0.65, 0.9] }, color: '#f6f6f3', opts: {}, words: ['浴槽', 'バスタブ', 'お風呂', '風呂', 'ふろ'],
     build(it) { const g = new THREE.Group(), w = it.w, h = it.h, d = it.d, m = std(it.color, .25); g.add(box(w, h, d, m, 0, h / 2, 0)); g.add(box(w - 0.16, 0.02, d - 0.16, std('#cfe6f2', .1, .1), 0, h - 0.12, 0)); const rim = box(w, 0.03, d, m, 0, h - 0.015, 0); g.add(rim); g.add(box(w - 0.16, 0.2, d - 0.16, std('#dde3e8', .2), 0, h - 0.11, 0)); g.add(cyl(0.015, 0.015, 0.12, std(METAL, .3, .8), -w * 0.4, h + 0.04, -d / 2 + 0.1, 10)); return g; } },
+  // ユニットバス(1616など)。浴槽は奥(-z)、洗い場は手前、水栓・鏡・カウンターは洗い場の左の壁。壁・天井・床の色は部屋の「床・壁」で変える
+  unitbath: { name: 'ユニットバス(浴槽と水栓のセット)', emoji: '🛀', cat: '水まわり', equip: true, kind: 'floor', size: [1.6, 2.0, 1.6], range: { w: [1.2, 2.0], h: [1.9, 2.3], d: [1.2, 2.4] }, color: '#f6f6f3', opts: { mirror: true, counter: true }, words: ['ユニットバス', 'システムバス', '浴室セット', 'お風呂のセット'], params: [['mirror', '鏡', 'bool'], ['counter', 'カウンター', 'bool']],
+    build(it) {
+      const g = new THREE.Group(), w = it.w, d = it.d, m = std(it.color, .2), metal = std(METAL, .2, .9), white = std('#fbfbfa', .3);
+      const tD = Math.min(0.8, d * 0.5), tH = 0.52, z0 = -d / 2 + tD / 2, t = 0.07;
+      // 浴槽:前の面(エプロン)・奥・左右と、中の底・お湯
+      g.add(box(w - 0.02, tH, t, m, 0, tH / 2, z0 + tD / 2 - t / 2)); g.add(box(w - 0.02, tH, t, m, 0, tH / 2, z0 - tD / 2 + t / 2));
+      g.add(box(t, tH, tD, m, -w / 2 + 0.01 + t / 2, tH / 2, z0)); g.add(box(t, tH, tD, m, w / 2 - 0.01 - t / 2, tH / 2, z0));
+      g.add(box(w - 0.02 - t * 2, 0.06, tD - t * 2, std('#eef2f4', .2), 0, 0.03, z0));
+      const water = new THREE.Mesh(new THREE.BoxGeometry(w - 0.02 - t * 2, tH - 0.2, tD - t * 2), new THREE.MeshStandardMaterial({ color: '#a9d6ea', roughness: .05, metalness: .1, transparent: true, opacity: .55 })); water.position.set(0, (tH - 0.2) / 2 + 0.06, z0); g.add(water);
+      g.add(box(w - 0.3, 0.004, 0.004, std('#d8d8d4', .4), 0, tH * 0.55, z0 + tD / 2 + 0.001));
+      // 水栓・シャワー(洗い場の左の壁)
+      const wz = z0 + tD / 2 + (d - tD) / 2, xw = -w / 2;
+      g.add(box(0.07, 0.07, 0.26, metal, xw + 0.035, 0.8, wz)); g.add(cyl(0.012, 0.012, 0.12, metal, xw + 0.1, 0.77, wz, 10));
+      const bar = cyl(0.012, 0.012, 0.9, metal, xw + 0.035, 1.35, wz + 0.28, 10); g.add(bar);
+      const head = cyl(0.045, 0.045, 0.025, metal, xw + 0.08, 1.75, wz + 0.28, 16); head.rotation.z = Math.PI / 2.4; g.add(head);
+      if (it.opts.counter !== false) { g.add(box(0.17, 0.03, 0.75, white, xw + 0.085, 0.74, wz)); g.add(box(0.12, 0.02, 0.4, white, xw + 0.06, 1.05, wz - 0.15)); }
+      if (it.opts.mirror !== false) { const mi = new THREE.Mesh(new THREE.PlaneGeometry(0.36, 0.8), std('#dfe7ec', .03, 1)); mi.rotation.y = Math.PI / 2; mi.position.set(xw + 0.006, 1.32, wz - 0.12); g.add(mi); }
+      // タオル掛け(手前の壁)
+      const tb = cyl(0.01, 0.01, 0.5, metal, 0.2, 1.1, d / 2 - 0.04, 8); tb.rotation.z = Math.PI / 2; g.add(tb);
+      return g;
+    } },
   plant: { name: '観葉植物', emoji: '🪴', cat: 'みどり', kind: 'floor', size: [0.6, 1.4, 0.6], color: '#4e8a5a', opts: {}, words: ['観葉植物', '植物', 'グリーン', '木', '鉢'],
     build(it) { const g = new THREE.Group(), h = it.h, r = it.w / 2; g.add(cyl(r * .4, r * .32, h * .22, std('#b9b1a6', .8), 0, h * .11, 0)); g.add(cyl(r * .38, r * .38, 0.01, std('#3b2a1a', 1), 0, h * .22, 0)); g.add(cyl(0.02, 0.03, h * .5, std('#6b4a2a', .9), 0, h * .45, 0, 8));
       const leaf = std(it.color, .7); const seed = (it.id || '').length; for (let i = 0; i < 9; i++) { const a = i * 2.4 + seed, rr = r * (0.3 + (i % 3) * 0.25), y = h * (0.55 + (i % 4) * 0.11); const s = sph(r * (0.28 + (i % 2) * 0.1), leaf, Math.cos(a) * rr, y, Math.sin(a) * rr); s.scale.set(1.2, 0.7, 1); g.add(s); } return g; } },

@@ -106,6 +106,10 @@ function drawLace(g, w, h, r) {
   g.strokeStyle = 'rgba(0,0,0,.35)'; g.lineWidth = 1.2;
   const s = w / 8; for (let i = 0; i < 8; i++) for (let j = 0; j < 8; j++) { g.beginPath(); g.arc(i * s + s / 2, j * s + s / 2, s * .42, 0, 7); g.stroke(); g.beginPath(); g.arc(i * s + s / 2, j * s + s / 2, s * .2, 0, 7); g.stroke(); }
 }
+// 浴室のパネル:つるっとした面に、900mm ごとの細いつなぎ目(grid=true なら横にも)
+function drawBathPanel(g, w, h, r, { base, seam, grid = false, tile = 1.8, step = 0.9 }) { g.fillStyle = base; g.fillRect(0, 0, w, h); noise(g, w, h, r, 0.015); const n = Math.round(tile / step), s = w / n; g.fillStyle = seam; for (let i = 0; i < n; i++) g.fillRect(i * s, 0, Math.max(1, w / 512), h); if (grid) for (let j = 0; j < n; j++) g.fillRect(0, j * s, w, Math.max(1, w / 512)); }
+// 浴室の床:すべり止めの小さな点
+function drawDots(g, w, h, r, { base, dot }) { g.fillStyle = base; g.fillRect(0, 0, w, h); g.fillStyle = dot; const n = 36, s = w / n; for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) { g.beginPath(); g.arc((i + .5 + (j % 2) * .5) * s, (j + .5) * s, s * .22, 0, Math.PI * 2); g.fill(); } g.fillStyle = 'rgba(0,0,0,.12)'; g.fillRect(0, h / 2 - 1, w, 2); g.fillRect(w / 2 - 1, 0, 2, h); }
 function drawPlain(g, w, h, r, { base = '#f4f4f0', alpha = 0.05 }) { g.fillStyle = base; g.fillRect(0, 0, w, h); noise(g, w, h, r, alpha); }
 function drawBrick(g, w, h, r, { base = '#b5604a', mortar = '#d9d2c6', tile = 1.2 }) {
   g.fillStyle = mortar; g.fillRect(0, 0, w, h); const bw = w / tile * 0.21, bh = w / tile * 0.065, rows = Math.ceil(h / bh);
@@ -151,6 +155,9 @@ export const SURFACE_LIB = {
     { id: 'tile_k', bump: 0.008, name: 'タイル(黒 60cm)', size: 1.2, rough: .2, draw: (g, w, h, r) => drawTile(g, w, h, r, { base: '#3a3c40', grout: '#5a5c60', size: .6, mottle: .05 }) },
     { id: 'carpet_w', bump: 0.006, name: 'カーペット(アイボリー)', size: 1, rough: .95, draw: (g, w, h, r) => drawCarpet(g, w, h, r, { base: '#e9e2d2' }) },
     { id: 'cf_tile', bump: 0.003, name: 'クッションフロア(タイル柄)', size: 1.2, rough: .3, draw: (g, w, h, r) => drawTile(g, w, h, r, { base: '#e6e2da', grout: '#cfc9bf', size: .3, mottle: .04 }) },
+    { id: 'ub_floor_g', bump: 0.006, name: '浴室の床(グレー)', size: 0.9, rough: .6, draw: (g, w, h, r) => drawDots(g, w, h, r, { base: '#9a9da1', dot: '#8a8d91' }) },
+    { id: 'ub_floor_b', bump: 0.006, name: '浴室の床(ベージュ)', size: 0.9, rough: .6, draw: (g, w, h, r) => drawDots(g, w, h, r, { base: '#cdbfa8', dot: '#bcae97' }) },
+    { id: 'ub_floor_w', bump: 0.006, name: '浴室の床(白)', size: 0.9, rough: .6, draw: (g, w, h, r) => drawDots(g, w, h, r, { base: '#e6e6e3', dot: '#d3d3cf' }) },
   ],
   wall: [
     { id: 'wp_white', name: '壁紙(白)', size: 1, rough: .9, draw: (g, w, h, r) => drawPlain(g, w, h, r, { base: '#f4f3ee', alpha: .06 }) },
@@ -172,6 +179,14 @@ export const SURFACE_LIB = {
     { id: 'wp_pink', name: '壁紙(くすみピンク)', size: 1, rough: .9, draw: (g, w, h, r) => drawPlain(g, w, h, r, { base: '#dcbfc0', alpha: .05 }) },
     { id: 'wp_dark', name: '壁紙(ダークグレー)', size: 1, rough: .9, draw: (g, w, h, r) => drawPlain(g, w, h, r, { base: '#5a5e66', alpha: .05 }) },
     { id: 'wp_wood', bump: 0.004, name: '壁紙(木目調)', size: 1.2, rough: .7, rotate: true, draw: (g, w, h, r) => drawWood(g, w, h, r, { base: '#d9c4a3', dark: '#b39a78', plankW: 0.15, tile: 1.2, grainAlpha: .12 }) },
+    // 浴室のパネル(ユニットバスの壁・天井)。つなぎ目は 約900mm ごと
+    { id: 'ub_white', name: '浴室パネル(白)', size: 1.8, rough: .3, draw: (g, w, h, r) => drawBathPanel(g, w, h, r, { base: '#f3f3f0', seam: '#d4d4d0' }) },
+    { id: 'ub_beige', name: '浴室パネル(ベージュ)', size: 1.8, rough: .3, draw: (g, w, h, r) => drawBathPanel(g, w, h, r, { base: '#ebe1cf', seam: '#cfc3ae' }) },
+    { id: 'ub_stone', bump: 0.002, name: '浴室パネル(石目グレー)', size: 1.8, rough: .25, draw: (g, w, h, r) => { drawMarble(g, w, h, r, { base: '#b9bbbd', vein: '#6f7276' }); g.fillStyle = 'rgba(0,0,0,.18)'; g.fillRect(w / 2 - 1, 0, 2, h); } },
+    { id: 'ub_wood', bump: 0.003, name: '浴室パネル(木目)', size: 1.8, rough: .35, draw: (g, w, h, r) => drawWood(g, w, h, r, { base: '#a57a52', dark: '#6e4c2f', plankW: 0.9, grainAlpha: .2 }) },
+    { id: 'ub_navy', name: '浴室パネル(ネイビー)', size: 1.8, rough: .3, draw: (g, w, h, r) => drawBathPanel(g, w, h, r, { base: '#2f3d58', seam: '#222d44' }) },
+    { id: 'ub_black', name: '浴室パネル(黒)', size: 1.8, rough: .25, draw: (g, w, h, r) => drawBathPanel(g, w, h, r, { base: '#2b2b2d', seam: '#1a1a1c' }) },
+    { id: 'ub_ceil', name: '浴室の天井(白)', size: 1.8, rough: .4, draw: (g, w, h, r) => drawBathPanel(g, w, h, r, { base: '#f7f7f5', seam: '#dededa', grid: true, step: 0.45 }) },
   ],
   fabric: [
     { id: 'plain', name: '無地', size: .25, rough: .85, tint: true, draw: (g, w, h, r) => drawWeave(g, w, h, r, { base: '#ffffff', contrast: .1 }) },

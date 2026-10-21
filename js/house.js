@@ -3,6 +3,19 @@
 import * as THREE from 'three';
 import { surfaceMaterial, trimMaterial } from './textures.js';
 import { mergeGroup } from './merge.js';
+import { buildStair, stairHeights } from './stairs.js';
+
+// ---------- 2階建て ----------
+// 部屋の level(0=1階, 1=2階)。階高(1階の床→2階の床)は project.settings.floorH(既定 2.9m)
+let FLOOR_H = 2.9;
+export function setFloorH(v) { FLOOR_H = (v > 2 && v < 5) ? v : 2.9; }
+export function floorH() { return FLOOR_H; }
+export function levelOf(r) { return (r && r.level) || 0; }
+export function baseOf(r) { return r ? levelOf(r) * FLOOR_H : 0; }
+export function hasUpper(rooms) { return rooms.some(r => levelOf(r) > 0); }
+// 部屋がその階に見えるか(階段は1階と2階の両方)
+export function onLevel(r, level) { return levelOf(r) === level || (r.stair && level === levelOf(r) + 1); }
+const STEP_MAX = 0.3; // 1歩で上り下りできる高さ
 
 export const WALL_T = 0.12;      // 壁の厚み
 export const SIDES = ['N', 'E', 'S', 'W'];
@@ -26,6 +39,7 @@ export function normalizeRoom(room) {
   if (polyArea(room.poly) < 0) room.poly.reverse();
   syncBounds(room);
   room.openings = room.openings || []; room.parts = room.parts || []; room.walls = room.walls || {};
+  if (room.stair) room.h = FLOOR_H + (room.stair.upperH || 2.4);
   for (const k of SIDES) if (room.walls[k] !== undefined) { room.walls[SIDE_IDX[k]] = room.walls[k]; delete room.walls[k]; }
   for (const o of room.openings) {
     if (o.edge === undefined && o.side) { o.edge = SIDE_IDX[o.side]; const L = edgeFrame(room, o.edge).L; o.u = (o.side === 'N' || o.side === 'E') ? o.pos : L - o.pos - o.w; delete o.side; delete o.pos; }
@@ -94,6 +108,8 @@ export function pointInPart(px, pz, part, margin = 0) { const b = partBox(part);
 const matWood = new THREE.MeshStandardMaterial({ color: '#efece6', roughness: .6 });
 const matFrame = new THREE.MeshStandardMaterial({ color: '#f4f4f2', roughness: .5 });
 const matDoor = new THREE.MeshStandardMaterial({ color: '#b78b5e', roughness: .55 });
+const matBathDoor = new THREE.MeshStandardMaterial({ color: '#f2f2f0', roughness: .35 });
+const matFrost = new THREE.MeshStandardMaterial({ color: '#dfe6ea', roughness: .25, metalness: .05 });
 const matKnob = new THREE.MeshStandardMaterial({ color: '#c9b37a', roughness: .3, metalness: .8 });
 const matGlass = new THREE.MeshStandardMaterial({ color: '#dbe9f6', roughness: .04, metalness: .15, transparent: true, opacity: .16, side: THREE.DoubleSide, envMapIntensity: .6, depthWrite: false });
 const matCap = new THREE.MeshStandardMaterial({ color: '#d9d9d9', roughness: .9 });
@@ -167,7 +183,9 @@ export function buildRoom(room, project, group) {
   normalizeRoom(room);
   const assets = project.assets || {};
   const H = room.h, pick = [];
-  const roomGroup = new THREE.Group(); roomGroup.name = 'room:' + room.id; roomGroup.userData.roomId = room.id;
+  const roomGroup = new THREE.Group(); roomGroup.name = 'room:' + room.id; roomGroup.userData.roomId = room.id; roomGroup.userData.level = levelOf(room); roomGroup.position.y = baseOf(room);
+  // 2階がある家の1階は、外側の壁を2階の床まで伸ばす(外から見たときのすき間をふさぐ)
+  const outerH = (levelOf(room) === 0 && !room.stair && (project.rooms || []).some(r => levelOf(r) === 1 && r.x < room.x + room.w && r.x + r.w > room.x && r.z < room.z + room.d && r.z + r.d > room.z)) ? Math.max(H, FLOOR_H) : H;
   const trim = roomTrim(room); const matCrown = trimMaterial(trim.crown.finish), matBase = trimMaterial(trim.base.finish), matCase = trimMaterial(trim.casing.finish), matDoorFrame = trimMaterial(trim.door.finish);
   const crownH = Math.max(0.01, (trim.crown.h || 35) / 1000), baseH = Math.max(0.01, (trim.base.h || 60) / 1000), caseW = Math.max(0.02, (trim.casing.w || 55) / 1000);
   // 床
@@ -183,20 +201,20 @@ export function buildRoom(room, project, group) {
   for (let e = 0; e < n; e++) {
     const f = edgeFrame(room, e), L = f.L;
     const ops = room.openings.filter(o => o.edge === e);
-    const holes = ops.map(o => ({ u: o.u, w: o.w, sill: o.type === 'window' ? (o.sill ?? 0.9) : 0, h: o.h, op: o }));
+    const holes = ops.map(o => ({ u: o.u, w: o.w, sill: o.type === 'window' ? (o.sill ?? 0.9) : (o.sill || 0), h: o.h, op: o }));
     const wall = new THREE.Mesh(wallGeometry(L, H, holes), surfaceMaterial('wall', wallSpec(room, e), { w: L, h: H }, assets));
     wall.position.copy(f.origin); wall.rotation.y = f.rotY; wall.receiveShadow = true;
     wall.userData = { kind: 'wall', roomId: room.id, edge: e, keep: true }; roomGroup.add(wall); pick.push(wall);
     // 壁の上端(全体を上から見たとき用)
     const cap = box(L + WALL_T * 2, 0.02, WALL_T, matCap); cap.castShadow = false;
-    cap.position.copy(wallPoint(room, e, L / 2, H + 0.01, -WALL_T / 2)); cap.rotation.y = f.rotY; roomGroup.add(cap);
+    cap.position.copy(wallPoint(room, e, L / 2, outerH + 0.01, -WALL_T / 2)); cap.rotation.y = f.rotY; roomGroup.add(cap);
     // 外側の面(外から見たときだけ見える)
-    const outer = new THREE.Mesh(wallGeometry(L, H, holes), matOuter);
+    const outer = new THREE.Mesh(wallGeometry(L, outerH, holes), matOuter);
     outer.position.copy(wallPoint(room, e, 0, 0, -WALL_T)); outer.rotation.y = f.rotY; outer.receiveShadow = true; outer.userData.keep = true; roomGroup.add(outer);
     // 廻り縁(あり/なし・高さ・仕上げ)
     if (trim.crown.on) { const crown = box(L, crownH, Math.min(0.03, crownH * 0.6)); crown.material = matCrown; crown.castShadow = false; crown.userData = { kind: 'trim', part: 'crown', roomId: room.id, mergeKey: 'crown' }; crown.position.copy(wallPoint(room, e, L / 2, H - crownH / 2, Math.min(0.03, crownH * 0.6) / 2)); crown.rotation.y = f.rotY; roomGroup.add(crown); }
     // 巾木(ドアのところは切る)
-    if (trim.base.on) { const doors = holes.filter(h => h.op.type !== 'window').sort((a, b) => a.u - b.u);
+    if (trim.base.on) { const doors = holes.filter(h => h.op.type !== 'window' && h.sill < 0.1).sort((a, b) => a.u - b.u);
       let u0 = 0; const segs = [];
       for (const d of doors) { if (d.u > u0) segs.push([u0, d.u]); u0 = d.u + d.w; } if (u0 < L) segs.push([u0, L]);
       for (const [a, b] of segs) { const bb = box(b - a, baseH, 0.012); bb.material = matBase; bb.userData = { kind: 'trim', part: 'base', roomId: room.id, mergeKey: 'base' }; bb.position.copy(wallPoint(room, e, (a + b) / 2, baseH / 2, 0.006)); bb.rotation.y = f.rotY; roomGroup.add(bb); } }
@@ -238,7 +256,9 @@ export function buildRoom(room, project, group) {
         // 丁番:部屋の内側から見て左(left)/右(right)。開く向き:内開き(in=この部屋側)/外開き(out)
         const sx = o.hinge === 'right' ? -1 : 1, sz = o.swing === 'out' ? -1 : 1;
         const leaf = new THREE.Group(); leaf.position.set(-sx * h.w / 2, 0, sz > 0 ? -0.022 : -WALL_T + 0.022); og.add(leaf);
-        const door = box(h.w - 0.01, h.h - 0.01, 0.04, matDoor); door.position.set(sx * (h.w - 0.01) / 2, (h.h - 0.01) / 2, 0); leaf.add(door);
+        const door = box(h.w - 0.01, h.h - 0.01, 0.04, o.style === 'bath' ? matBathDoor : matDoor); door.position.set(sx * (h.w - 0.01) / 2, (h.h - 0.01) / 2, 0); leaf.add(door);
+        // 浴室のドア:白い枠に、くもりガラスの面
+        if (o.style === 'bath') { for (const zz of [0.021, -0.021]) { const gl = new THREE.Mesh(new THREE.PlaneGeometry(h.w - 0.16, h.h * 0.62), matFrost); gl.position.set(sx * (h.w - 0.01) / 2, h.h * 0.55, zz); if (zz < 0) gl.rotation.y = Math.PI; leaf.add(gl); } }
         const knob = new THREE.Mesh(new THREE.SphereGeometry(0.025, 12, 8), matKnob); knob.position.set(sx * (h.w - 0.08), 1.0, 0.04); leaf.add(knob);
         const knob2 = knob.clone(); knob2.position.z = -0.04; leaf.add(knob2);
         for (let k = 0; k < 2; k++) { const hg = box(0.012, 0.1, 0.03, matKnob); hg.castShadow = false; hg.position.set(0, k ? h.h - 0.25 : 0.25, 0); leaf.add(hg); }
@@ -247,6 +267,8 @@ export function buildRoom(room, project, group) {
       }
     }
   }
+  // 階段
+  if (room.stair) { const sg = new THREE.Group(); buildStair(room, FLOOR_H, sg, { tread: trimMaterial(room.stair.finish || 'wood_natural'), riser: trimMaterial(room.stair.riser || 'white'), rail: trimMaterial(room.stair.railFinish || 'wood_walnut'), metal: matSash }); sg.traverse(o => { if (o.isMesh) { o.userData.roomId = room.id; o.userData.kind = 'stair'; pick.push(o); } }); roomGroup.add(sg); }
   // 柱型・袖壁・梁
   for (const part of room.parts) {
     const b = partBox(part); const ne = nearestEdge(room, new THREE.Vector3(b.cx, 0, b.cz)); const spec = wallSpec(room, ne);
@@ -283,10 +305,12 @@ export function buildHouse(project) {
 }
 
 // 壁を共有している相手の部屋(ドアでつなぐときに使う)。戻り: { room, edge, u }(相手側の辺と位置)
-export function neighborAcross(room, e, u, w, rooms) {
+// opts.y:開口の下端の高さ(家全体の高さ)。階段の2階の出口などで、相手の階を決める
+export function neighborAcross(room, e, u, w, rooms, opts) {
   const f = edgeFrame(room, e); const P1 = f.origin.clone().addScaledVector(f.along, u), P2 = f.origin.clone().addScaledVector(f.along, u + w);
   for (const o of rooms) {
     if (o.id === room.id) continue; normalizeRoom(o);
+    if (opts && opts.y !== undefined) { const b = baseOf(o); if (opts.y < b - 0.3 || opts.y > b + o.h - 0.3) continue; } else if (!room.stair && !o.stair && levelOf(o) !== levelOf(room)) continue;
     for (let j = 0; j < o.poly.length; j++) {
       const g = edgeFrame(o, j); if (g.along.dot(f.along) > -0.98) continue;
       const dist = Math.abs(P1.clone().sub(g.origin).dot(g.normal)); if (dist > WALL_T + 0.06) continue;
@@ -298,24 +322,39 @@ export function neighborAcross(room, e, u, w, rooms) {
   return null;
 }
 // 歩ける範囲か(部屋の中(壁から margin 以上) または ドアの通り道。柱型・袖壁の中はだめ)
-export function walkable(p, rooms, margin = 0.25) {
-  let ok = false;
+// 足もとの高さ(家全体の高さ)。歩けない所は null。gy は今立っている高さ
+// 部屋の中(壁から margin 以上)・ドアの通り道・階段の段。1歩で STEP_MAX までしか上り下りしない。柱型・袖壁の中はだめ
+export function groundAt(p, rooms, gy = 0, margin = 0.25) {
+  // 足が届く高さ(今の高さ±1段)の中で、いちばん高い面に立つ(段の上・らせんの2階の出口など)
+  let best = null; const take = y => { if (Math.abs(y - gy) <= STEP_MAX && (best === null || y > best)) best = y; };
   for (const r of rooms) {
-    if (!r.poly) normalizeRoom(r);
-    if (pointInPoly(p.x, p.z, r.poly) && distToPolyEdges(p.x, p.z, r.poly) >= margin) { ok = true; break; }
+    if (!r.poly) normalizeRoom(r); const b = baseOf(r);
+    if (!r.stair && Math.abs(b - gy) > STEP_MAX) continue;
+    if (!pointInPoly(p.x, p.z, r.poly) || distToPolyEdges(p.x, p.z, r.poly) < (r.stair ? Math.min(margin, 0.17) : margin)) continue;
+    if (r.stair) { for (const y of stairHeights(r, p.x, p.z, FLOOR_H)) take(b + y); } else take(b);
   }
-  if (!ok) for (const r of rooms) for (const o of r.openings || []) {
-    if (o.type === 'window') continue; const f = edgeFrame(r, o.edge); const d = new THREE.Vector3(p.x, 0, p.z).sub(f.origin); const t = d.dot(f.along), s = d.dot(f.normal); const reach = WALL_T + margin + 0.1, m = 0.12;
-    if (t > o.u + m && t < o.u + o.w - m && s > -reach && s < reach) { ok = true; break; }
+  if (best === null) for (const r of rooms) for (const o of r.openings || []) {
+    if (o.type === 'window') continue; const sy = baseOf(r) + (o.sill || 0); if (Math.abs(sy - gy) > STEP_MAX) continue;
+    const f = edgeFrame(r, o.edge); const d = new THREE.Vector3(p.x, 0, p.z).sub(f.origin); const t = d.dot(f.along), s = d.dot(f.normal); const reach = WALL_T + margin + 0.1, m = 0.12;
+    if (t > o.u + m && t < o.u + o.w - m && s > -reach && s < reach) take(sy);
   }
-  if (!ok) return false;
-  for (const r of rooms) for (const part of r.parts || []) { if (part.type === 'beam') continue; if (pointInPart(p.x, p.z, part, margin * 0.8)) return false; }
-  return true;
+  if (best === null) return null;
+  for (const r of rooms) { if (Math.abs(baseOf(r) - best) > STEP_MAX && !r.stair) continue; for (const part of r.parts || []) { if (part.type === 'beam') continue; if (pointInPart(p.x, p.z, part, margin * 0.8)) return null; } }
+  return best;
 }
-export function roomAt(p, rooms) { return rooms.find(r => (r.poly || normalizeRoom(r).poly) && pointInPoly(p.x, p.z, r.poly)) || rooms.find(r => p.x >= r.x - 0.01 && p.x <= r.x + r.w + 0.01 && p.z >= r.z - 0.01 && p.z <= r.z + r.d + 0.01) || null; }
+export function walkable(p, rooms, margin = 0.25, gy = 0) { return groundAt(p, rooms, gy, margin) !== null; }
+// その場所の部屋。opt.level(その階で探す) / opt.gy(立っている高さに近い部屋)
+export function roomAt(p, rooms, opt) {
+  let list = rooms;
+  if (opt && opt.level !== undefined) list = rooms.filter(r => levelOf(r) === opt.level || (r.stair && opt.level === levelOf(r) + 1));
+  const inside = list.filter(r => (r.poly || normalizeRoom(r).poly) && pointInPoly(p.x, p.z, r.poly));
+  if (inside.length > 1 && opt && opt.gy !== undefined) inside.sort((a, b) => (a.stair ? 0 : Math.abs(baseOf(a) - opt.gy)) - (b.stair ? 0 : Math.abs(baseOf(b) - opt.gy)));
+  else if (inside.length > 1) inside.sort((a, b) => levelOf(a) - levelOf(b));
+  return inside[0] || list.find(r => p.x >= r.x - 0.01 && p.x <= r.x + r.w + 0.01 && p.z >= r.z - 0.01 && p.z <= r.z + r.d + 0.01) || null;
+}
 export function houseBounds(rooms) {
   const b = { minX: Infinity, minZ: Infinity, maxX: -Infinity, maxZ: -Infinity, maxH: 0 };
-  for (const r of rooms) { b.minX = Math.min(b.minX, r.x); b.minZ = Math.min(b.minZ, r.z); b.maxX = Math.max(b.maxX, r.x + r.w); b.maxZ = Math.max(b.maxZ, r.z + r.d); b.maxH = Math.max(b.maxH, r.h); }
+  for (const r of rooms) { b.minX = Math.min(b.minX, r.x); b.minZ = Math.min(b.minZ, r.z); b.maxX = Math.max(b.maxX, r.x + r.w); b.maxZ = Math.max(b.maxZ, r.z + r.d); b.maxH = Math.max(b.maxH, baseOf(r) + r.h); }
   if (!rooms.length) Object.assign(b, { minX: 0, minZ: 0, maxX: 4, maxZ: 4, maxH: 2.4 });
   return b;
 }
