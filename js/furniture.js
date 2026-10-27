@@ -1,7 +1,7 @@
 // 家具(ベッド・机・椅子・ソファ・タンスなど)。形(styles)と部分ごとの色(parts)を選べる
 // 作り方の決まりは kit.js の「形と部分ごとの色」を見る。向き:正面(足もと・座る側)が +z、背中が -z
 import * as THREE from 'three';
-import { box, cyl, sph, rbox, std, fabric, pm, styleOf, emissive, light, BLACK, METAL, WARM } from './kit.js';
+import { box, cyl, sph, rbox, std, fabric, pm, partVal, styleOf, emissive, light, BLACK, METAL, WARM } from './kit.js';
 
 // ---- ベッド ----
 // 部分:掛けふとん(it.color と布の柄)/ わく / シーツ / まくら
@@ -404,3 +404,70 @@ export const FURNITURE = {
     ],
     build: basketBuild },
 };
+
+// ---- 小さな電子機器・飾り(映画の部屋づくり用)----
+// ゲーム機のような小さな機械(どこかの商品に似せない、架空の形)。棚に並べる
+const GADGET_COLORS = ['#f2b8c6', '#a9d8e8', '#bfe3c0', '#f3e2a0', '#d6c3f0', '#f6c9a8', '#c9ccd3', '#e8a7b8'];
+function rng(seed) { let h = 2166136261; for (const c of String(seed)) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); } return () => { h ^= h << 13; h ^= h >>> 17; h ^= h << 5; return ((h >>> 0) % 100000) / 100000; }; }
+function gadget(R, k = 1) {
+  const g = new THREE.Group(), c = std(GADGET_COLORS[Math.floor(R() * GADGET_COLORS.length)], .4), scr = std('#2c3a3a', .25), kind = Math.floor(R() * 3);
+  if (kind === 0) { g.add(rbox(0.085 * k, 0.13 * k, 0.025 * k, 0.012 * k, c, 0, 0.065 * k, 0)); g.add(box(0.06 * k, 0.05 * k, 0.004, scr, 0, 0.09 * k, 0.013 * k)); g.add(box(0.012 * k, 0.012 * k, 0.004, std('#555', .5), -0.02 * k, 0.035 * k, 0.013 * k)); }
+  else if (kind === 1) { g.add(rbox(0.15 * k, 0.065 * k, 0.025 * k, 0.012 * k, c, 0, 0.0325 * k, 0)); g.add(box(0.06 * k, 0.042 * k, 0.004, scr, 0, 0.034 * k, 0.013 * k)); }
+  else { g.add(rbox(0.085 * k, 0.11 * k, 0.08 * k, 0.012 * k, c, 0, 0.055 * k, 0)); g.add(box(0.06 * k, 0.05 * k, 0.004, scr, 0, 0.07 * k, 0.041 * k)); }
+  g.rotation.y = (R() - 0.5) * 0.3; return [g, kind === 1 ? 0.16 * k : 0.095 * k];
+}
+// x0〜x1 に、y の高さで、z の奥行きの位置へ並べる
+export function gadgetRow(g, x0, x1, y, z, seed, k = 1) { const R = rng(seed); let x = x0 + 0.02; while (x < x1 - 0.06) { const [m, w] = gadget(R, k); if (x + w > x1) break; m.position.set(x + w / 2, y, z); g.add(m); x += w + 0.015 + R() * 0.03; } }
+
+function wallShelfBuild(it) {
+  const g = new THREE.Group(), w = it.w, h = it.h, d = it.d, n = { one: 1, two: 2, three: 3 }[styleOf(it).id] || 2, bd = pm(it, 'board', .5);
+  for (let i = 0; i < n; i++) {
+    const y = -h / 2 + (n === 1 ? 0 : i * h / n) + 0.03; g.add(box(w, 0.03, d, bd, 0, y, d / 2));
+    if (it.opts.led !== false) { const col = partVal(it, i % 2 ? 'led2' : 'led'); g.add(box(w - 0.04, 0.008, 0.012, emissive(col, 1.6), 0, y - 0.02, d - 0.012)); light(g, col, 0.7, 0, y - 0.06, d * 0.8, { distance: 2.2 }); }
+    if (it.opts.fill !== false) gadgetRow(g, -w / 2, w / 2, y + 0.015, d * 0.5, it.id + i);
+  }
+  return g;
+}
+function stringLightsBuild(it) {
+  const g = new THREE.Group(), w = it.w, sag = it.h * 0.7, wire = std('#3a3a3a', .6), bulb = emissive(partVal(it, 'bulb'), 2.2), n = Math.max(1, Math.round(w / 0.6)), seg = w / n;
+  let prev = null; for (let i = 0; i <= n * 12; i++) { const t = i / (n * 12), x = -w / 2 + t * w, local = ((t * n) % 1), y = it.h / 2 - Math.sin(local * Math.PI) * sag; const p = new THREE.Vector3(x, y, 0.03);
+    if (prev) { const d = new THREE.Vector3().subVectors(p, prev), L = d.length(); const m = new THREE.Mesh(new THREE.CylinderGeometry(0.002, 0.002, L, 4), wire); m.position.copy(prev).addScaledVector(d, 0.5); m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.normalize()); g.add(m); }
+    if (i % 2 === 1) { const b = new THREE.Mesh(new THREE.SphereGeometry(0.012, 10, 8), bulb); b.position.set(x, y - 0.018, 0.03); b.scale.y = 1.3; g.add(b); } prev = p; }
+  void seg; light(g, partVal(it, 'bulb'), 1.2, 0, 0, 0.25, { distance: 2.5 }); return g;
+}
+// パソコン本体(ゲーム用・横がガラスで中が光る)。lift で机の上へ
+function pcTowerBuild(it) {
+  const g = new THREE.Group(), w = it.w, h = it.h, d = it.d, cs = pm(it, 'case', .35, .3), col = partVal(it, 'glow'), gl = emissive(col, 1.4), y0 = it.opts.lift || 0;
+  g.add(box(w, h, d, cs, 0, y0 + h / 2, 0));
+  const glass = new THREE.Mesh(new THREE.BoxGeometry(0.004, h * 0.86, d * 0.86), new THREE.MeshStandardMaterial({ color: '#8a7aa8', roughness: .05, metalness: .2, transparent: true, opacity: .35 })); glass.position.set(w / 2 + 0.002, y0 + h * 0.52, 0); g.add(glass);
+  const inner = std('#15131a', .6); g.add(box(0.01, h * 0.84, d * 0.84, inner, w / 2 - 0.03, y0 + h * 0.52, 0));
+  for (const [y, z] of [[0.75, 0.3], [0.45, 0.3]]) { const f = new THREE.Mesh(new THREE.TorusGeometry(Math.min(h, d) * 0.12, 0.008, 8, 24), gl); f.rotation.y = Math.PI / 2; f.position.set(w / 2 - 0.02, y0 + h * y, d * (z - 0.5) + d * 0.35); g.add(f); }
+  g.add(box(0.04, 0.06, d * 0.4, std('#4a4458', .5), w / 2 - 0.05, y0 + h * 0.6, -d * 0.1)); g.add(box(0.05, 0.02, d * 0.6, gl, w / 2 - 0.04, y0 + h * 0.15, 0));
+  g.add(box(w * 0.7, 0.006, 0.004, gl, 0, y0 + h * 0.9, d / 2 + 0.002)); light(g, col, 1.1, w / 2 + 0.15, y0 + h * 0.5, 0, { distance: 2 }); return g;
+}
+function crtBuild(it) {
+  const g = new THREE.Group(), w = it.w, h = it.h, d = it.d, body = pm(it, 'body', .55), y0 = it.opts.lift || 0;
+  g.add(box(w * 0.5, 0.02, d * 0.5, body, 0, y0 + 0.01, 0)); g.add(rbox(w, h - 0.03, d * 0.55, 0.02, body, 0, y0 + 0.03 + (h - 0.03) / 2, d * 0.2)); g.add(rbox(w * 0.75, (h - 0.03) * 0.8, d * 0.5, 0.04, body, 0, y0 + 0.03 + (h - 0.03) * 0.47, -d * 0.22));
+  g.add(box(w * 0.78, (h - 0.03) * 0.72, 0.006, emissive(partVal(it, 'screen'), 0.35), -w * 0.04, y0 + 0.03 + (h - 0.03) * 0.54, d * 0.2 + d * 0.275 + 0.002));
+  for (let i = 0; i < 2; i++) g.add(box(0.015, 0.015, 0.004, std('#555', .5), w * 0.42, y0 + 0.08 + i * 0.03, d * 0.475 + 0.002)); return g;
+}
+function laptopBuild(it) {
+  const g = new THREE.Group(), w = it.w, d = it.d, body = pm(it, 'body', .35, .4), y0 = it.opts.lift || 0;
+  g.add(box(w, 0.018, d, body, 0, y0 + 0.009, 0)); g.add(box(w * 0.86, 0.002, d * 0.45, std('#1d1d22', .6), 0, y0 + 0.019, -d * 0.08));
+  const lid = new THREE.Group(); lid.position.set(0, y0 + 0.018, -d / 2); lid.rotation.x = -0.32; lid.add(box(w, d * 0.95, 0.008, body, 0, d * 0.475, 0)); lid.add(box(w * 0.9, d * 0.82, 0.002, emissive(partVal(it, 'screen'), 0.5), 0, d * 0.48, 0.005)); g.add(lid); return g;
+}
+const LIFT = ['lift', '床からの高さ(机の上など)', 0, 1.2, 'mm'];
+Object.assign(FURNITURE, {
+  wallShelf: { name: '壁の飾り棚', emoji: '🗄️', cat: '壁かざり', kind: 'wall', size: [1.8, 0.5, 0.22], range: { w: [0.3, 4.0], h: [0.1, 1.5], d: [0.12, 0.4] }, color: 'w_medium', opts: { led: true, fill: true }, words: ['飾り棚', '壁の棚', 'ウォールシェルフ', '壁付けの棚'],
+    parts: [{ key: 'board', name: '板', pal: 'wood', def: 'w_medium' }, { key: 'led', name: '光(上)', pal: 'color', def: '#b27cff' }, { key: 'led2', name: '光(下)', pal: 'color', def: '#4fe0e6' }],
+    styles: [{ id: 'two', name: '2段', size: [1.8, 0.5, 0.22] }, { id: 'one', name: '1段', size: [1.2, 0.2, 0.2] }, { id: 'three', name: '3段', size: [1.8, 0.8, 0.22] }],
+    params: [['led', '光る帯', 'bool'], ['fill', 'ゲーム機を並べる', 'bool']], build: wallShelfBuild },
+  stringLights: { name: '電球のガーランド', emoji: '✨', cat: '壁かざり', kind: 'wall', size: [1.6, 0.25, 0.05], range: { w: [0.4, 5.0], h: [0.05, 0.8] }, color: '#ffd38a', opts: {}, words: ['ガーランド', 'ストリングライト', '電球の飾り', 'イルミネーション'],
+    parts: [{ key: 'bulb', name: '電球', pal: 'color', def: '#ffd38a' }], build: stringLightsBuild },
+  pcTower: { name: 'パソコン本体(光る)', emoji: '🖥️', cat: '小物', kind: 'floor', size: [0.22, 0.48, 0.46], range: { w: [0.15, 0.35], h: [0.3, 0.7], d: [0.3, 0.6] }, color: '#1f1b26', opts: { lift: 0 }, words: ['パソコン本体', 'ゲーミングPC', 'PC本体', 'デスクトップ'],
+    parts: [{ key: 'case', name: 'ケース', pal: 'color', def: '#1f1b26' }, { key: 'glow', name: '中の光', pal: 'color', def: '#a55bff' }], params: [LIFT], build: pcTowerBuild },
+  crtTV: { name: 'ブラウン管テレビ(小)', emoji: '📺', cat: '小物', kind: 'floor', size: [0.36, 0.32, 0.36], range: { w: [0.2, 0.7], h: [0.2, 0.6], d: [0.2, 0.6] }, color: '#d9d4c8', opts: { lift: 0 }, words: ['ブラウン管', 'レトロテレビ', '古いテレビ', 'ブラウン管テレビ'],
+    parts: [{ key: 'body', name: '本体', pal: 'color', def: '#d9d4c8' }, { key: 'screen', name: '画面', pal: 'color', def: '#3c4a52' }], params: [LIFT], build: crtBuild },
+  laptop: { name: 'ノートパソコン', emoji: '💻', cat: '小物', kind: 'floor', size: [0.34, 0.24, 0.24], range: { w: [0.25, 0.45], h: [0.15, 0.35], d: [0.18, 0.32] }, color: '#3a3a40', opts: { lift: 0 }, words: ['ノートパソコン', 'ノートPC', 'ラップトップ'],
+    parts: [{ key: 'body', name: '本体', pal: 'color', def: '#3a3a40' }, { key: 'screen', name: '画面', pal: 'color', def: '#5a6f9a' }], params: [LIFT], build: laptopBuild },
+});

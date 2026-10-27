@@ -5,7 +5,7 @@ import { CATALOG, std, WOOD, DARKWOOD, METAL, BLACK, GOLD, WHITE, box, cyl, sph,
 export { CATALOG };
 import { mergeGroup } from './merge.js';
 import { PLANTS } from './plants.js';
-import { FURNITURE } from './furniture.js';
+import { FURNITURE, gadgetRow } from './furniture.js';
 import { WET } from './wet.js';
 import { FILM } from './film.js';
 
@@ -120,9 +120,9 @@ Object.assign(CATALOG, {
       for (const [x, z, ry] of spots) { const c = chairGroup(std(it.color, .5)); c.position.set(x, 0, z); c.rotation.y = ry; g.add(c); } return g; } },
   lowtable: { name: 'ローテーブル', emoji: '🫖', cat: '家具', kind: 'floor', size: [1.0, 0.4, 0.55], color: DARKWOOD, opts: {}, words: ['ローテーブル', 'ちゃぶ台', '座卓', 'センターテーブル', 'コーヒーテーブル'],
     build(it) { const g = new THREE.Group(), w = it.w, h = it.h, d = it.d, m = std(it.color, .4); g.add(box(w, 0.035, d, m, 0, h - 0.0175, 0)); for (const [x, z] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) g.add(box(0.05, h - 0.035, 0.05, m, x * (w / 2 - 0.06), (h - 0.035) / 2, z * (d / 2 - 0.06))); return g; } },
-  shelf: { name: '棚', emoji: '📚', cat: '家具', kind: 'floor', size: [0.8, 1.8, 0.3], color: WOOD, opts: { boards: 5 }, words: ['棚', '本棚', 'シェルフ', 'ラック', '収納'], params: [['boards', '段数', 2, 8]],
+  shelf: { name: '棚', emoji: '📚', cat: '家具', kind: 'floor', size: [0.8, 1.8, 0.3], color: WOOD, opts: { boards: 5 }, words: ['棚', '本棚', 'シェルフ', 'ラック', '収納'], params: [['boards', '段数', 2, 8], ['gadgets', 'ゲーム機を並べる(本のかわりに)', 'bool'], ['led', '光る帯', 'bool']],
     build(it) { const g = new THREE.Group(), w = it.w, h = it.h, d = it.d, m = std(it.color, .5), n = Math.round(it.opts.boards ?? 5); g.add(box(0.02, h, d, m, -w / 2 + 0.01, h / 2, 0)); g.add(box(0.02, h, d, m, w / 2 - 0.01, h / 2, 0)); g.add(box(w, h, 0.01, m, 0, h / 2, -d / 2 + 0.005));
-      for (let i = 0; i < n; i++) { const y = 0.02 + i * (h - 0.04) / (n - 1); g.add(box(w - 0.04, 0.02, d, m, 0, y, 0)); if (i < n - 1) for (let k = 0; k < 4; k++) { const c = ['#c5553f', '#4a6fa5', '#e0c060', '#6a9a6a', '#8b6b9a'][(i * 3 + k) % 5]; g.add(box(0.035 + (k % 2) * 0.01, 0.2 + (k % 3) * 0.03, d * .7, std(c, .7), -w / 2 + 0.1 + k * 0.06, y + 0.12, 0)); } } return g; } },
+      for (let i = 0; i < n; i++) { const y = 0.02 + i * (h - 0.04) / (n - 1); g.add(box(w - 0.04, 0.02, d, m, 0, y, 0)); if (i < n - 1 && it.opts.gadgets) gadgetRow(g, -w / 2 + 0.02, w / 2 - 0.02, y + 0.01, 0, it.id + i); if (i > 0 && it.opts.led) { const col = it.opts.ledColor || '#4fe0e6'; g.add(box(w - 0.06, 0.008, 0.01, emissive(col, 1.6), 0, y - 0.016, d / 2 - 0.01)); if (i % 2) light(g, col, 0.6, 0, y - 0.08, d / 2 + 0.1, { distance: 1.8 }); } if (i < n - 1 && !it.opts.gadgets) for (let k = 0; k < 4; k++) { const c = ['#c5553f', '#4a6fa5', '#e0c060', '#6a9a6a', '#8b6b9a'][(i * 3 + k) % 5]; g.add(box(0.035 + (k % 2) * 0.01, 0.2 + (k % 3) * 0.03, d * .7, std(c, .7), -w / 2 + 0.1 + k * 0.06, y + 0.12, 0)); } } return g; } },
   tvboard: { name: 'テレビ台', emoji: '📺', cat: '家具', kind: 'floor', size: [1.6, 0.45, 0.4], color: DARKWOOD, opts: { tv: true }, words: ['テレビ台', 'テレビボード', 'tvボード'], params: [['tv', 'テレビも', 'bool']],
     build(it) { const g = new THREE.Group(), w = it.w, h = it.h, d = it.d, m = std(it.color, .4); g.add(box(w, h, d, m, 0, h / 2, 0)); g.add(box(w - 0.04, 0.01, 0.005, std(BLACK, .5), 0, h / 2, d / 2 + 0.002));
       if (it.opts.tv !== false) { g.add(box(w * .7, w * .7 * .56, 0.03, std('#111', .15, .5), 0, h + w * .7 * .28 + 0.05, 0)); g.add(box(0.3, 0.05, 0.2, std(BLACK, .4, .5), 0, h + 0.025, 0)); } return g; } },
