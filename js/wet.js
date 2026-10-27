@@ -6,8 +6,10 @@ import { box, cyl, rbox, std, pm, styleOf, emissive, light, METAL } from './kit.
 const GAP = 0.004, TH = 0.02, INNER = '#34332f';
 const shade = op => std('#0c0c0c', .6, 0, { transparent: true, opacity: op });
 const glass = () => std('#16161a', .12, .3);
-const mirrorMat = () => std('#e4ebf2', .03, 1);
+const mirrorMat = () => std('#eef2f6', .05, .9);
 const led = () => emissive('#fff6e6', 1.3);
+// kit の rbox は角の丸み分だけ幅・高さが大きくなるので、外の寸法どおりにする
+const rb = (w, h, d, r, ...a) => rbox(w - 2 * r, h - 2 * r, d, r, ...a);
 
 // 扉・引き出しの1枚(表面が z)。取っ手 hd:'top' 'bottom'=横の棒 / 'l' 'r'=縦の棒(上より) / 'lb' 'rb'=縦の棒(下より) / ''=なし
 function front(g, mat, hm, x, y, w, h, z, hd) {
@@ -97,7 +99,7 @@ function kitchenBuild(it) {
       // 背面のカップボード(下は引き出し・右に背の高い収納・上に吊り戸棚)。後ろが +z
       const cd = Math.min(0.45, d - D - 0.6), cu = new THREE.Group(), tw = Math.min(0.6, w * 0.3), lw = w - tw;
       const lo = baseRun(M, lw, cd, H, Array.from({ length: Math.max(1, Math.round(lw / 0.6)) }, () => ({ w: 1, k: 'd3' })), { ends: [1, 0] }); lo.position.x = -w / 2 + lw / 2; cu.add(lo);
-      const tx = w / 2 - tw / 2, TT = 2.2; cu.add(box(tw, TT - 0.1, cd - TH, M.inner, tx, 0.1 + (TT - 0.1) / 2, -TH / 2)); cu.add(box(tw - 0.03, 0.1, cd - 0.09, M.door, tx, 0.05, -0.045)); for (const sx of [-1, 1]) cu.add(box(0.02, TT, cd, M.door, tx + sx * (tw / 2 - 0.01), TT / 2, 0));
+      const tx = w / 2 - tw / 2, TT = 2.2; cu.add(box(tw - 0.01, TT - 0.13, cd - TH, M.inner, tx, 0.1 + (TT - 0.13) / 2, -TH / 2)); cu.add(box(tw - 0.03, 0.1, cd - 0.09, M.door, tx, 0.05, -0.045)); for (const sx of [-1, 1]) cu.add(box(0.02, TT, cd, M.door, tx + sx * (tw / 2 - 0.01), TT / 2, 0)); cu.add(box(tw, 0.02, cd, M.door, tx, TT - 0.01, 0));
       front(cu, M.door, M.hm, tx, 0.1 + 0.62, tw - 0.04, 1.24, cd / 2, 'lb'); front(cu, M.door, M.hm, tx, 1.34 + (TT - 1.34) / 2, tw - 0.04, TT - 1.34, cd / 2, 'lb');
       if (wall) wallCabs(cu, M, -w / 2, -w / 2 + lw, -cd / 2, 1.45, TT, 0.35);
       cu.add(box(lw, 1.45 - H, 0.006, std('#f1f0ec', .25), -w / 2 + lw / 2, (H + 1.45) / 2, -cd / 2 + 0.003));
@@ -145,22 +147,22 @@ function toiletBuild(it) {
     const top = new THREE.Mesh(new THREE.TorusGeometry(0.163, 0.012, 6, 24, Math.PI), cer); top.rotation.set(Math.PI / 2, 0, Math.PI); top.scale.x = sx; top.position.set(0, 0.23, cz - 0.12); g.add(top);
     // 水を流す管(フラッシュバルブ)。壁から
     const pz = -d / 2 + 0.03, py = Math.max(0.6, h - 0.1); g.add(cyl(0.016, 0.016, py - 0.12, met, 0, 0.12 + (py - 0.12) / 2, pz, 12)); const pp = cyl(0.016, 0.016, 0.05, met, 0, 0.12, pz + 0.025, 12); pp.rotation.x = Math.PI / 2; g.add(pp);
-    g.add(rbox(0.07, 0.13, 0.07, 0.015, met, 0, py + 0.03, pz + 0.01)); g.add(box(0.1, 0.012, 0.012, met, 0.06, py + 0.02, pz + 0.05)); return g;
+    g.add(rb(0.07, 0.13, 0.07, 0.015, met, 0, py + 0.03, pz + 0.01)); g.add(box(0.1, 0.012, 0.012, met, 0.06, py + 0.02, pz + 0.05)); return g;
   }
   const sx = w / 0.42, bl = 0.262, cz = d / 2 - bl; const bowl = new THREE.Mesh(bowlGeo(), cer); bowl.scale.set(sx, 1, 1.38); bowl.position.z = cz; bowl.castShadow = true; g.add(bowl);
   // 後ろの胴(タンクの下・床まで)
-  const bz0 = -d / 2 + 0.02, bz1 = cz - bl + 0.1; g.add(rbox(0.3 * sx, 0.38, bz1 - bz0, 0.05, cer, 0, 0.19, (bz0 + bz1) / 2));
+  const bz0 = -d / 2 + 0.02, bz1 = cz - bl + 0.1; g.add(rb(0.3 * sx, 0.38, bz1 - bz0, 0.05, cer, 0, 0.19, (bz0 + bz1) / 2));
   // 便座とフタ(閉じた形)
   const ring = cyl(0.192, 0.192, 0.026, seat, 0, 0.398, cz + 0.005, 32); ring.scale.set(sx, 1, 1.36); g.add(ring); const lid = cyl(0.184, 0.188, 0.022, seat, 0, 0.422, cz + 0.01, 32); lid.scale.set(sx, 1, 1.33); g.add(lid);
   if (s === 'tankless') {
     // タンクなし。後ろの台(温水洗浄の本体)が低く一体
-    const tz0 = -d / 2 + 0.02, tz1 = cz - bl + 0.06; g.add(rbox(0.38 * sx, h - 0.33, tz1 - tz0, 0.06, seat, 0, 0.33 + (h - 0.33) / 2, (tz0 + tz1) / 2)); g.add(box(0.12, 0.004, 0.05, std('#7aa6c8', .3), 0.1 * sx, h + 0.001, (tz0 + tz1) / 2)); return g;
+    const tz0 = -d / 2 + 0.02, tz1 = cz - bl + 0.06; g.add(rb(0.38 * sx, h - 0.33, tz1 - tz0, 0.06, seat, 0, 0.33 + (h - 0.33) / 2, (tz0 + tz1) / 2)); g.add(box(0.12, 0.004, 0.05, std('#7aa6c8', .3), 0.1 * sx, h + 0.001, (tz0 + tz1) / 2)); return g;
   }
   // 温水洗浄の本体(便座の後ろ)
-  g.add(rbox(0.38 * sx, 0.07, 0.15, 0.025, seat, 0, 0.42, cz - bl - 0.03)); g.add(box(0.03, 0.05, 0.14, seat, 0.205 * sx, 0.43, cz - bl + 0.12));
+  g.add(rb(0.38 * sx, 0.07, 0.15, 0.025, seat, 0, 0.42, cz - bl - 0.03)); g.add(box(0.03, 0.05, 0.14, seat, 0.205 * sx, 0.43, cz - bl + 0.12));
   // タンク
   const tt = s === 'handwash' ? h - 0.16 : h, tw = Math.min(0.42, w) * 0.95, td = 0.2, tz = -d / 2 + td / 2 + 0.005;
-  g.add(rbox(tw, tt - 0.47, td, 0.035, cer, 0, 0.47 + (tt - 0.47) / 2, tz)); g.add(rbox(tw + 0.012, 0.03, td + 0.012, 0.012, cer, 0, tt - 0.01, tz));
+  g.add(rb(tw, tt - 0.47, td, 0.035, cer, 0, 0.47 + (tt - 0.47) / 2, tz)); g.add(rb(tw + 0.012, 0.03, td + 0.012, 0.012, cer, 0, tt - 0.01, tz));
   g.add(box(0.07, 0.014, 0.02, met, -tw / 2 + 0.07, tt - 0.07, tz + td / 2 + 0.008));
   if (s === 'handwash') {
     // フタの上に手洗いの くぼみと 弓なりの吐水口
@@ -179,7 +181,7 @@ function washBuild(it) {
   if (s === 'counter') {
     // ホテル風:カウンターに置き型ボウル。下は壁に付けた引き出し、床はあける
     const ch = 0.7, cd = d, n = w >= 1.45 ? 2 : 1;
-    g.add(rbox(w, 0.04, cd, 0.006, top, 0, ch - 0.02, 0));
+    g.add(box(w, 0.04, cd, top, 0, ch - 0.02, 0));
     const uh = 0.24, uy = ch - 0.04 - uh / 2; g.add(box(w - 0.04, uh, cd - 0.06, inner, 0, uy, -0.03)); for (const sx of [-1, 1]) g.add(box(0.02, uh, cd - 0.04, door, sx * (w / 2 - 0.03), uy, -0.02));
     const cols = w > 1.0 ? 2 : 1, cw = (w - 0.08) / cols; for (let i = 0; i < cols; i++) front(g, door, hm, -w / 2 + 0.04 + cw * (i + 0.5), uy, cw, uh, cd / 2 - 0.02, 'top');
     const prof = [[0.001, 0], [0.11, 0], [0.17, 0.03], [0.2, 0.09], [0.205, 0.135], [0.19, 0.135], [0.18, 0.09], [0.15, 0.045], [0.08, 0.025], [0.001, 0.025]].map(([x, y]) => new THREE.Vector2(x, y)); const geo = new THREE.LatheGeometry(prof, 32);
@@ -195,9 +197,9 @@ function washBuild(it) {
   else { const dw2 = w >= 1.0 ? iw - 0.4 : iw; for (const sx of [-1, 1]) front(g, door, hm, ix + dw2 / 2 + sx * dw2 / 4, (y0 + y1) / 2, dw2 / 2, y1 - y0, fz, sx < 0 ? 'r' : 'l');
     if (w >= 1.0) { let y = y1; for (const f of [0.28, 0.33, 0.39]) { const hh = (y1 - y0) * f; front(g, door, hm, ix + dw2 + 0.2, y - hh / 2, 0.4, hh, fz, 'top'); y -= hh; } } }
   // 一体の天板とボウル・後ろの立ち上がり
-  g.add(rbox(w, 0.05, d, 0.01, top, 0, ch - 0.025, 0)); g.add(box(w, 0.07, 0.02, top, 0, ch + 0.035, zb + 0.01));
+  g.add(box(w, 0.05, d, top, 0, ch - 0.025, 0)); g.add(box(w, 0.07, 0.02, top, 0, ch + 0.035, zb + 0.01));
   const bx = w >= 1.0 && s !== 'drawer' ? -0.2 : 0, bw = Math.min(0.52, w - 0.16), bd = Math.min(0.36, d - 0.18), bz = 0.03;
-  const bo = cyl(bw / 2, bw / 2, 0.004, bowl, bx, ch + 0.002, bz, 32); bo.scale.z = bd / bw; g.add(bo); const sh = cyl(bw / 2 - 0.03, bw / 2 - 0.03, 0.003, shade(.16), bx, ch + 0.0045, bz + 0.01, 32); sh.scale.z = (bd - 0.04) / (bw - 0.06); g.add(sh);
+  const bo = cyl(bw / 2, bw / 2, 0.004, bowl, bx, ch + 0.002, bz, 32); bo.scale.z = bd / bw; g.add(bo); const sh = cyl(bw / 2 - 0.03, bw / 2 - 0.03, 0.003, shade(.26), bx, ch + 0.0045, bz + 0.01, 32); sh.scale.z = (bd - 0.04) / (bw - 0.06); g.add(sh);
   g.add(cyl(0.02, 0.02, 0.003, std('#888c90', .3, .8), bx, ch + 0.006, bz + 0.03, 12)); faucet(g, hm, bx, ch, zb + 0.07, 0.2, 0.15);
   if (!mir) return g;
   // 鏡まわり(壁 zb から前へ)

@@ -202,11 +202,11 @@ function sofaBuild(it) {
   const sd = s === 'couch' ? Math.min(0.95, d * 0.62) : d, cw = s === 'couch' ? Math.min(0.78, w * 0.34) : 0, n = one ? 1 : (s === 'two' || low) ? 2 : s === 'couch' ? 2 : 3;
   const bh = seatTop - cth - legH, base = (x0, x1, z0, z1) => g.add(rbox(x1 - x0, bh, z1 - z0, 0.02, cov, (x0 + x1) / 2, legH + bh / 2, (z0 + z1) / 2));
   base(-w / 2 + 0.02, w / 2 - 0.02, -d / 2, -d / 2 + sd); if (cw) base(w / 2 - armW - cw, w / 2 - 0.02, -d / 2 + sd - 0.05, d / 2);
-  g.add(rbox(w, h - legH, bt, 0.05, cov, 0, legH + (h - legH) / 2, -d / 2 + bt / 2));
+  const bkT = h - 0.1; g.add(rbox(w, bkT - legH, bt, 0.05, cov, 0, legH + (bkT - legH) / 2, -d / 2 + bt / 2));
   for (const sx of [-1, 1]) { const ad = cw && sx > 0 ? d : sd; g.add(rbox(armW, armH - legH, ad, 0.05, cov, sx * (w / 2 - armW / 2), legH + (armH - legH) / 2, -d / 2 + ad / 2)); }
-  const x0 = -w / 2 + armW, x1 = w / 2 - armW - cw, cwid = (x1 - x0) / n, sdep = sd - bt, bkh = Math.max(0.2, h - seatTop - 0.05);
+  const x0 = -w / 2 + armW, x1 = w / 2 - armW - cw, cwid = (x1 - x0) / n, sdep = sd - bt, bkh = Math.max(0.2, h - seatTop - 0.01);
   const seatC = (cx, wd, z0, z1) => g.add(rbox(wd - 0.015, cth, z1 - z0 - 0.01, 0.04, cov, cx, seatTop - cth / 2, (z0 + z1) / 2 + 0.005));
-  const backC = (cx, wd) => { const b = rbox(wd - 0.02, bkh, 0.17, 0.06, cov, cx, seatTop + bkh / 2 - 0.02, -d / 2 + bt + 0.07); b.rotation.x = -0.12; g.add(b); };
+  const backC = (cx, wd) => { const b = rbox(wd - 0.03, bkh, 0.18, 0.08, cov, cx, seatTop + bkh / 2 - 0.02, -d / 2 + bt + 0.1); b.rotation.x = -0.12; g.add(b); };
   for (let i = 0; i < n; i++) { const cx = x0 + cwid * (i + .5); seatC(cx, cwid, -d / 2 + bt, -d / 2 + sd); backC(cx, cwid); }
   if (cw) { seatC(x1 + cw / 2, cw, -d / 2 + bt, d / 2); backC(x1 + cw / 2, cw); }
   if (!low) { const lp = [[-w / 2 + 0.07, -d / 2 + 0.07], [w / 2 - 0.07, -d / 2 + 0.07], [-w / 2 + 0.07, -d / 2 + sd - 0.07], [w / 2 - 0.07, (cw ? d / 2 : -d / 2 + sd) - 0.07]]; if (cw) lp.push([x1 + 0.07, d / 2 - 0.07]); for (const [x, z] of lp) g.add(cyl(0.022, 0.016, legH, lg, x, legH / 2, z, 12)); }
@@ -250,7 +250,7 @@ function plushBuild(it) {
 function cushionBuild(it) {
   const g = new THREE.Group(), w = it.w, h = it.h, d = it.d, s = styleOf(it).id, cov = fabric(it, 1, 1), btn = pm(it, 'button', .6);
   if (s === 'round') { g.add(ell(1, cov, 0, h / 2, 0, w / 2, h / 2, d / 2)); g.add(cyl(0.02, 0.02, 0.01, btn, 0, h - 0.003, 0, 12)); }
-  else if (s === 'beads') { g.add(ell(1, cov, 0, h * 0.4, d * 0.04, w / 2, h * 0.4, d * 0.46)); g.add(ell(1, cov, 0, h * 0.55, -d * 0.2, w * 0.44, h * 0.45, d * 0.3)); }
+  else if (s === 'beads') { g.add(ell(1, cov, 0, h * 0.2, 0, w / 2, h * 0.2, d / 2)); g.add(ell(1, cov, 0, h * 0.5, -d * 0.05, w * 0.44, h * 0.5, d * 0.42)); }
   else if (s === 'square') { const p = rbox(w, h * 0.97, d * 0.75, Math.min(0.06, d * 0.3), cov, 0, h * 0.485, 0); p.rotation.x = -Math.asin(Math.min(0.3, (d * 0.25) / h)); g.add(p); }
   else { g.add(rbox(w, h, d, Math.min(0.03, h * 0.45), cov, 0, h / 2, 0)); g.add(sph(0.012, btn, 0, h - 0.004, 0)); for (const [x, z] of C4) g.add(ell(0.015, btn, x * (w / 2 - 0.005), h / 2, z * (d / 2 - 0.005), 1, 0.6, 1)); }
   return g;
@@ -261,8 +261,8 @@ function trashBuild(it) {
   const g = new THREE.Group(), w = it.w, h = it.h, d = it.d, s = styleOf(it).id, body = pm(it, 'body', .45), lid = pm(it, 'lid', .3, .8), dark = std('#2f3033', .9);
   if (s === 'pedal') { const r = Math.min(w, d) / 2 - 0.01; g.add(cyl(r, r * 0.95, h - 0.04, body, 0, (h - 0.04) / 2, 0, 28)); g.add(cyl(r + 0.004, r + 0.004, 0.025, lid, 0, h - 0.04, 0, 28)); const dm = ell(1, lid, 0, h - 0.03, 0, r, 0.03, r); g.add(dm); g.add(box(0.1, 0.02, 0.07, lid, 0, 0.02, d / 2 - 0.035)); return g; }
   if (s === 'bunbetsu') { const bw = w / 2 - 0.006; for (const sx of [-1, 1]) { const x = sx * (w / 4); g.add(box(bw, h - 0.05, d, body, x, (h - 0.05) / 2, 0)); g.add(box(bw + 0.004, 0.05, d + 0.004, lid, x, h - 0.025, 0)); g.add(box(bw * 0.6, 0.004, d * 0.4, dark, x, h, 0.02)); g.add(box(bw * 0.4, 0.06, 0.004, std(sx < 0 ? '#3d7fd0' : '#d0583d', .5), x, h * 0.6, d / 2 + 0.002)); } return g; }
-  const r = Math.min(w, d) / 2; g.add(cyl(r, r * 0.82, h, body, 0, h / 2, 0, 28)); g.add(cyl(r + 0.004, r + 0.004, 0.015, lid, 0, h - 0.0075, 0, 28)); g.add(cyl(r - 0.012, r - 0.012, 0.004, dark, 0, h - 0.015 + 0.0035, 0, 28));
-  g.add(ell(1, std('#e9e7e1', .9), 0, h - 0.015, 0, r * 0.55, 0.03, r * 0.5)); return g;
+  const r = Math.min(w, d) / 2; g.add(cyl(r, r * 0.82, h - 0.004, body, 0, (h - 0.004) / 2, 0, 28)); const rim = new THREE.Mesh(new THREE.TorusGeometry(r - 0.004, 0.006, 6, 32), lid); rim.rotation.x = Math.PI / 2; rim.position.y = h - 0.006; g.add(rim); g.add(cyl(r - 0.008, r - 0.008, 0.002, dark, 0, h - 0.003, 0, 28));
+  g.add(ell(1, std('#e9e7e1', .9), r * 0.15, h - 0.004, 0, r * 0.4, 0.025, r * 0.35)); return g;
 }
 
 // ---- スタンドミラー ----
@@ -288,7 +288,7 @@ function basketBuild(it) {
   const g = new THREE.Group(), w = it.w, h = it.h, d = it.d, s = styleOf(it).id, m = pm(it, 'basket', .85), tint = std('#000000', .9, 0, { transparent: true, opacity: .2 }), in_ = std('#3b2e22', .9), fill = it.opts.fill !== false;
   const nb = Math.max(3, Math.round(h / 0.045));
   if (s === 'square') {
-    g.add(box(w, h, d, m, 0, h / 2, 0)); for (let i = 1; i < nb; i++) g.add(box(w + 0.005, 0.01, d + 0.005, tint, 0, i * h / nb, 0)); g.add(box(w - 0.025, 0.004, d - 0.025, in_, 0, h - 0.002, 0)); g.add(box(w + 0.012, 0.018, d + 0.012, m, 0, h - 0.009, 0));
+    g.add(box(w, h, d, m, 0, h / 2, 0)); for (let i = 1; i < nb; i++) g.add(box(w + 0.005, 0.01, d + 0.005, tint, 0, i * h / nb, 0)); g.add(box(w - 0.03, 0.002, d - 0.03, in_, 0, h + 0.001, 0)); g.add(box(w + 0.012, 0.018, d + 0.012, m, 0, h - 0.009, 0));
     for (const sx of [-1, 1]) g.add(box(0.004, 0.03, d * 0.35, std('#2a2018', .9), sx * (w / 2 + 0.002), h - 0.05, 0));
     if (fill) { const cols = ['#a8392f', '#2f3d5c', '#e9e2cf', '#3f5546', '#c79a3c', '#6b4a33']; let x = -w / 2 + 0.04; for (let i = 0; x < w * 0.15; i++) { const bt = 0.025 + (i % 3) * 0.008, bh = Math.min(h + 0.12, h * 0.75 + 0.06 + (i % 2) * 0.03); g.add(box(bt, bh, d * 0.62, std(cols[i % cols.length], .7), x + bt / 2, bh / 2 + 0.01, -0.01)); x += bt + 0.003; }
       g.add(cyl(0.035, 0.035, h * 0.6, std('#d9c7a6', .8), w / 2 - 0.08, h * 0.3 + 0.12, 0.02, 14)); g.add(ell(0.05, std('#c3b2dc', .9), w / 2 - 0.1, h - 0.01, -0.06, 1.2, 0.6, 1)); }
@@ -296,7 +296,7 @@ function basketBuild(it) {
   }
   const r = Math.min(w, d) / 2, rb = s === 'tall' ? r * 0.92 : r * 0.82; g.add(cyl(r, rb, h, m, 0, h / 2, 0, 28));
   for (let i = 1; i < nb; i++) { const rr = rb + (r - rb) * i / nb + 0.003; g.add(cyl(rr, rr, 0.01, tint, 0, i * h / nb, 0, 28)); }
-  g.add(cyl(r - 0.012, r - 0.012, 0.004, in_, 0, h - 0.002, 0, 28)); const rim = new THREE.Mesh(new THREE.TorusGeometry(r, 0.012, 6, 32), m); rim.rotation.x = Math.PI / 2; rim.position.y = h; g.add(rim);
+  g.add(cyl(r - 0.012, r - 0.012, 0.002, in_, 0, h + 0.001, 0, 28)); const rim = new THREE.Mesh(new THREE.TorusGeometry(r, 0.012, 6, 32), m); rim.rotation.x = Math.PI / 2; rim.position.y = h; g.add(rim);
   if (fill) { if (s === 'tall') { g.add(ell(1, std('#b9c4cf', .95), -r * 0.2, h + 0.02, 0, r * 0.65, 0.09, r * 0.7)); g.add(cyl(0.05, 0.05, r * 1.4, std('#e5d9c3', .95), r * 0.25, h + 0.03, 0, 14).rotateZ(Math.PI / 2)); }
     else { for (const [x, z, c] of [[-0.06, 0.03, '#e8e2d6'], [0.07, -0.04, '#b9cbd8'], [0.0, 0.08, '#e7c9c4']]) g.add(ell(1, std(c, .95), x * r * 5, h - 0.01, z * r * 4, r * 0.45, 0.05, r * 0.35)); } }
   return g;
