@@ -35,6 +35,15 @@ export const WAYO = {
   door: { fusuma: 'wa', shoji: 'wa', koshi: 'wa', glassdoor: 'wa', swing: 'yo', slide: 'both' },
 };
 
+// 天井専用の材料(SURFACE_LIB.wall に入っているが、壁タブには出さない)。和室の天井タブではこの順で先頭に
+export const CEIL_ORDER = ['sao', 'sao_light', 'tenjo_mesukashi', 'tenjo_ajiro', 'tenjo_gou', 'tenjo_mokume'];
+export function isCeilOnly(id) { return /^(sao|tenjo_)/.test(id || ''); }
+// 天井専用の物を先に(CEIL_ORDER の順、知らない id はそのあと)、ほかはもとの順
+export function ceilFirst(list, getId = x => x.id) {
+  const rank = x => { const i = CEIL_ORDER.indexOf(getId(x)); return i >= 0 ? i : isCeilOnly(getId(x)) ? CEIL_ORDER.length : CEIL_ORDER.length + 1; };
+  return list.map((x, i) => [x, i]).sort((a, b) => (rank(a[0]) - rank(b[0])) || (a[1] - b[1])).map(x => x[0]);
+}
+
 // 天井の材料の印(親が textures.js に天井の材料を足しても、名前のきまりで分かる)
 export function ceilingWayo(id) {
   if (!id) return 'both';

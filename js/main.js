@@ -16,7 +16,7 @@ import { stairLayout as stairLayoutOf, STAIR_CELLS, stairKindName } from './stai
 import { thumbnail } from './thumbs.js';
 import { openAngles } from './angles.js';
 import { projectToLink, linkToProject } from './link.js';
-import { WAYO, wayoOf, sortByWayo, roomIsWa, houseMood, houseMoodName, HOUSE_MOODS, applyFinish, setRoomWa } from './wayo.js';
+import { WAYO, wayoOf, sortByWayo, roomIsWa, houseMood, houseMoodName, HOUSE_MOODS, applyFinish, setRoomWa, isCeilOnly, ceilFirst } from './wayo.js';
 
 const $ = s => document.querySelector(s), $$ = s => Array.from(document.querySelectorAll(s));
 const uid = () => 'o' + Date.now().toString(36) + Math.floor(Math.random() * 1e4).toString(36);
@@ -543,7 +543,9 @@ class App {
     // 和室なら和の材料、洋室なら洋の材料を先に。反対側は最後の「ほかも見る」へ(wayo.js)
     const isWa = roomIsWa(room, this.project), wk = this._surfTab === '床' ? 'floor' : this._surfTab === '天井' ? 'ceiling' : 'wall';
     const one = e => { const b = document.createElement('button'); b.className = 'card sw'; b.appendChild(swatchCanvas(kind, e.id)); const bb = document.createElement('b'); bb.textContent = e.name; b.appendChild(bb); b.onclick = () => apply({ lib: e.id }); cards.appendChild(b); };
-    const { main, more } = sortByWayo(SURFACE_LIB[kind], isWa, wk); main.forEach(one);
+    // 天井専用の材料(竿縁・目透かし・網代・格天井など)は天井タブだけに出し、先頭に並べる
+    const libs = wk === 'wall' ? SURFACE_LIB[kind].filter(e => !isCeilOnly(e.id)) : SURFACE_LIB[kind];
+    let { main, more } = sortByWayo(libs, isWa, wk); if (wk === 'ceiling') { main = ceilFirst(main); more = ceilFirst(more); } main.forEach(one);
     for (const [id, a] of Object.entries(this.project.assets)) { if (a.kind !== 'tile') continue; const b = document.createElement('button'); b.className = 'card sw'; const img = document.createElement('img'); img.src = a.dataUrl; b.appendChild(img); const bb = document.createElement('b'); bb.textContent = a.name || '写真'; b.appendChild(bb); b.onclick = () => apply({ user: id, size: a.size || 0.5 }); cards.appendChild(b); }
     if (more.length) { const open = !!this._surfMore; const mb = document.createElement('button'); mb.className = 'more-row'; mb.textContent = `${open ? '▲' : '▼'} ほかも見る(${isWa ? '洋' : '和'}の材料 ${more.length})`; mb.onclick = () => { this._surfMore = !open; this.openSurfaces(this._surfTab); }; cards.appendChild(mb); if (open) more.forEach(one); }
     $('#surfPhoto').onchange = e => { const f = e.target.files[0]; e.target.value = ''; if (f) this.userTextureFor(f, kind, null, apply); };
