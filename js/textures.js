@@ -137,6 +137,31 @@ function drawMarble(g, w, h, r, { base = '#f1f0ec', vein = '#8e8f96' }) {
   g.globalAlpha = 1; noise(g, w, h, r, 0.04);
 }
 
+// 和の壁:聚楽壁・砂壁(ざらざらに、わらすさの細い筋を散らす)
+function drawJuraku(g, w, h, r, { base = '#c9b48a', fiber = 0.08 }) {
+  g.fillStyle = base; g.fillRect(0, 0, w, h); noise(g, w, h, r, 0.16);
+  g.lineWidth = 1; for (let i = 0; i < w * h * fiber / 300; i++) { g.strokeStyle = r() > .5 ? 'rgba(90,70,40,.35)' : 'rgba(255,245,220,.35)'; const x = r() * w, y = r() * h, a = r() * Math.PI, l = 2 + r() * 5; g.beginPath(); g.moveTo(x, y); g.lineTo(x + Math.cos(a) * l, y + Math.sin(a) * l); g.stroke(); }
+}
+// 竿縁天井:細い板を張り、竿(細い角材)を 450mm ごとに通す
+function drawSaobuchi(g, w, h, r, { base = '#b48e62', dark = '#7a5a3a', sao = '#5b4027', tile = 1.8 }) {
+  drawWood(g, w, h, r, { base, dark, plankW: 0.3, tile, grainAlpha: 0.3 });
+  const ppm = w / tile, sw = Math.max(2, 0.035 * ppm); g.fillStyle = sao; for (let x = 0; x < w; x += 0.45 * ppm) g.fillRect(x, 0, sw, h);
+  g.fillStyle = 'rgba(0,0,0,.25)'; for (let x = 0; x < w; x += 0.45 * ppm) g.fillRect(x + sw, 0, 1.5, h);
+}
+// 日に焼けた古い畳(黄色っぽく、まだらに)
+function drawTatamiOld(g, w, h, r) {
+  g.fillStyle = '#c4ad6c'; g.fillRect(0, 0, w, h);
+  g.strokeStyle = 'rgba(95,75,30,.3)'; g.lineWidth = 1; for (let y = 0; y < h; y += 3) { g.beginPath(); g.moveTo(0, y); g.lineTo(w, y); g.stroke(); }
+  g.globalAlpha = .12; for (let i = 0; i < 14; i++) { g.fillStyle = r() > .5 ? '#8a7034' : '#e0cf96'; g.beginPath(); g.ellipse(r() * w, r() * h, w * (.08 + r() * .2), h * (.05 + r() * .12), 0, 0, Math.PI * 2); g.fill(); } g.globalAlpha = 1;
+  g.fillStyle = '#3a3226'; g.fillRect(0, 0, w, 6); g.fillRect(0, h / 2 - 3, w, 6); g.fillRect(0, h - 6, w, 6); g.fillRect(0, 0, 6, h); g.fillRect(w - 6, 0, 6, h);
+  noise(g, w, h, r, 0.08);
+}
+// 洗い出しの土間(小石をセメントで固めた床)
+function drawAraidashi(g, w, h, r) {
+  g.fillStyle = '#8f8a80'; g.fillRect(0, 0, w, h); noise(g, w, h, r, 0.12);
+  for (let i = 0; i < w * h / 40; i++) { const c = ['#6e6a62', '#a8a196', '#5d574f', '#b9b2a6', '#7b6e5e'][Math.floor(r() * 5)]; g.fillStyle = c; g.beginPath(); g.ellipse(r() * w, r() * h, 1 + r() * 2.5, 1 + r() * 2, r() * 3, 0, Math.PI * 2); g.fill(); }
+}
+
 // 素材カタログ
 // size: 1枚の絵が実際の何メートル分か / rough: ざらつき(0つるつる〜1マット)
 export const SURFACE_LIB = {
@@ -152,6 +177,11 @@ export const SURFACE_LIB = {
     { id: 'tile_t', bump: 0.01, name: 'テラコッタ', size: 1.2, rough: .7, draw: (g, w, h, r) => drawTile(g, w, h, r, { base: '#c47a52', grout: '#9a6a52', size: .3, mottle: .12 }) },
     { id: 'marble', bump: 0.002, name: '大理石', size: 1.2, rough: .12, draw: (g, w, h, r) => drawMarble(g, w, h, r, {}) },
     { id: 'tatami', bump: 0.004, name: '畳', size: 1.8, rough: .8, draw: drawTatami },
+    // 和の家:日に焼けた畳・床の間の板・縁側の板・洗い出しの土間
+    { id: 'tatami_old', bump: 0.004, name: '畳(日に焼けた)', size: 1.8, rough: .85, draw: drawTatamiOld },
+    { id: 'tokoita', bump: 0.002, name: '床の間の板', size: 1.8, rough: .35, draw: (g, w, h, r) => drawWood(g, w, h, r, { base: '#8a5f3a', dark: '#5a3b22', plankW: 0.9, tile: 1.8, gloss: true, grainAlpha: .35 }) },
+    { id: 'engawa', bump: 0.005, name: '縁側の板(あめ色)', size: 1.8, rough: .45, draw: (g, w, h, r) => drawWood(g, w, h, r, { base: '#9a6c40', dark: '#62421f', plankW: 0.105, tile: 1.8, gloss: true, grainAlpha: .3 }) },
+    { id: 'araidashi', bump: 0.01, name: '土間(洗い出し)', size: 1.2, rough: .85, draw: drawAraidashi },
     { id: 'carpet_b', bump: 0.006, name: 'カーペット(ベージュ)', size: 1, rough: .95, draw: (g, w, h, r) => drawCarpet(g, w, h, r, { base: '#c8b89a' }) },
     { id: 'carpet_g', bump: 0.006, name: 'カーペット(グレー)', size: 1, rough: .95, draw: (g, w, h, r) => drawCarpet(g, w, h, r, { base: '#8f9196' }) },
     { id: 'concrete', bump: 0.006, name: 'モルタル', size: 1.5, rough: .7, draw: drawConcrete },
@@ -186,6 +216,11 @@ export const SURFACE_LIB = {
     { id: 'brick', bump: 0.012, name: 'レンガ', size: 1.2, rough: .9, draw: (g, w, h, r) => drawBrick(g, w, h, r, {}) },
     { id: 'brick_w', bump: 0.012, name: '白レンガ', size: 1.2, rough: .9, draw: (g, w, h, r) => drawBrick(g, w, h, r, { base: '#e8e4dc', mortar: '#cfcac0' }) },
     { id: 'concrete_w', bump: 0.006, name: 'コンクリート', size: 1.5, rough: .7, draw: drawConcrete },
+    { id: 'juraku', bump: 0.006, name: '聚楽壁(黄土)', size: .8, rough: .97, draw: (g, w, h, r) => drawJuraku(g, w, h, r, { base: '#c9b48a' }) },
+    { id: 'sunakabe_g', bump: 0.006, name: '砂壁(うぐいす)', size: .8, rough: .97, draw: (g, w, h, r) => drawJuraku(g, w, h, r, { base: '#a39c6a', fiber: .03 }) },
+    { id: 'sunakabe_b', bump: 0.006, name: '砂壁(ベージュ)', size: .8, rough: .97, draw: (g, w, h, r) => drawJuraku(g, w, h, r, { base: '#d3c3a1', fiber: .05 }) },
+    { id: 'sao', bump: 0.004, name: '竿縁天井(木)', size: 1.8, rough: .6, draw: (g, w, h, r) => drawSaobuchi(g, w, h, r, {}) },
+    { id: 'sao_light', bump: 0.004, name: '竿縁天井(白木)', size: 1.8, rough: .6, draw: (g, w, h, r) => drawSaobuchi(g, w, h, r, { base: '#d6bc90', dark: '#b39467', sao: '#8d6c45' }) },
     { id: 'plaster', bump: 0.004, name: '漆喰', size: 1, rough: .95, draw: (g, w, h, r) => drawPlain(g, w, h, r, { base: '#f6f4ee', alpha: .1 }) },
     { id: 'wp_beige', name: '壁紙(ベージュ)', size: 1, rough: .9, draw: (g, w, h, r) => drawPlain(g, w, h, r, { base: '#e3d6bf', alpha: .05 }) },
     { id: 'wp_greige', name: '壁紙(グレージュ)', size: 1, rough: .9, draw: (g, w, h, r) => drawPlain(g, w, h, r, { base: '#c9c0b4', alpha: .05 }) },

@@ -1,5 +1,5 @@
 // 映画づくり用(ペタル・人の目印)。画像生成の「配置の見本」に使う
-// ペタル:CRASH に出てくるロボット(2026-10-27 ノブさんの許可で公開)。白い丸い体・黒い画面の顔・紫のヘッドホン・胸に光る桜
+// ペタル:CRASH に出てくるロボット(2026-10-27 ノブさんの許可で公開)。座った高さ 15cm(2026-10-28 ノブさん)。白い丸い体・黒い画面の顔・紫のヘッドホン・胸に光る桜
 // 人の目印:だれだか分からない人形(立つ・座る・寝るなど)。向きは顔が +z
 import * as THREE from 'three';
 import { std, emissive, rbox, pm, partVal, styleOf } from './kit.js';
@@ -53,9 +53,9 @@ function person(it) {
 
 const LIFT = ['lift', '床からの高さ(机・ベッドの上など)', 0, 1.2, 'mm'];
 export const FILM = {
-  petal: { name: 'ペタル', emoji: '🤖', cat: '映画用', kind: 'floor', size: [0.2, 0.3, 0.17], range: { w: [0.05, 1.2], h: [0.1, 1.8], d: [0.05, 1.2] }, color: '#f4f3f6', opts: { lift: 0 }, words: ['ペタル', 'ぺたる', 'ロボット'],
+  petal: { name: 'ペタル', emoji: '🤖', cat: '映画用', kind: 'floor', size: [0.1, 0.15, 0.085], range: { w: [0.05, 1.2], h: [0.1, 1.8], d: [0.05, 1.2] }, color: '#f4f3f6', opts: { lift: 0 }, words: ['ペタル', 'ぺたる', 'ロボット'],
     parts: [{ key: 'body', name: 'からだ', pal: 'color', def: '#f4f3f6' }, { key: 'phones', name: 'ヘッドホン', pal: 'color', def: '#4a3b66' }, { key: 'eyes', name: '目の光', pal: 'color', def: '#b99cff' }, { key: 'heart', name: '胸の桜', pal: 'color', def: '#ff5a4f' }],
-    styles: [{ id: 'sit', name: '座る', size: [0.2, 0.3, 0.17], words: ['座っている', '座る'] }, { id: 'stand', name: '立つ', size: [0.2, 0.37, 0.12], words: ['立っている', '立つ'] }],
+    styles: [{ id: 'sit', name: '座る', size: [0.1, 0.15, 0.085], words: ['座っている', '座る'] }, { id: 'stand', name: '立つ', size: [0.1, 0.185, 0.06], words: ['立っている', '立つ'] }],
     params: [LIFT], build: petal },
   person: { name: '人の目印', emoji: '🧍', cat: '映画用', kind: 'floor', size: [0.5, 1.7, 0.3], range: { w: [0.2, 1.0], h: [0.2, 2.0], d: [0.2, 2.0] }, color: '#b9bec6', opts: { lift: 0 }, words: ['人の目印', '人形', 'マネキン', '人'],
     parts: [{ key: 'body', name: 'からだ', pal: 'color', def: '#b9bec6' }],

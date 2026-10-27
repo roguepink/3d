@@ -8,6 +8,8 @@ import { PLANTS } from './plants.js';
 import { FURNITURE, gadgetRow } from './furniture.js';
 import { WET } from './wet.js';
 import { FILM } from './film.js';
+import { KOMONO } from './komono.js';
+import { WAFU } from './wafu.js';
 
 // ひだのあるカーテンの布
 function pleatedPanel(pw, h, pitch, amp, mat) {
@@ -228,8 +230,8 @@ Object.assign(CATALOG, {
 // いま人気の観葉植物(10種類)を足す
 Object.assign(CATALOG, PLANTS);
 // 家具(ベッド・机・椅子・ソファなど)・水まわり(キッチン・トイレ・洗面台)・映画用は別のファイル
-Object.assign(CATALOG, FURNITURE, WET, FILM);
-export const CATEGORIES = ['窓まわり', '照明', '敷物', '家具', '小物', '壁かざり', 'みどり', '映画用'];
+Object.assign(CATALOG, FURNITURE, WET, FILM, KOMONO, WAFU);
+export const CATEGORIES = ['窓まわり', '照明', '敷物', '家具', '小物', '壁かざり', '和の家具', 'みどり', '映画用'];
 export const EQUIP_CATEGORIES = ['電気', '空調・換気', '水まわり'];
 export function catalogEntry(type) { return CATALOG[type] || null; }
 
