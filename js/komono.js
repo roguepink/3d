@@ -4,7 +4,7 @@
 // 机や棚の上に置く物は opts.lift(床からの高さ)だけ持ち上げる。
 // 多くの物は「形の見本の大きさ(styles の size)」で作って、置いた大きさに合わせてのばす(fit)。
 import * as THREE from 'three';
-import { std, box, cyl, sph, emissive, rbox, pm, partVal, styleOf, light } from './kit.js';
+import { std, box, cyl, sph, emissive, rbox, pm, partVal, styleOf, light, CATALOG } from './kit.js';
 import { finishById } from './textures.js';
 
 // ---- 共通の小さな道具 ----
@@ -15,7 +15,7 @@ function rng(seed) { let h = 2166136261; for (const c of String(seed)) { h ^= c.
 function hexOf(v) { if (!v) return '#cccccc'; if (v[0] === '#') return v; const f = finishById(v); return f ? (f.color || (f.wood && f.wood.base) || '#cccccc') : '#cccccc'; }
 // 見本の大きさで作って、置いた大きさにのばす。lift=true なら床からの高さぶん上げる
 function fit(inner, it, lift = false) {
-  const st = styleOf(it), [sw, sh, sd] = (st && st.size) || [it.w, it.h, it.d], g = new THREE.Group();
+  const st = styleOf(it), [sw, sh, sd] = (st && st.size) || CATALOG[it.type].size, g = new THREE.Group();
   inner.scale.set(it.w / sw, it.h / sh, it.d / sd); if (lift) inner.position.y = (it.opts && it.opts.lift) || 0; g.add(inner); return g;
 }
 // 絵(canvas)の材質。同じ絵は使い回す
@@ -260,7 +260,7 @@ function zakkaBuild(it) {
     g.add(box(0.24, 0.085, 0.12, body, 0, 0.0425, 0)); g.add(box(0.22, 0.002, 0.1, sub, 0, 0.0855, 0)); g.add(box(0.13, 0.002, 0.02, std('#d8d2c6', .9), 0, 0.087, 0));
     g.add(ell(0.035, std('#fbfbf8', .95), 0, 0.1, 0, 1.4, 0.75, 0.22)); g.add(ell(0.03, std('#fbfbf8', .95), 0.02, 0.095, 0.004, 1.1, 0.6, 0.2));
   } else if (s === 'remote') {
-    g.add(rbox(0.048, 0.018, 0.175, 0.008, body, 0, 0.009, 0)); const p = plane(0.04, 0.165, remoteMat(), 0, 0.0182, 0); p.rotation.x = -Math.PI / 2; g.add(p);
+    g.add(box(0.048, 0.016, 0.175, body, 0, 0.008, 0)); const p = plane(0.042, 0.168, remoteMat(), 0, 0.0162, 0); p.rotation.x = -Math.PI / 2; g.add(p);
   } else if (s === 'phone') {
     g.add(box(0.075, 0.008, 0.155, body, 0, 0.004, 0)); const p = plane(0.069, 0.149, std('#121316', .12, .3), 0, 0.0081, 0); p.rotation.x = -Math.PI / 2; g.add(p);
   } else if (s === 'pens') {
@@ -276,6 +276,109 @@ function zakkaBuild(it) {
       g.add(cyl(0.042, 0.042, 0.026, body, sx * 0.07, 0.044, 0, 22).rotateZ(Math.PI / 2)); g.add(cyl(0.036, 0.036, 0.012, sub, sx * 0.052, 0.044, 0, 18).rotateZ(Math.PI / 2));
     }
   }
+  return fit(g, it, true);
+}
+
+// ---- ハンガーラック・コート掛け ----
+// 上着(フックの位置 x,y,z から下がる。ry で向き、+z 側にふくらむ)
+function coat(g, mat, x, y, z, ry, len) {
+  const c = new THREE.Group(); c.position.set(x, y, z); c.rotation.y = ry; g.add(c);
+  const b = cyl(0.1, 0.15, len, mat, 0, -0.06 - len / 2, 0.08, 10); b.scale.z = 0.42; c.add(b);
+  c.add(ell(0.11, mat, 0, -0.07, 0.08, 1.05, 0.4, 0.45));
+  for (const sx of [-1, 1]) { const sl = cyl(0.035, 0.04, len * 0.72, mat, sx * 0.125, -0.08 - len * 0.36, 0.08, 8); sl.rotation.z = sx * 0.08; c.add(sl); }
+  c.add(box(0.06, 0.035, 0.03, mat, 0, -0.03, 0.03));
+}
+// シャツ(ハンガーにかかった形。幅は z 方向)
+function shirt(g, mat, hang, x, yBar, len, wide) {
+  const c = new THREE.Group(); c.position.set(x, yBar, 0); g.add(c);
+  const hk = new THREE.Mesh(new THREE.TorusGeometry(0.018, 0.0025, 4, 10, Math.PI * 1.3), hang); hk.rotation.y = Math.PI / 2; hk.position.y = 0.0; c.add(hk);
+  c.add(box(0.006, 0.006, 0.4, hang, 0, -0.07, 0)); rod(c, hang, [0, -0.02, 0], [0, -0.07, 0.19], 0.003, 4); rod(c, hang, [0, -0.02, 0], [0, -0.07, -0.19], 0.003, 4);
+  c.add(box(0.035, len, wide, mat, 0, -0.08 - len / 2, 0)); c.add(box(0.036, 0.05, wide + 0.04, mat, 0, -0.1, 0));
+  for (const sz of [-1, 1]) { const sl = box(0.034, len * 0.55, 0.07, mat, 0, -0.08 - len * 0.29, sz * (wide / 2 + 0.03)); sl.rotation.x = sz * 0.12; c.add(sl); }
+}
+function coatRackBuild(it) {
+  const st = styleOf(it), s = st.id, [SW, SH, SD] = st.size, g = new THREE.Group(), fr = pm(it, 'frame', .45, .2), c1 = pm(it, 'coat', .9), c2 = pm(it, 'coat2', .9);
+  if (s === 'rack') {
+    const hx = SW / 2 - 0.02, ty = SH - 0.05;
+    for (const sx of [-1, 1]) { g.add(box(0.025, ty - 0.06, 0.025, fr, sx * hx, 0.06 + (ty - 0.06) / 2, 0)); g.add(box(0.03, 0.03, SD - 0.04, fr, sx * hx, 0.07, 0)); for (const sz of [-1, 1]) g.add(cyl(0.025, 0.025, 0.02, std('#2a2a2d', .6), sx * hx, 0.026, sz * (SD / 2 - 0.04), 12).rotateZ(Math.PI / 2)); }
+    g.add(cyl(0.013, 0.013, SW, fr, 0, ty, 0, 10).rotateZ(Math.PI / 2)); g.add(box(SW - 0.04, 0.02, 0.02, fr, 0, 0.13, 0));
+    const R = rng('rack'), hang = std('#d6d9dc', .3, .7), n = 6;
+    for (let i = 0; i < n; i++) { const x = -hx + 0.1 + i * (2 * hx - 0.2) / (n - 1) + (R() - 0.5) * 0.03, m = i === 0 ? c1 : i === 3 ? c2 : std(CALM[Math.floor(R() * CALM.length)], .9); shirt(g, m, hang, x, ty, 0.55 + R() * 0.45, 0.36 + R() * 0.06); }
+    return fit(g, it);
+  }
+  g.add(cyl(0.17, 0.2, 0.03, fr, 0, 0.015, 0, 28)); g.add(cyl(0.018, 0.02, SH - 0.06, fr, 0, (SH - 0.06) / 2 + 0.02, 0, 12)); g.add(sph(0.03, fr, 0, SH - 0.04, 0));
+  for (let k = 0; k < 4; k++) { const a = k * Math.PI / 2 + Math.PI / 4, ax = Math.sin(a), az = Math.cos(a); rod(g, fr, [0, SH - 0.2, 0], [ax * 0.13, SH - 0.1, az * 0.13], 0.008); g.add(sph(0.012, fr, ax * 0.13, SH - 0.1, az * 0.13)); }
+  coat(g, c1, Math.sin(Math.PI / 4) * 0.1, SH - 0.13, Math.cos(Math.PI / 4) * 0.1, Math.PI / 4, 0.85); coat(g, c2, -Math.sin(Math.PI / 4) * 0.1, SH - 0.13, -Math.cos(Math.PI / 4) * 0.1, Math.PI * 1.25, 0.7);
+  // 帽子
+  const hat = std('#6b4a33', .85); g.add(cyl(0.11, 0.11, 0.008, hat, 0, SH - 0.06, 0, 20)); g.add(cyl(0.07, 0.075, 0.08, hat, 0, SH - 0.016, 0, 16));
+  return fit(g, it);
+}
+
+// ---- 傘立て ----
+function umbrella(g, mat, x, z, ax, az, len, crook) {
+  const u = new THREE.Group(); u.position.set(x, 0.02, z); u.rotation.set(ax, 0, az); g.add(u);
+  const metal = std('#c8ccd2', .3, .8); u.add(cyl(0.004, 0.002, 0.04, metal, 0, 0.02, 0, 6));
+  u.add(cyl(0.03, 0.007, len * 0.66, mat, 0, 0.04 + len * 0.33, 0, 8)); u.add(box(0.012, 0.03, 0.066, mat, 0, 0.04 + len * 0.5, 0));
+  const top = 0.04 + len * 0.66; u.add(cyl(0.005, 0.005, len * 0.24, metal, 0, top + len * 0.12, 0, 6));
+  const hdl = std('#3b2a1e', .6), hy = top + len * 0.24;
+  if (crook) { const h = new THREE.Mesh(new THREE.TorusGeometry(0.03, 0.008, 6, 12, Math.PI), hdl); h.position.set(0.03, hy, 0); h.castShadow = true; u.add(h); u.add(cyl(0.008, 0.008, 0.02, hdl, 0.06, hy - 0.01, 0, 8)); }
+  else u.add(cyl(0.013, 0.011, 0.1, hdl, 0, hy + 0.05, 0, 10));
+}
+function umbrellaBuild(it) {
+  const st = styleOf(it), s = st.id, [SW, , SD] = st.size, g = new THREE.Group(), body = pm(it, 'body', .5, .2), dark = std('#1d1d20', .9), sh = 0.45;
+  if (s === 'square') { const t = 0.012; for (const sx of [-1, 1]) { g.add(box(t, sh, SD, body, sx * (SW / 2 - t / 2), sh / 2, 0)); g.add(box(SW - 2 * t, sh, t, body, 0, sh / 2, sx * (SD / 2 - t / 2))); } g.add(box(SW, 0.02, SD, body, 0, 0.01, 0)); g.add(box(SW - 0.03, 0.002, SD - 0.03, dark, 0, sh - 0.12, 0)); }
+  else { const r = Math.min(SW, SD) / 2; g.add(cyl(r, r * 0.92, sh, body, 0, sh / 2, 0, 28)); g.add(cyl(r - 0.012, r - 0.012, 0.002, dark, 0, sh - 0.002, 0, 24)); const rim = new THREE.Mesh(new THREE.TorusGeometry(r - 0.005, 0.006, 6, 28), body); rim.rotation.x = Math.PI / 2; rim.position.y = sh; g.add(rim); }
+  umbrella(g, pm(it, 'umb', .7), -0.03, -0.025, -0.1, 0.12, 0.82, true);
+  umbrella(g, std('#8a9a82', .7), 0.035, -0.02, -0.12, -0.14, 0.78, false);
+  umbrella(g, new THREE.MeshStandardMaterial({ color: '#e6ecee', roughness: .2, transparent: true, opacity: .6 }), 0.0, 0.035, 0.16, 0.04, 0.8, true);
+  return fit(g, it);
+}
+
+// ---- 段ボール箱 ----
+function cbox(g, w, h, d, x, y, z, ry, mat, tape) {
+  const b = new THREE.Group(); b.position.set(x, y, z); b.rotation.y = ry; g.add(b);
+  b.add(box(w, h, d, mat, 0, h / 2, 0)); b.add(box(w + 0.002, 0.0015, 0.05, tape, 0, h + 0.0008, 0));
+  for (const sx of [-1, 1]) b.add(box(0.0015, 0.07, 0.05, tape, sx * (w / 2 + 0.0008), h - 0.035, 0));
+  b.add(box(w, 0.001, 0.002, std('#7a5a38', .9), 0, h + 0.0005, 0)); b.add(plane(Math.min(0.12, w * 0.3), Math.min(0.08, h * 0.3), std('#f4f1ea', .8), w * 0.22, h * 0.55, d / 2 + 0.001));
+}
+function cardboardBuild(it) {
+  const st = styleOf(it), s = st.id, g = new THREE.Group(), m = pm(it, 'box', .9), tape = pm(it, 'tape', .4);
+  if (s === 'stack') { cbox(g, 0.5, 0.32, 0.42, 0, 0, 0, 0, m, tape); cbox(g, 0.42, 0.24, 0.34, 0.02, 0.32, -0.01, 0.12, m, tape); cbox(g, 0.3, 0.16, 0.24, -0.03, 0.56, 0.02, -0.18, m, tape); return fit(g, it); }
+  cbox(g, 0.45, 0.32, 0.35, 0, 0, 0, 0, m, tape); return fit(g, it);
+}
+
+// ---- ラジカセ ----
+function radioBuild(it) {
+  const g = new THREE.Group(), body = pm(it, 'body', .45, .2), sp = pm(it, 'sub', .9), dark = std('#1d1d20', .3), W = 0.4, H = 0.2, D = 0.11;
+  g.add(box(W, H, D, body, 0, H / 2, 0));
+  for (const sx of [-1, 1]) { g.add(disc(0.062, 0.004, sp, sx * 0.12, 0.1, D / 2 + 0.002, 24)); g.add(disc(0.025, 0.006, std('#4b4e54', .5), sx * 0.12, 0.1, D / 2 + 0.003, 16)); }
+  g.add(box(0.11, 0.065, 0.004, dark, 0, 0.11, D / 2 + 0.002)); g.add(box(0.07, 0.025, 0.003, std('#c9b98f', .6), 0, 0.11, D / 2 + 0.004));
+  for (let i = 0; i < 5; i++) g.add(box(0.016, 0.008, 0.02, std(i === 0 ? '#b0392e' : '#3a3b40', .5), -0.04 + i * 0.02, H + 0.004, 0.03));
+  const hm = std('#3a3b40', .4, .6); rod(g, hm, [-0.15, H, 0], [-0.15, H + 0.04, 0], 0.006); rod(g, hm, [0.15, H, 0], [0.15, H + 0.04, 0], 0.006); rod(g, hm, [-0.15, H + 0.04, 0], [0.15, H + 0.04, 0], 0.008);
+  return fit(g, it, true);
+}
+
+// ---- 壁のフック(バッグ・帽子) ----
+function wallHookBuild(it) {
+  const [W, H] = KOMONO.wallHook.size, g = new THREE.Group(), bd = pm(it, 'board', .5), bag = pm(it, 'bag', .9), metal = std('#2b2b2e', .4, .6), ty = H / 2 - 0.035;
+  g.add(box(W, 0.07, 0.02, bd, 0, ty, 0.01));
+  const hx = [-W * 0.3, 0, W * 0.3]; for (const x of hx) { rod(g, metal, [x, ty - 0.01, 0.02], [x, ty - 0.02, 0.07], 0.005); rod(g, metal, [x, ty - 0.02, 0.07], [x, ty + 0.005, 0.085], 0.005); }
+  // トートバッグ(左のフック)
+  const bx = hx[0], by = ty - 0.2; g.add(box(0.26, 0.3, 0.05, bag, bx, by - 0.08, 0.06));
+  for (const sx of [-1, 1]) rod(g, bag, [bx + sx * 0.07, by + 0.07, 0.06], [bx, ty - 0.012, 0.072], 0.007);
+  // 帽子(右のフック)
+  const hat = pm(it, 'hat', .85), cx = hx[2], cy = ty - 0.1; const cap = new THREE.Mesh(new THREE.SphereGeometry(0.085, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2), hat); cap.rotation.x = Math.PI / 2; cap.position.set(cx, cy, 0.03); cap.castShadow = true; g.add(cap);
+  const brim = cyl(0.06, 0.06, 0.006, hat, cx, cy - 0.07, 0.07, 16); brim.scale.z = 0.8; g.add(brim);
+  return fit(g, it);
+}
+
+// ---- 卓上ライト ----
+function deskLampBuild(it) {
+  const g = new THREE.Group(), body = pm(it, 'body', .4, .4), shade = pm(it, 'shade', .5, .2), on = it.opts.on !== false;
+  g.add(cyl(0.07, 0.075, 0.02, body, 0, 0.01, -0.03, 24)); rod(g, body, [0, 0.02, -0.03], [0, 0.27, -0.06], 0.007); g.add(sph(0.012, body, 0, 0.27, -0.06)); rod(g, body, [0, 0.27, -0.06], [0, 0.35, 0.07], 0.007);
+  const sh = new THREE.Group(); sh.position.set(0, 0.34, 0.09); sh.rotation.x = 0.5; g.add(sh);
+  sh.add(cyl(0.022, 0.065, 0.085, shade, 0, 0, 0, 20)); sh.add(cyl(0.0618, 0.0618, 0.002, std('#f1ede4', .9), 0, -0.042, 0, 20));
+  if (on) { sh.add(sph(0.022, emissive('#ffe2b8', 2.2), 0, -0.035, 0)); light(g, '#ffe2b8', 0.9, 0, 0.27, 0.15, { distance: 1.6 }); }
   return fit(g, it, true);
 }
 
@@ -340,4 +443,34 @@ export const KOMONO = {
       { id: 'headphones', name: 'ヘッドホン', size: [0.19, 0.16, 0.09], words: ['ヘッドホン', 'ヘッドフォン'], parts: { body: '#2a2a2d', sub: '#4b4e54' } },
     ],
     params: [LIFT], build: zakkaBuild },
+  coatRack: { name: 'コート掛け・ハンガーラック', emoji: '🧥', cat: '家具', kind: 'floor', size: [0.5, 1.75, 0.5], range: { w: [0.3, 2.0], h: [0.8, 2.0], d: [0.3, 0.8] }, color: 'w_walnut', opts: {}, words: ['コート掛け', 'ポールハンガー', 'ハンガーラック', '洋服掛け', 'コートハンガー'],
+    parts: [{ key: 'frame', name: 'わく・ポール', pal: 'wood', def: 'w_walnut' }, { key: 'coat', name: '上着の色', pal: 'color', def: '#3f4a5c' }, { key: 'coat2', name: 'もう一着の色', pal: 'color', def: '#b8afa3' }],
+    styles: [
+      { id: 'pole', name: 'ポールハンガー(上着2着)', size: [0.5, 1.75, 0.5], words: ['ポールハンガー', 'コート掛け', 'コートハンガー'] },
+      { id: 'rack', name: 'キャスターつきハンガーラック', size: [1.0, 1.55, 0.45], words: ['ハンガーラック', 'キャスター', '洋服ラック'], parts: { frame: 'm_black', coat: '#e9e2cf', coat2: '#2f3d5c' } },
+    ],
+    build: coatRackBuild },
+  umbrellaStand: { name: '傘立て', emoji: '☂️', cat: '小物', kind: 'floor', size: [0.26, 0.9, 0.26], range: { w: [0.15, 0.6], h: [0.3, 1.2], d: [0.15, 0.6] }, color: '#4b4e54', opts: {}, words: ['傘立て', 'かさ立て', '傘'],
+    parts: [{ key: 'body', name: '傘立て', pal: 'color', def: '#4b4e54' }, { key: 'umb', name: '傘の色', pal: 'color', def: '#2f3d5c' }],
+    styles: [
+      { id: 'round', name: '丸い傘立て', size: [0.26, 0.9, 0.26], words: ['丸い傘立て'] },
+      { id: 'square', name: '四角い傘立て', size: [0.24, 0.9, 0.24], words: ['四角い傘立て'], parts: { body: '#e9e2cf', umb: '#a8392f' } },
+    ],
+    build: umbrellaBuild },
+  cardboard: { name: '段ボール箱', emoji: '📦', cat: '小物', kind: 'floor', size: [0.45, 0.32, 0.35], range: { w: [0.15, 1.2], h: [0.1, 1.5], d: [0.15, 1.0] }, color: '#c49a6c', opts: {}, words: ['段ボール', 'ダンボール', '段ボール箱', '引っ越しの箱'],
+    parts: [{ key: 'box', name: '箱', pal: 'color', def: '#c49a6c' }, { key: 'tape', name: 'テープ', pal: 'color', def: '#d8c9a8' }],
+    styles: [
+      { id: 'one', name: '段ボール1箱', size: [0.45, 0.32, 0.35], words: ['段ボール1箱'] },
+      { id: 'stack', name: '積んだ段ボール(3箱)', size: [0.5, 0.72, 0.42], words: ['積んだ段ボール', '引っ越し', '積んだ'] },
+    ],
+    build: cardboardBuild },
+  radio: { name: 'ラジカセ', emoji: '📻', cat: '小物', kind: 'floor', size: [0.4, 0.25, 0.12], range: { w: [0.2, 0.8], h: [0.1, 0.5], d: [0.06, 0.3] }, color: '#c9cbcd', opts: { lift: 0 }, words: ['ラジカセ', 'ラジオ', 'カセット'],
+    parts: [{ key: 'body', name: '本体', pal: 'color', def: '#c9cbcd' }, { key: 'sub', name: 'スピーカー', pal: 'color', def: '#2a2a2d' }],
+    params: [LIFT], build: radioBuild },
+  wallHook: { name: '壁のフック(バッグ・帽子)', emoji: '👜', cat: '壁かざり', kind: 'wall', size: [0.5, 0.5, 0.12], range: { w: [0.3, 1.2], h: [0.3, 0.8], d: [0.05, 0.25] }, color: 'w_natural', opts: {}, words: ['フック', '壁のフック', 'ウォールフック', 'バッグ掛け'],
+    parts: [{ key: 'board', name: '板', pal: 'wood', def: 'w_natural' }, { key: 'bag', name: 'バッグ', pal: 'color', def: '#d8c8ad' }, { key: 'hat', name: '帽子', pal: 'color', def: '#3f5546' }],
+    build: wallHookBuild },
+  deskLamp: { name: '卓上ライト', emoji: '💡', cat: '照明', kind: 'floor', size: [0.16, 0.4, 0.26], range: { w: [0.1, 0.4], h: [0.2, 0.8], d: [0.12, 0.5] }, color: '#2a2a2d', opts: { lift: 0, on: true }, words: ['卓上ライト', 'デスクライト', 'デスクランプ', '机のライト', 'スタンドライト'],
+    parts: [{ key: 'body', name: '本体', pal: 'color', def: '#2a2a2d' }, { key: 'shade', name: 'かさ', pal: 'color', def: '#2a2a2d' }],
+    params: [LIFT, ['on', '点ける', 'bool']], build: deskLampBuild },
 };

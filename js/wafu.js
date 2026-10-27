@@ -287,6 +287,189 @@ function ikouBuild(it) {
   return fitStyle(g, it);
 }
 
+// ---- 柱時計(振り子のボンボン時計) ----
+// 部分:木のわく / 文字盤。壁の物:背中が z=0
+function clockFace(color) {
+  return paint('clockface' + color, 256, 256, (c, W, H) => { c.fillStyle = color; c.fillRect(0, 0, W, H); c.strokeStyle = '#2a2420'; c.fillStyle = '#2a2420';
+    c.lineWidth = 3; c.beginPath(); c.arc(W / 2, H / 2, W * 0.46, 0, Math.PI * 2); c.stroke(); c.lineWidth = 1; c.beginPath(); c.arc(W / 2, H / 2, W * 0.36, 0, Math.PI * 2); c.stroke();
+    for (let i = 0; i < 60; i++) { const a = i / 60 * Math.PI * 2, r0 = W * (i % 5 ? 0.43 : 0.38), r1 = W * 0.45; c.lineWidth = i % 5 ? 1 : 4; c.beginPath(); c.moveTo(W / 2 + Math.sin(a) * r0, H / 2 - Math.cos(a) * r0); c.lineTo(W / 2 + Math.sin(a) * r1, H / 2 - Math.cos(a) * r1); c.stroke(); }
+    // 針(10時8分ごろ)
+    const hand = (a, len, wd) => { c.lineWidth = wd; c.beginPath(); c.moveTo(W / 2, H / 2); c.lineTo(W / 2 + Math.sin(a) * len, H / 2 - Math.cos(a) * len); c.stroke(); };
+    hand(-Math.PI / 3 + 0.07, W * 0.22, 6); hand(Math.PI * 0.27, W * 0.33, 4); c.beginPath(); c.arc(W / 2, H / 2, 7, 0, Math.PI * 2); c.fill();
+    c.fillStyle = 'rgba(120,90,40,.12)'; c.fillRect(0, 0, W, H); }, .6);
+}
+function hashiraBuild(it) {
+  const g = new THREE.Group(), s = styleOf(it).id, wood = pm(it, 'case', .35), face = clockFace(partVal(it, 'face')), brass = std('#b58f45', .3, .85), dark = std('#22180f', .6), glass = GLASS();
+  const D = 0.13, hy = 0.17, r = 0.115;
+  // 頭(文字盤のまわり)
+  if (s === 'kaku') { g.add(box(0.3, 0.3, D, wood, 0, hy, D / 2)); g.add(box(0.33, 0.03, D + 0.02, wood, 0, hy + 0.165, D / 2 + 0.005)); }
+  else { const ring = cyl(0.145, 0.145, D, wood, 0, hy, D / 2, s === 'hakkaku' ? 8 : 32); ring.rotation.x = Math.PI / 2; if (s === 'hakkaku') ring.rotation.y = Math.PI / 8; g.add(ring); }
+  const bez = cyl(r + 0.012, r + 0.012, 0.012, brass, 0, hy, D + 0.004, 32); bez.rotation.x = Math.PI / 2; g.add(bez);
+  const fc = mesh(new THREE.CircleGeometry(r, 32), face, 0, hy, D + 0.011); g.add(fc);
+  for (const sx of [-1, 1]) { const k = cyl(0.006, 0.006, 0.004, brass, sx * 0.045, hy - 0.045, D + 0.013, 8); k.rotation.x = Math.PI / 2; g.add(k); }
+  // 胴(振り子の窓)
+  const by = -0.12, bh = 0.34; g.add(box(0.24, bh, D - 0.01, wood, 0, by, (D - 0.01) / 2)); g.add(box(0.27, 0.03, D + 0.005, wood, 0, by - bh / 2 - 0.01, D / 2));
+  g.add(box(0.17, bh - 0.06, 0.004, dark, 0, by, D - 0.008));
+  const pd = new THREE.Group(); pd.position.set(0, by + bh / 2 - 0.04, D - 0.02); pd.rotation.z = 0.12; pd.add(box(0.006, 0.2, 0.003, brass, 0, -0.1, 0)); const bob = cyl(0.035, 0.035, 0.006, brass, 0, -0.2, 0, 24); bob.rotation.x = Math.PI / 2; pd.add(bob); g.add(pd);
+  g.add(box(0.15, bh - 0.08, 0.003, glass, 0, by, D - 0.003));
+  for (const sx of [-1, 1]) g.add(box(0.02, bh, 0.01, wood, sx * 0.095, by, D - 0.002));
+  return fitStyle(g, it);
+}
+
+// ---- 黒電話・電話台 ----
+// 部分:電話 / 台
+function kurodenwa(g, mat, x, y, z) {
+  const p = new THREE.Group(); p.position.set(x, y, z); const wh = std('#e9e5da', .4), dk = std('#0b0b0b', .3);
+  p.add(rbox(0.2, 0.05, 0.22, 0.015, mat, 0, 0.025, 0));
+  const top = rbox(0.18, 0.07, 0.16, 0.03, mat, 0, 0.075, -0.02); p.add(top);
+  // ダイヤル(前の斜めの面)
+  const dial = new THREE.Group(); dial.position.set(0, 0.075, 0.07); dial.rotation.x = -0.75; p.add(dial);
+  const d0 = cyl(0.058, 0.06, 0.012, mat, 0, 0, 0, 24); dial.add(d0); const d1 = cyl(0.05, 0.05, 0.004, wh, 0, 0.007, 0, 24); dial.add(d1);
+  for (let i = 0; i < 10; i++) { const a = -0.6 + i / 10 * Math.PI * 1.65; dial.add(cyl(0.008, 0.008, 0.006, dk, Math.cos(a) * 0.037, 0.009, Math.sin(a) * 0.037, 8)); }
+  dial.add(cyl(0.016, 0.016, 0.006, wh, 0, 0.01, 0, 12));
+  // 受話器
+  const hs = new THREE.Group(); hs.position.set(0, 0.13, -0.03); p.add(hs);
+  hs.add(box(0.15, 0.024, 0.03, mat, 0, 0.01, 0)); for (const sx of [-1, 1]) { const c = cyl(0.03, 0.026, 0.045, mat, sx * 0.09, 0, 0, 14); c.rotation.z = Math.PI / 2; hs.add(c); }
+  for (const sx of [-1, 1]) p.add(box(0.03, 0.02, 0.05, mat, sx * 0.06, 0.112, -0.03));
+  g.add(p);
+}
+function denwaBuild(it) {
+  const g = new THREE.Group(), s = styleOf(it).id, ph = pm(it, 'phone', .22), wood = pm(it, 'stand', .45), kn = std('#b08a3e', .3, .8);
+  if (s === 'phone') { kurodenwa(g, ph, 0, 0, 0); return fitStyle(g, it); }
+  const W = 0.42, H = 0.7, D = 0.32;
+  g.add(box(W, 0.025, D, wood, 0, H - 0.0125, 0)); g.add(box(W - 0.02, 0.08, D - 0.03, wood, 0, H - 0.065, -0.005)); g.add(box(0.05, 0.01, 0.01, kn, 0, H - 0.065, D / 2 - 0.015));
+  for (const [x, z] of C4) g.add(box(0.035, H - 0.025, 0.035, wood, x * (W / 2 - 0.03), (H - 0.025) / 2, z * (D / 2 - 0.03)));
+  g.add(box(W - 0.04, 0.02, D - 0.04, wood, 0, 0.12, 0)); g.add(box(W - 0.04, 0.02, D - 0.04, wood, 0, 0.36, 0));
+  // 下の段に電話帳、上にレースの敷物
+  g.add(box(0.21, 0.07, 0.28, std('#c8b98c', .9), -0.06, 0.165, 0)); g.add(box(0.2, 0.05, 0.27, std('#d8d2c2', .9), -0.06, 0.225, 0));
+  g.add(box(0.14, 0.12, 0.2, std('#8a3b2e', .8), 0.1, 0.43, -0.02));
+  const lace = ell(1, std('#f2efe6', .9), 0, H + 0.002, 0, 0.17, 0.002, 0.14); g.add(lace);
+  kurodenwa(g, ph, 0, H + 0.004, 0.0);
+  return fitStyle(g, it);
+}
+
+// ---- 家具調テレビ(ブラウン管・脚つき) ----
+// 部分:木の箱 / 画面のまわり。opts.on で映る、opts.doors で扉を閉める、opts.ant で室内アンテナ
+function kaguTVBuild(it) {
+  const g = new THREE.Group(), s = styleOf(it).id, wood = pm(it, 'case', .4), bez = pm(it, 'bezel', .4), dark = std('#1d1f22', .3), silver = std('#b8b8b2', .35, .7), grille = paint('tvgrille', 64, 64, (c, W, H) => { c.fillStyle = '#3a2c22'; c.fillRect(0, 0, W, H); c.fillStyle = '#c9b58e'; for (let y = 0; y < H; y += 4) c.fillRect(0, y, W, 2); }, .9);
+  const W = 1.0, H = 0.95, D = 0.5, y0 = 0.2, on = !!it.opts.on, doors = !!it.opts.doors;
+  for (const [x, z] of C4) rod(g, wood, [x * (W / 2 - 0.08), y0, z * (D / 2 - 0.08)], [x * (W / 2 - 0.05), 0, z * (D / 2 - 0.05)], 0.035, true);
+  g.add(box(W, H - y0, D, wood, 0, y0 + (H - y0) / 2, 0)); g.add(box(W + 0.02, 0.025, D + 0.02, wood, 0, H - 0.0125, 0));
+  const sx = -0.12, sy = y0 + (H - y0) * 0.52, sw = 0.6, sh = 0.47, fz = D / 2;
+  g.add(box(sw + 0.06, sh + 0.06, 0.01, bez, sx, sy, fz + 0.005));
+  const scr = rbox(sw, sh, 0.04, 0.05, on ? emissive('#8fa6b4', 0.7) : std('#2a3034', .12, .1), sx, sy, fz); g.add(scr);
+  // 右の操作部:チャンネルのつまみ・音量・スピーカー
+  const cx = W / 2 - 0.15; g.add(box(0.2, sh + 0.06, 0.012, dark, cx, sy, fz + 0.006));
+  const ch = cyl(0.045, 0.045, 0.03, silver, cx, sy + 0.14, fz + 0.025, 20); ch.rotation.x = Math.PI / 2; g.add(ch); g.add(box(0.012, 0.07, 0.012, dark, cx, sy + 0.14, fz + 0.042));
+  for (const k of [0, 1]) { const v = cyl(0.022, 0.022, 0.025, silver, cx - 0.04 + k * 0.08, sy + 0.04, fz + 0.02, 14); v.rotation.x = Math.PI / 2; g.add(v); }
+  g.add(plane(0.16, 0.16, grille, cx, sy - 0.12, fz + 0.013));
+  g.add(box(W - 0.08, 0.08, 0.01, grille, 0, y0 + 0.06, fz + 0.005));
+  if (doors) for (const k of [-1, 1]) { g.add(box(W / 2 - 0.01, sh + 0.12, 0.02, wood, k * (W / 4), sy, fz + 0.03)); g.add(box(0.012, 0.08, 0.012, std('#b08a3e', .3, .8), k * 0.025, sy, fz + 0.046)); }
+  if (it.opts.ant) { g.add(cyl(0.06, 0.07, 0.04, dark, 0.2, H + 0.02, -0.05, 16)); for (const k of [-1, 1]) rod(g, silver, [0.2, H + 0.04, -0.05], [0.2 + k * 0.28, H + 0.5, -0.1], 0.006, true); }
+  if (on && !doors) light(g, '#b8c8ff', 0.6, sx, sy, fz + 0.5, { distance: 2.5 });
+  return fitStyle(g, it);
+}
+
+// ---- 石油ストーブ ----
+// 部分:本体。opts.on で火が点く、opts.kettle で上にやかん
+function stoveBuild(it) {
+  const g = new THREE.Group(), s = styleOf(it).id, body = pm(it, 'body', .45, .3), metal = std('#7a7a76', .35, .8), blk = std('#2a2826', .5, .4), on = !!it.opts.on;
+  const fire = on ? emissive('#ff8a3a', 1.6) : std('#3a3430', .6);
+  let topY;
+  if (s === 'hansha') {
+    const W = 0.45, H = 0.5, D = 0.3; topY = H;
+    g.add(box(W, 0.12, D, body, 0, 0.06, 0)); for (const sx of [-1, 1]) g.add(box(0.03, H - 0.12, D, body, sx * (W / 2 - 0.015), 0.12 + (H - 0.12) / 2, 0));
+    g.add(box(W, 0.03, D, body, 0, H - 0.015, 0)); g.add(box(W - 0.06, H - 0.15, 0.02, std('#d8d6d0', .15, .9), 0, 0.12 + (H - 0.15) / 2, -D / 2 + 0.01));
+    g.add(cyl(0.05, 0.06, 0.22, fire, 0, 0.12 + 0.12, -0.03, 16)); g.add(cyl(0.065, 0.065, 0.02, blk, 0, 0.36, -0.03, 16));
+    for (let i = 0; i < 8; i++) g.add(box(W - 0.06, 0.005, 0.005, metal, 0, 0.14 + i * 0.042, D / 2 - 0.01));
+    g.add(box(0.12, 0.04, 0.01, blk, W / 2 - 0.1, 0.06, D / 2 + 0.003));
+    if (on) light(g, '#ff9a4a', 1.5, 0, 0.3, 0.3, { distance: 2.5 });
+  } else {
+    const R = 0.22; topY = 0.56;
+    g.add(cyl(R, R, 0.16, body, 0, 0.08, 0, 32)); g.add(cyl(R * 0.98, R, 0.02, blk, 0, 0.01, 0, 32));
+    g.add(cyl(0.14, 0.14, 0.3, fire, 0, 0.16 + 0.15, 0, 24));
+    for (let i = 0; i < 14; i++) { const a = i / 14 * Math.PI * 2; g.add(cyl(0.004, 0.004, 0.32, metal, Math.cos(a) * 0.19, 0.32, Math.sin(a) * 0.19, 4)); }
+    g.add(cyl(0.2, 0.2, 0.03, body, 0, 0.47, 0, 32)); g.add(cyl(0.21, 0.21, 0.02, blk, 0, topY - 0.08, 0, 32));
+    g.add(cyl(0.12, 0.12, 0.06, metal, 0, topY - 0.04, 0, 24));
+    const hoop = new THREE.Mesh(new THREE.TorusGeometry(0.12, 0.007, 6, 20, Math.PI), metal); hoop.position.set(0, 0.5, 0); g.add(hoop);
+    g.add(box(0.08, 0.04, 0.02, blk, 0.12, 0.08, R - 0.005));
+    if (on) light(g, '#ff9a4a', 1.5, 0, 0.35, 0.35, { distance: 2.5 });
+  }
+  if (it.opts.kettle) { const k = std('#b9bcbe', .25, .9), ky = topY + (s === 'hansha' ? 0 : -0.01); g.add(ell(1, k, 0, ky + 0.06, 0, 0.11, 0.07, 0.11)); g.add(cyl(0.11, 0.11, 0.02, k, 0, ky + 0.01, 0, 20)); g.add(cyl(0.02, 0.02, 0.02, blk, 0, ky + 0.135, 0, 10));
+    rod(g, k, [0.08, ky + 0.06, 0], [0.17, ky + 0.13, 0], 0.018, true); const hd = new THREE.Mesh(new THREE.TorusGeometry(0.08, 0.006, 6, 16, Math.PI), blk); hd.position.set(0, ky + 0.12, 0); hd.rotation.y = Math.PI / 2; g.add(hd); }
+  return fitStyle(g, it);
+}
+
+// ---- 扇風機(昔の羽根の) ----
+// 部分:本体 / 羽根
+function senpukiBuild(it) {
+  const g = new THREE.Group(), s = styleOf(it).id, body = pm(it, 'body', .4), blade = std(partVal(it, 'blade'), .3, 0, { transparent: true, opacity: 0.7 }), wire = std('#c8c8c2', .3, .8), btn = ['#6f8fa8', '#e0d6c0', '#e0d6c0', '#c86a4a'];
+  const desk = s === 'desk', ph = desk ? 0.3 : 0.72;
+  g.add(rbox(0.32, 0.06, 0.28, 0.025, body, 0, 0.03, 0.01)); for (let i = 0; i < 4; i++) g.add(box(0.035, 0.018, 0.04, std(btn[i], .5), -0.06 + i * 0.04, 0.065, 0.1));
+  g.add(cyl(0.022, 0.026, ph - 0.12, body, 0, 0.06 + (ph - 0.12) / 2, -0.02, 12));
+  const head = new THREE.Group(); head.position.set(0, ph, -0.02); head.rotation.x = -0.12; g.add(head);
+  head.add(ell(0.07, body, 0, 0, -0.07, 1, 1, 1.3)); head.add(cyl(0.02, 0.02, 0.05, body, 0, 0.07, -0.08, 8));
+  const R = 0.16, fz = 0.05;
+  for (let i = 0; i < 4; i++) { const b = ell(1, blade, Math.cos(i * Math.PI / 2 + 0.3) * R * 0.5, Math.sin(i * Math.PI / 2 + 0.3) * R * 0.5, fz, R * 0.42, R * 0.28, 0.006); b.rotation.z = i * Math.PI / 2 + 0.3; head.add(b); }
+  const hub = cyl(0.03, 0.03, 0.03, body, 0, 0, fz + 0.01, 14); hub.rotation.x = Math.PI / 2; head.add(hub);
+  // かご(前とうしろの輪と、前の放射状の線)
+  for (const z of [fz + 0.04, fz - 0.03]) { const r = new THREE.Mesh(new THREE.TorusGeometry(R + 0.01, 0.003, 4, 36), wire); r.position.z = z; head.add(r); }
+  for (let i = 0; i < 12; i++) { const a = i / 12 * Math.PI * 2; rod(head, wire, [0, 0, fz + 0.065], [Math.cos(a) * (R + 0.01), Math.sin(a) * (R + 0.01), fz + 0.04], 0.003, true); }
+  const badge = cyl(0.025, 0.025, 0.006, std('#3a5a7a', .4), 0, 0, fz + 0.068, 14); badge.rotation.x = Math.PI / 2; head.add(badge);
+  return fitStyle(g, it);
+}
+
+// ---- 和の照明(天井から) ----
+// 部分:わく・笠。opts.on で点く、opts.drop で下げる長さ
+function walightBuild(it) {
+  const g = new THREE.Group(), s = styleOf(it).id, fr = pm(it, 'frame', .45), on = it.opts.on !== false, drop = it.opts.drop ?? 0.5, pw = it.opts.power ?? 1, cord = std('#2a2622', .6);
+  g.add(cyl(0.04, 0.04, 0.02, std('#e8e2d4', .6), 0, -0.01, 0, 12)); g.add(cyl(0.003, 0.003, drop, cord, 0, -drop / 2, 0, 6));
+  if (s === 'washi') {
+    // 和紙の四角い笠:木のわく+和紙(点くと明るく)
+    const w = it.w, h = Math.min(0.32, w * 0.65), y = -drop - h / 2, paper = on ? emissive('#ffe2b3', 0.9) : std('#efe6d2', .9);
+    g.add(box(w - 0.01, h - 0.01, w - 0.01, paper, 0, y, 0));
+    for (const [x, z] of C4) g.add(box(0.016, h + 0.01, 0.016, fr, x * w / 2, y, z * w / 2));
+    for (const yy of [y - h / 2, y + h / 2]) { for (const sz of [-1, 1]) { g.add(box(w + 0.016, 0.014, 0.016, fr, 0, yy, sz * w / 2)); g.add(box(0.016, 0.014, w + 0.016, fr, sz * w / 2, yy, 0)); } }
+    for (const k of [-1, 1]) for (const sz of [-1, 1]) { g.add(box(0.006, h, 0.006, fr, k * w / 6, y, sz * w / 2)); g.add(box(0.006, h, 0.006, fr, sz * w / 2, y, k * w / 6)); }
+    g.add(box(w * 0.5, 0.012, 0.012, fr, 0, y + h / 2 + 0.06, 0)); rod(g, cord, [0, -drop, 0], [w * 0.22, y + h / 2 + 0.06, 0], 0.003, true); rod(g, cord, [0, -drop, 0], [-w * 0.22, y + h / 2 + 0.06, 0], 0.003, true);
+    if (on) { const l = light(g, WARM, 6 * pw, 0, y - h * 0.6, 0); l.castShadow = true; }
+  } else if (s === 'keikou') {
+    // 丸い蛍光灯:乳白の笠の下に輪の蛍光管、引きひも
+    const r = it.w / 2, y = -drop;
+    const sh = mesh(new THREE.CylinderGeometry(r * 0.25, r, 0.12, 32, 1, true), dbl('#efeee6', .5), 0, y - 0.06, 0); g.add(sh);
+    g.add(cyl(r * 0.26, r * 0.26, 0.04, std('#d8d6cc', .5), 0, y, 0, 16));
+    const tube = on ? emissive('#f4f7ff', 1.6) : std('#f0f0ec', .4);
+    for (const rr of [r * 0.62, r * 0.42]) { const t = new THREE.Mesh(new THREE.TorusGeometry(rr, 0.014, 8, 36), tube); t.rotation.x = Math.PI / 2; t.position.y = y - 0.1; g.add(t); }
+    g.add(cyl(0.02, 0.025, 0.03, std('#f4f2ec', .5), 0, y - 0.11, 0, 10)); g.add(cyl(0.0015, 0.0015, 0.3, cord, 0, y - 0.27, 0, 4)); g.add(cyl(0.008, 0.012, 0.04, std('#c9a04a', .5), 0, y - 0.43, 0, 8));
+    if (on) { const l = light(g, '#f2f5ff', 8 * pw, 0, y - 0.3, 0); l.castShadow = true; }
+  } else {
+    // 裸電球(ソケットだけ)
+    const y = -drop; g.add(cyl(0.017, 0.017, 0.05, std('#2a2622', .5), 0, y - 0.025, 0, 10)); g.add(cyl(0.012, 0.014, 0.02, std('#b8b4a8', .3, .8), 0, y - 0.06, 0, 10));
+    g.add(sph(0.03, on ? emissive('#ffd9a0', 3) : std('#f0ece4', .2, 0, { transparent: true, opacity: .7 }), 0, y - 0.095, 0)); g.add(cyl(0.0015, 0.0015, 0.25, cord, 0.02, y - 0.17, 0, 4));
+    if (on) { const l = light(g, '#ffd2a0', 4 * pw, 0, y - 0.15, 0); l.castShadow = true; }
+  }
+  return g;
+}
+
+// ---- 布団 ----
+// 部分:掛け布団(布) / 敷布団 / 枕(そばがら)
+function futonBuild(it) {
+  const g = new THREE.Group(), s = styleOf(it).id, kake = fabric(it, 1, 1), shiki = pm(it, 'shiki', .95), mk = pm(it, 'makura', .95), w = it.w, h = it.h, d = it.d;
+  if (s === 'tatamu') {
+    // たたんで積んだ:敷布団(三つ折り)の上に掛け布団、いちばん上に枕
+    const sh = h * 0.42, kh = h * 0.38; g.add(rbox(w, sh, d, 0.05, shiki, 0, sh / 2, 0)); g.add(box(w - 0.02, 0.006, d * 0.98, std('#cfc6b2', .95), 0, sh * 0.33, 0)); g.add(box(w - 0.02, 0.006, d * 0.98, std('#cfc6b2', .95), 0, sh * 0.66, 0));
+    g.add(rbox(w + 0.03, kh, d + 0.02, 0.07, kake, 0, sh + kh / 2, 0));
+    const m = cyl(0.065, 0.065, w * 0.45, mk, 0, sh + kh + 0.05, 0, 14); m.rotation.z = Math.PI / 2; m.scale.set(1, 1, 1); g.add(m);
+    return g;
+  }
+  // 敷いた布団:敷布団・掛け布団(上を少し折り返す)・枕
+  const st = 0.07; g.add(rbox(w, st, d, 0.03, shiki, 0, st / 2, 0));
+  const kl = d * 0.74, kz = d / 2 - kl / 2 + 0.03; g.add(rbox(w + 0.04, 0.09, kl, 0.04, kake, 0, st + 0.045, kz));
+  g.add(rbox(w + 0.02, 0.05, 0.18, 0.025, shiki, 0, st + 0.11, kz - kl / 2 + 0.1));
+  const m = cyl(0.07, 0.07, 0.45, mk, 0, st + 0.06, -d / 2 + 0.2, 14); m.rotation.z = Math.PI / 2; m.scale.set(1, 1, 0.8); g.add(m);
+  return g;
+}
+
 export const WAFU = {
   chabudai: { name: 'ちゃぶ台・座卓', emoji: '🍵', cat: '和の家具', kind: 'floor', size: [0.75, 0.33, 0.75], range: { w: [0.4, 2.2], h: [0.02, 0.5], d: [0.4, 1.4] }, color: 'w_walnut', opts: { lift: 0 }, words: ['ちゃぶ台', 'ちゃぶだい', '座卓', '丸いちゃぶ台', '和室のテーブル'],
     parts: [{ key: 'top', name: '天板', pal: 'wood', def: 'w_walnut' }, { key: 'legs', name: '脚・幕板', pal: 'wood', def: 'w_walnut' }],
@@ -350,4 +533,55 @@ export const WAFU = {
       { id: 'cloth', name: '着物を掛ける', size: [1.4, 1.5, 0.42], words: ['着物掛け', '着物かけ'], opts: { cloth: true } },
     ],
     params: [['cloth', '着物を掛ける', 'bool']], build: ikouBuild },
+  hashiradokei: { name: '柱時計(振り子)', emoji: '🕰️', cat: '和の家具', kind: 'wall', size: [0.3, 0.64, 0.13], range: { w: [0.2, 0.6], h: [0.4, 1.2], d: [0.08, 0.25] }, color: 'w_walnut', opts: {}, words: ['柱時計', 'はしらどけい', 'ボンボン時計', '振り子時計', '昔の時計'],
+    parts: [{ key: 'case', name: '木のわく', pal: 'wood', def: 'w_walnut' }, { key: 'face', name: '文字盤', pal: 'color', def: '#efe6cf' }],
+    styles: [
+      { id: 'maru', name: '丸い顔', size: [0.3, 0.64, 0.13], words: ['柱時計', 'ボンボン時計'] },
+      { id: 'hakkaku', name: '八角の顔', size: [0.3, 0.64, 0.13], words: ['八角時計'], parts: { case: 'w_cherry' } },
+      { id: 'kaku', name: '四角い顔', size: [0.33, 0.66, 0.13], words: ['四角い柱時計'], parts: { case: 'w_medium' } },
+    ],
+    build: hashiraBuild },
+  denwa: { name: '黒電話・電話台', emoji: '☎️', cat: '和の家具', kind: 'floor', size: [0.42, 0.85, 0.32], range: { w: [0.15, 0.8], h: [0.08, 1.2], d: [0.15, 0.6] }, color: '#151515', opts: { lift: 0 }, words: ['黒電話', 'くろでんわ', 'ダイヤル電話', '電話台', '昔の電話'],
+    parts: [{ key: 'phone', name: '電話', pal: 'color', def: '#151515' }, { key: 'stand', name: '電話台', pal: 'wood', def: 'w_walnut' }],
+    styles: [
+      { id: 'dai', name: '電話台に黒電話', size: [0.42, 0.85, 0.32], words: ['電話台'] },
+      { id: 'phone', name: '黒電話だけ', size: [0.21, 0.16, 0.23], words: ['黒電話', 'ダイヤル電話'] },
+    ],
+    params: [LIFT], build: denwaBuild },
+  kaguTV: { name: '家具調テレビ(昭和)', emoji: '📺', cat: '和の家具', kind: 'floor', size: [1.0, 0.95, 0.5], range: { w: [0.6, 1.4], h: [0.6, 1.3], d: [0.35, 0.7] }, color: 'w_walnut', opts: { on: false, doors: false, ant: true }, words: ['家具調テレビ', '昭和のテレビ', '脚つきテレビ', '扉つきテレビ', '大きいブラウン管'],
+    parts: [{ key: 'case', name: '木の箱', pal: 'wood', def: 'w_walnut' }, { key: 'bezel', name: '画面のまわり', pal: 'color', def: '#c9c2b0' }],
+    styles: [
+      { id: 'ashi', name: '脚つき', size: [1.0, 0.95, 0.5], words: ['家具調テレビ', '脚つきテレビ'] },
+      { id: 'tobira', name: '扉つき(閉めた)', size: [1.0, 0.95, 0.5], words: ['扉つきテレビ'], opts: { on: false, doors: true, ant: false } },
+    ],
+    params: [['on', '映す', 'bool'], ['doors', '扉を閉める', 'bool'], ['ant', '上に室内アンテナ', 'bool']], build: kaguTVBuild },
+  stove: { name: '石油ストーブ', emoji: '🔥', cat: '和の家具', kind: 'floor', size: [0.48, 0.56, 0.48], range: { w: [0.3, 0.7], h: [0.35, 0.8], d: [0.25, 0.7] }, color: '#b8b3a3', opts: { on: false, kettle: true }, words: ['石油ストーブ', 'ストーブ', '反射式ストーブ', '丸いストーブ', 'だるまストーブ'],
+    parts: [{ key: 'body', name: '本体', pal: 'color', def: '#b8b3a3' }],
+    styles: [
+      { id: 'maru', name: '丸い(まわりが暖まる)', size: [0.48, 0.56, 0.48], words: ['丸いストーブ', '石油ストーブ'] },
+      { id: 'hansha', name: '反射式(四角い)', size: [0.45, 0.5, 0.3], words: ['反射式ストーブ'], parts: { body: '#8c9488' } },
+    ],
+    params: [['on', '火を点ける', 'bool'], ['kettle', '上にやかん', 'bool']], build: stoveBuild },
+  senpuki: { name: '扇風機(昔の)', emoji: '🌀', cat: '和の家具', kind: 'floor', size: [0.36, 0.9, 0.32], range: { w: [0.25, 0.5], h: [0.4, 1.2], d: [0.2, 0.45] }, color: '#e6e1d0', opts: {}, words: ['扇風機', 'せんぷうき', '昔の扇風機'],
+    parts: [{ key: 'body', name: '本体', pal: 'color', def: '#e6e1d0' }, { key: 'blade', name: '羽根', pal: 'color', def: '#7fb0c4' }],
+    styles: [
+      { id: 'floor', name: '床置き(背の高い)', size: [0.36, 0.9, 0.32], words: ['扇風機'] },
+      { id: 'desk', name: '卓上(低い)', size: [0.34, 0.5, 0.3], words: ['卓上扇風機', '小さい扇風機'], parts: { body: '#9fb8a8', blade: '#e8e4d8' } },
+    ],
+    build: senpukiBuild },
+  walight: { name: '和の照明', emoji: '🏮', cat: '和の家具', kind: 'ceiling', size: [0.45, 0.85, 0.45], range: { w: [0.1, 0.7] }, color: 'w_walnut', opts: { on: true, drop: 0.5, power: 1 }, words: ['和紙の照明', '和風ペンダント', '和室の照明', '丸い蛍光灯', '蛍光灯', '裸電球', '引きひも'],
+    parts: [{ key: 'frame', name: 'わく', pal: 'wood', def: 'w_walnut' }],
+    styles: [
+      { id: 'washi', name: '和紙の四角い笠', size: [0.45, 0.85, 0.45], words: ['和紙の照明', '和風ペンダント', '和室の照明'] },
+      { id: 'keikou', name: '丸い蛍光灯(引きひも)', size: [0.5, 0.95, 0.5], words: ['丸い蛍光灯', '蛍光灯', '引きひも'], opts: { on: true, drop: 0.35, power: 1 } },
+      { id: 'hadaka', name: '裸電球', size: [0.1, 0.75, 0.1], words: ['裸電球'], opts: { on: true, drop: 0.6, power: 1 } },
+    ],
+    params: [['drop', '下げる長さ(天井から)', 0.1, 1.1, 'mm'], ['power', '明るさ', 0.2, 2], ['on', '点ける', 'bool']], build: walightBuild },
+  wafuton: { name: '布団(和室に敷く)', emoji: '🛏️', cat: '和の家具', kind: 'floor', size: [1.0, 0.2, 2.1], range: { w: [0.7, 1.6], h: [0.1, 0.9], d: [0.6, 2.3] }, color: '#6a4a58', fabric: 'plain', opts: {}, words: ['和室の布団', '敷いた布団', 'たたんだ布団', '布団を敷く', '布団を積む', 'せんべい布団'],
+    parts: [{ key: 'kake', name: '掛け布団', pal: 'fabric', def: '#6a4a58' }, { key: 'shiki', name: '敷布団', pal: 'color', def: '#e3dac6' }, { key: 'makura', name: '枕', pal: 'color', def: '#ece6d6' }],
+    styles: [
+      { id: 'shiku', name: '敷いた布団(1組)', size: [1.0, 0.2, 2.1], words: ['敷いた布団', '布団を敷く'] },
+      { id: 'tatamu', name: 'たたんで積んだ', size: [1.0, 0.55, 0.7], words: ['たたんだ布団', '布団を積む'], parts: { kake: '#4c5a6e' } },
+    ],
+    build: futonBuild },
 };
