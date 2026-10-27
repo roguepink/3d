@@ -66,7 +66,7 @@ function wallCabs(g, M, xa, xb, zb, y0, y1, dep, skip) {
   const segs = skip ? [[xa, skip[0]], [skip[1], xb]] : [[xa, xb]], h = y1 - y0, fz = zb + dep;
   for (const [a, b] of segs) {
     const L = b - a; if (L < 0.15) continue; const cx = (a + b) / 2;
-    g.add(box(L - 0.01, h - 0.02, dep - TH, M.inner, cx, (y0 + y1) / 2, zb + (dep - TH) / 2)); g.add(box(L, 0.018, dep - TH, M.door, cx, y0 + 0.009, zb + (dep - TH) / 2));
+    g.add(box(L - 0.01, h - 0.02, dep - TH, M.inner, cx, (y0 + y1) / 2, zb + (dep - TH) / 2)); g.add(box(L, 0.018, dep - TH, M.door, cx, y0 + 0.009, zb + (dep - TH) / 2)); g.add(box(L, 0.018, dep - TH, M.door, cx, y1 - 0.009, zb + (dep - TH) / 2));
     for (const s of [-1, 1]) g.add(box(0.018, h, dep - TH, M.door, cx + s * (L / 2 - 0.009), (y0 + y1) / 2, zb + (dep - TH) / 2));
     const n = Math.max(1, Math.round(L / 0.45)), dw = L / n; for (let i = 0; i < n; i++) front(g, M.door, M.hm, a + dw * (i + 0.5), (y0 + y1) / 2, dw, h, fz, n === 1 ? 'rb' : i % 2 ? 'lb' : 'rb');
     g.add(box(L - 0.12, 0.008, 0.025, led(), cx, y0 - 0.004, fz - 0.06));
@@ -101,7 +101,8 @@ function kitchenBuild(it) {
       front(cu, M.door, M.hm, tx, 0.1 + 0.62, tw - 0.04, 1.24, cd / 2, 'lb'); front(cu, M.door, M.hm, tx, 1.34 + (TT - 1.34) / 2, tw - 0.04, TT - 1.34, cd / 2, 'lb');
       if (wall) wallCabs(cu, M, -w / 2, -w / 2 + lw, -cd / 2, 1.45, TT, 0.35);
       cu.add(box(lw, 1.45 - H, 0.006, std('#f1f0ec', .25), -w / 2 + lw / 2, (H + 1.45) / 2, -cd / 2 + 0.003));
-      cu.rotation.y = Math.PI; cu.position.z = d / 2 - cd / 2; g.add(cu);
+      cu.add(box(w, TT, 0.012, M.door, 0, TT / 2, -cd / 2 - 0.006));
+      cu.rotation.y = Math.PI; cu.position.z = d / 2 - cd / 2 - 0.012; g.add(cu);
     }
     return g;
   }
