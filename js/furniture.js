@@ -26,7 +26,7 @@ function bedBuild(it) {
   if (s === 'lowbed') { g.add(box(w + 0.1, 0.12, d + 0.04, fr, 0, 0.06, 0.02)); head(Math.max(0.35, h)); bedding(g, it, w - 0.04, d - 0.08, 0.12, 0.2, 0.04); return g; }
   if (s === 'storage') {
     g.add(box(w, 0.32, d - 0.06, fr, 0, 0.16, 0.03)); head(h);
-    const dr = std('#00000022', .5); for (let i = 0; i < 2; i++) { const z = -d / 2 + 0.35 + i * (d - 0.5) / 2 + (d - 0.5) / 4; g.add(box(0.005, 0.22, (d - 0.6) / 2, std('#00000033', .6), w / 2 + 0.001, 0.15, z)); g.add(box(0.012, 0.02, 0.18, pm(it, 'frame', .4), w / 2 + 0.008, 0.24, z)); } void dr;
+    for (let i = 0; i < 2; i++) { const z = -d / 2 + 0.35 + i * (d - 0.5) / 2 + (d - 0.5) / 4; g.add(box(0.005, 0.22, (d - 0.6) / 2, std('#5a5148', .6), w / 2 + 0.001, 0.15, z)); g.add(box(0.012, 0.02, 0.18, pm(it, 'frame', .4), w / 2 + 0.008, 0.24, z)); }
     bedding(g, it, w - 0.04, d - 0.12, 0.32, 0.2, 0.04); return g;
   }
   if (s === 'bunk') {
