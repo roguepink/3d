@@ -154,6 +154,7 @@
     <button id="mGyro">📱 スマホを動かして見回す</button>
     <button id="mQuality">🎚 画質:ふつう</button>
     <button id="mModule">📏 尺モジュール(910mm)</button>
+    <button id="mWayo">🏯 家の雰囲気:和洋まざり</button>
     <button id="mAI">🤖 AIの設定</button>
     <button id="mList">📋 置いたものの寸法一覧</button>
     <button id="mEye">👀 目の高さ:立っている(押すと座る)</button>
@@ -196,6 +197,10 @@
   <div class="sheet-head"><b>新しい部屋</b><button class="ib close" data-close="newroom">✕</button></div>
   <div class="row chips" id="roomModules"></div>
   <p class="hint" id="moduleNote" style="margin:0 0 4px"></p>
+  <p class="hint" style="margin:6px 0 2px"><b style="color:#fff">家の雰囲気</b>(置く物や床・壁の一覧で、合う物を先に出します)</p>
+  <div class="row chips" id="houseMood"></div>
+  <p class="hint" style="margin:6px 0 2px"><b style="color:#fff">この部屋</b> <span id="roomWayoNote"></span></p>
+  <div class="row chips" id="roomWayo"></div>
   <div class="row chips" id="roomPresets"></div>
   <p class="hint" style="margin:6px 0 2px"><b style="color:#fff">部屋の形</b>(あとで間取りで角を動かして自由に変えられます)</p>
   <div class="shape-grid" id="roomShapes"></div>
@@ -240,7 +245,7 @@
 // 起動係:毎回「いまの版」を確かめてから部品を読む。
 // 更新の直後に、古い部品と新しい部品が混ざって開けなくなるのを防ぐ。
 (function () {
-  var FILES = ['main', 'scene3d', 'controls', 'house', 'items', 'textures', 'demo', 'store', 'commands', 'photo', 'plan', 'ai', 'merge', 'thumbs', 'stairs', 'plants', 'link', 'builder', 'claude', 'kit', 'furniture', 'wet', 'film', 'komono', 'wafu', 'angles'];
+  var FILES = ['main', 'scene3d', 'controls', 'house', 'items', 'textures', 'demo', 'store', 'commands', 'photo', 'plan', 'ai', 'merge', 'thumbs', 'stairs', 'plants', 'link', 'builder', 'claude', 'kit', 'furniture', 'wet', 'film', 'komono', 'wafu', 'wayo', 'angles'];
   var THREE_URL = 'https://cdn.jsdelivr.net/npm/three@0.186.1/';
   var started = false, retried = false;
   try { retried = sessionStorage.getItem('oheya-retry') === '1'; } catch (e) {}

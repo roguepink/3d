@@ -16,6 +16,7 @@ import { stairLayout as stairLayoutOf, STAIR_CELLS, stairKindName } from './stai
 import { thumbnail } from './thumbs.js';
 import { openAngles } from './angles.js';
 import { projectToLink, linkToProject } from './link.js';
+import { WAYO, wayoOf, sortByWayo, roomIsWa, houseMood, houseMoodName, HOUSE_MOODS, applyFinish, setRoomWa } from './wayo.js';
 
 const $ = s => document.querySelector(s), $$ = s => Array.from(document.querySelectorAll(s));
 const uid = () => 'o' + Date.now().toString(36) + Math.floor(Math.random() * 1e4).toString(36);
@@ -81,6 +82,7 @@ class App {
     window.addEventListener('hashchange', () => { if (/[#&]p=/.test(location.hash)) this.openFromLink(location.hash); });
     $('#mAI').onclick = () => this.aiSettings();
     $('#mModule').onclick = () => { this.setModule(this.module() === 'shaku' ? 'meter' : 'shaku'); };
+    $('#mWayo').onclick = () => { if (!this.project) return; const order = HOUSE_MOODS.map(x => x[0]); const m = order[(order.indexOf(houseMood(this.project)) + 1) % order.length]; this.project.settings.wayo = m; this.touched(); this.updateWayoLabel(); this.toast(`家の雰囲気を「${houseMoodName(this.project)}」にしました。` + (m === 'wa' ? '和室・洋室を決めていない部屋は和室として、和の物を先に出します。' : '和室の作り「あり」の部屋は和の物、ほかの部屋は洋の物を先に出します。') + '(間取りの部屋の欄で 和室/洋室 を切りかえられます)', 4500); };
     $('#mHelp').onclick = () => this.help();
     $('#mSpin').onclick = () => { this.closeSheets(); this.setMode('walk'); this.spin = 14; this.toast('ゆっくり一周します(14秒)。画面を録画すると紹介動画になります', 3500); };
     $('#mList').onclick = () => { this.closeSheets(); this.listItems(); };
@@ -151,7 +153,7 @@ class App {
   reload() { const cam = { x: this.s3.camera.position.x, z: this.s3.camera.position.z, yaw: this.walk.yaw, pitch: this.walk.pitch, gy: this.walk.floorY, lv: this.levelView }; const mode = this.mode; this.load(this.project); this.walk.floorY = cam.gy; this.levelView = cam.lv; this.s3.camera.position.set(cam.x, cam.gy + 1.5, cam.z); this.walk.yaw = cam.yaw; this.walk.pitch = cam.pitch; this.setMode(mode); }
   load(p) {
     if (p && p.items) p.items = p.items.filter(Boolean); // 作り直し中などで種類が見つからない物は飛ばす
-    this.project = p; p.assets = p.assets || {}; p.items = p.items || []; p.settings = p.settings || {}; setFloorH(p.settings.floorH || 2.9); for (const r of (p.rooms || [])) normalizeRoom(r); this.selectedId = null; this.setPin(null);
+    this.project = p; p.assets = p.assets || {}; p.items = p.items || []; p.settings = p.settings || {}; this.updateWayoLabel(); setFloorH(p.settings.floorH || 2.9); for (const r of (p.rooms || [])) normalizeRoom(r); this.selectedId = null; this.setPin(null);
     clearMaterialCache(); this.rebuildHouse(); this.rebuildItems(); this.setDaytime(p.settings.daytime || (p.settings.night ? 'night' : 'day'), true);
     const b = houseBounds(p.rooms); this.s3.setSunTarget((b.minX + b.maxX) / 2, (b.minZ + b.maxZ) / 2, Math.max(b.maxX - b.minX, b.maxZ - b.minZ) / 2 + 2);
     if (p.camera) { this.walk.floorY = p.camera.gy || 0; this.s3.camera.position.set(p.camera.x, this.walk.floorY + 1.5, p.camera.z); this.walk.yaw = p.camera.yaw || 0; this.walk.pitch = 0; }
@@ -300,9 +302,13 @@ class App {
 
   // ---------- 置く ----------
   openCatalog(equip = false) {
-    this.openSheet('catalog'); const tabs = $('#catTabs'), cards = $('#catCards'); tabs.innerHTML = ''; const cats = equip ? EQUIP_CATEGORIES : CATEGORIES; const key = equip ? '_ecat' : '_cat'; this[key] = cats.includes(this[key]) ? this[key] : cats[0];
-    $('#catTitle').textContent = equip ? '設備を付ける' : '置くもの'; $('#catHint').textContent = equip ? '見ている壁や床に付けます。コンセントやスイッチは一般的な高さに自動で付きます(あとで上下に動かせます)。' : '選ぶと、見ている場所(画面の中央の○)に置きます。';
-    for (const c of cats) { const b = document.createElement('button'); b.textContent = c; b.classList.toggle('on', c === this[key]); b.onclick = () => { this[key] = c; this._catType = null; this.openCatalog(equip); }; tabs.appendChild(b); }
+    this.openSheet('catalog'); const tabs = $('#catTabs'), cards = $('#catCards'); tabs.innerHTML = ''; const key = equip ? '_ecat' : '_cat';
+    // 和室なら「和の家具」を先頭に、洋室なら最後の「ほかも見る」へ(wayo.js)
+    const t0 = this.target(), wroom = (t0 && t0.roomId && this.room(t0.roomId)) || this.currentRoom(), isWa = roomIsWa(wroom, this.project);
+    let cats = equip ? EQUIP_CATEGORIES : CATEGORIES; if (!equip && cats.includes('和の家具')) { const rest = cats.filter(c => c !== '和の家具'); cats = isWa ? ['和の家具', ...rest] : [...rest, '和の家具']; }
+    this[key] = cats.includes(this[key]) ? this[key] : cats[0];
+    $('#catTitle').textContent = equip ? '設備を付ける' : '置くもの'; $('#catHint').textContent = equip ? '見ている壁や床に付けます。コンセントやスイッチは一般的な高さに自動で付きます(あとで上下に動かせます)。' : `選ぶと、見ている場所(画面の中央の○)に置きます。${wroom ? `${wroom.name}は${isWa ? '和室' : '洋室'}なので、${isWa ? '和' : '洋'}の物を先に出しています。` : ''}`;
+    for (const c of cats) { const b = document.createElement('button'); const other = !equip && !isWa && c === '和の家具'; b.textContent = other ? 'ほかも見る:和の家具' : c; if (other) b.className = 'tab-more'; b.classList.toggle('on', c === this[key]); b.onclick = () => { this[key] = c; this._catType = null; this.openCatalog(equip); }; tabs.appendChild(b); }
     if (equip) { const hb = document.createElement('button'); hb.textContent = this.hideEquip ? '👁 設備を見せる' : '🙈 設備を隠す'; hb.onclick = () => { this.hideEquip = !this.hideEquip; this.applyEquipVisibility(); this.openCatalog(true); }; tabs.appendChild(hb); }
     cards.innerHTML = '';
     const put = (type, style) => { const e = CATALOG[type]; const it = this.place(type, this.target(), style ? { style } : {}); if (it) { this.closeSheets(); this.select(it.id); this.toast((style ? styleOf(it).name + 'の' : '') + e.name + 'を置きました。指で引っぱると動かせます'); } };
@@ -310,7 +316,12 @@ class App {
     // 形がいくつもあるもの(ベッドなど)は、押すと形の一覧を出す
     if (this._catType && CATALOG[this._catType] && CATALOG[this._catType].cat === this[key]) { const type = this._catType, e = CATALOG[type]; const back = document.createElement('button'); back.className = 'card'; back.innerHTML = '←<b>もどる</b>'; back.onclick = () => { this._catType = null; this.openCatalog(equip); }; cards.appendChild(back); for (const st of e.styles) card(type, e, st.id, st.name).onclick = () => { this._catType = null; put(type, st.id); }; return; }
     this._catType = null;
-    for (const [type, e] of Object.entries(CATALOG)) { if (e.cat !== this[key] || !!e.equip !== equip) continue; const many = e.styles && e.styles.length > 1 ? e.styles.length : 0; card(type, e, null, e.name, many).onclick = () => { if (many) { this._catType = type; this.openCatalog(equip); } else put(type); }; }
+    const one = ([type, e]) => { const many = e.styles && e.styles.length > 1 ? e.styles.length : 0; card(type, e, null, e.name, many).onclick = () => { if (many) { this._catType = type; this.openCatalog(equip); } else put(type); }; };
+    const list = Object.entries(CATALOG).filter(([, e]) => e.cat === this[key] && !!e.equip === equip);
+    const { main, more } = sortByWayo(list, isWa, 'items', x => x[0]); main.forEach(one);
+    // 部屋に合わない物は「ほかも見る」にまとめる(隠しきらない。合う物が1つもないタブはそのまま出す)
+    if (more.length && !main.length) more.forEach(one);
+    else if (more.length) { const open = !!this._catMore; const mb = document.createElement('button'); mb.className = 'more-row'; mb.textContent = `${open ? '▲' : '▼'} ほかも見る(${isWa ? '洋' : '和'}の物 ${more.length})`; mb.onclick = () => { this._catMore = !open; this.openCatalog(equip); }; cards.appendChild(mb); if (open) more.forEach(one); }
   }
   // 種類と場所から、置き場所を決めて置く
   place(type, t, over = {}) {
@@ -519,7 +530,7 @@ class App {
     const tabs = $('#surfTabs'); tabs.innerHTML = ''; for (const n of ['床', '壁', '天井', '縁・枠']) { const b = document.createElement('button'); b.textContent = n; b.classList.toggle('on', n === this._surfTab); b.onclick = () => this.openSurfaces(n); tabs.appendChild(b); }
     const room = (t && t.roomId && this.room(t.roomId)) || this.currentRoom(); if (!room) return;
     const side = (t && (t.kind === 'wall' || t.kind === 'window') && t.edge !== undefined) ? t.edge : null;
-    $('#surfHint').textContent = this._surfTab === '床' ? `${room.name}の床` : this._surfTab === '天井' ? `${room.name}の天井` : side !== null ? `${room.name}の${edgeName(room, side)}(見ている壁)。下の「全部の壁」で全部に。` : `${room.name}の壁。見ている壁がないので全部の壁に貼ります。`;
+    $('#surfHint').textContent = (roomIsWa(room, this.project) ? '【和室】' : '【洋室】') + (this._surfTab === '床' ? `${room.name}の床` : this._surfTab === '天井' ? `${room.name}の天井` : side !== null ? `${room.name}の${edgeName(room, side)}(見ている壁)。下の「全部の壁」で全部に。` : `${room.name}の壁。見ている壁がないので全部の壁に貼ります。`);
     $('#surfColors').classList.toggle('hidden', this._surfTab === '縁・枠'); $('#surfPhotoRow').classList.toggle('hidden', this._surfTab === '縁・枠'); $('#surfCards').className = this._surfTab === '縁・枠' ? 'trim-list' : 'cards';
     if (this._surfTab === '縁・枠') { this.renderTrim(room); return; }
     const kind = this._surfTab === '床' ? 'floor' : 'wall';
@@ -529,8 +540,12 @@ class App {
     if (this._surfTab === '壁') { const all = document.createElement('button'); all.className = 'chip text' + (this._allWalls ? ' on' : ''); all.textContent = '全部の壁'; all.onclick = () => { this._allWalls = !this._allWalls; this.openSurfaces(this._surfTab); }; colors.appendChild(all); }
     for (const [n, hex] of Object.entries(COLORS)) { const b = document.createElement('button'); b.className = 'chip'; b.style.background = hex; b.title = n; b.onclick = () => apply(kind === 'floor' ? { lib: 'carpet_b', color: hex } : { color: hex }); colors.appendChild(b); }
     const cards = $('#surfCards'); cards.innerHTML = '';
-    for (const e of SURFACE_LIB[kind]) { const b = document.createElement('button'); b.className = 'card sw'; b.appendChild(swatchCanvas(kind, e.id)); const bb = document.createElement('b'); bb.textContent = e.name; b.appendChild(bb); b.onclick = () => apply({ lib: e.id }); cards.appendChild(b); }
+    // 和室なら和の材料、洋室なら洋の材料を先に。反対側は最後の「ほかも見る」へ(wayo.js)
+    const isWa = roomIsWa(room, this.project), wk = this._surfTab === '床' ? 'floor' : this._surfTab === '天井' ? 'ceiling' : 'wall';
+    const one = e => { const b = document.createElement('button'); b.className = 'card sw'; b.appendChild(swatchCanvas(kind, e.id)); const bb = document.createElement('b'); bb.textContent = e.name; b.appendChild(bb); b.onclick = () => apply({ lib: e.id }); cards.appendChild(b); };
+    const { main, more } = sortByWayo(SURFACE_LIB[kind], isWa, wk); main.forEach(one);
     for (const [id, a] of Object.entries(this.project.assets)) { if (a.kind !== 'tile') continue; const b = document.createElement('button'); b.className = 'card sw'; const img = document.createElement('img'); img.src = a.dataUrl; b.appendChild(img); const bb = document.createElement('b'); bb.textContent = a.name || '写真'; b.appendChild(bb); b.onclick = () => apply({ user: id, size: a.size || 0.5 }); cards.appendChild(b); }
+    if (more.length) { const open = !!this._surfMore; const mb = document.createElement('button'); mb.className = 'more-row'; mb.textContent = `${open ? '▲' : '▼'} ほかも見る(${isWa ? '洋' : '和'}の材料 ${more.length})`; mb.onclick = () => { this._surfMore = !open; this.openSurfaces(this._surfTab); }; cards.appendChild(mb); if (open) more.forEach(one); }
     $('#surfPhoto').onchange = e => { const f = e.target.files[0]; e.target.value = ''; if (f) this.userTextureFor(f, kind, null, apply); };
   }
   // 廻り縁・巾木・窓枠・ドア枠の設定
@@ -736,11 +751,22 @@ class App {
   // ---------- 部屋 ----------
   fillPresets() { const m = this.module(); for (const x of $$('#roomModules .chip')) x.classList.toggle('on', x.dataset.module === m); $('#moduleNote').textContent = MODULES[m].desc; const box = $('#roomPresets'); box.innerHTML = ''; for (const [n, w, d] of ROOM_PRESETS[m]) { const b = document.createElement('button'); b.className = 'chip text'; const jo = joOf(w * d / 1e6); b.innerHTML = m === 'shaku' ? `${n}<small> ${w.toLocaleString()}×${d.toLocaleString()}</small>` : `${n}<small> 約${jo}帖</small>`; b.onclick = () => { $('#nrW').value = w; $('#nrD').value = d; this.updateRoomNote(); }; box.appendChild(b); } this.updateRoomNote(); }
   updateRoomNote() { const w = parseFloat($('#nrW').value) || 0, d = parseFloat($('#nrD').value) || 0; const iw = w - 120, idd = d - 120; $('#nrNote').textContent = w > 200 && d > 200 ? `内法(うちのり) 約 ${iw.toLocaleString()}×${idd.toLocaleString()}mm・約${joOf(w * d / 1e6)}帖(壁芯 ${(w * d / 1e6).toFixed(2)}㎡、1帖=1.62㎡)` : ''; }
-  openNewRoom(pre) { this.openSheet('newroom'); this.fillPresets(); if (pre && pre.size) { if (pre.size.w) $('#nrW').value = Math.round(pre.size.w * 1000) + 120; if (pre.size.d) $('#nrD').value = Math.round(pre.size.d * 1000) + 120; this.updateRoomNote(); } if (pre && pre.name) $('#nrName').value = pre.name; if (pre && pre.shape) { this._shape = pre.shape; for (const x of $$('#roomShapes .shape-chip')) x.classList.toggle('on', x.dataset.shape === pre.shape); const sh = ROOM_SHAPES.find(r => r[0] === pre.shape); if (sh) $('#shapeNote').textContent = sh[2]; } }
+  updateWayoLabel() { const b = $('#mWayo'); if (b) b.textContent = `🏯 家の雰囲気:${houseMoodName(this.project)}`; }
+  // 新しい部屋の欄:家の雰囲気(和風/洋風/まざり)と、この部屋(和室/洋室)
+  fillWayoChips() {
+    const mk = (box, items, cur, on) => { box.innerHTML = ''; for (const [v, label] of items) { const b = document.createElement('button'); b.className = 'chip text' + (v === cur ? ' on' : ''); b.textContent = label; b.onclick = () => on(v); box.appendChild(b); } };
+    mk($('#houseMood'), HOUSE_MOODS, this._nrMood, v => { this._nrMood = v; this.setNrWa(v === 'wa'); });
+    mk($('#roomWayo'), [['yo', '洋室'], ['wa', '和室']], this._nrWa ? 'wa' : 'yo', v => this.setNrWa(v === 'wa'));
+    $('#roomWayoNote').textContent = this._nrWa ? '畳・聚楽壁(土の壁)・竿縁天井・柱と長押' : this._nrMood === 'yo' ? 'フローリング・白い壁紙' : 'フローリング';
+  }
+  setNrWa(wa) { this._nrWa = wa; const n = $('#nrName'); if (['', 'リビング', '和室', '洋室'].includes(n.value)) n.value = wa ? '和室' : 'リビング'; this.fillWayoChips(); }
+  openNewRoom(pre) { this.openSheet('newroom'); this.fillPresets(); this._nrMood = houseMood(this.project); this.setNrWa(this._nrMood === 'wa'); if (pre && pre.size) { if (pre.size.w) $('#nrW').value = Math.round(pre.size.w * 1000) + 120; if (pre.size.d) $('#nrD').value = Math.round(pre.size.d * 1000) + 120; this.updateRoomNote(); } if (pre && pre.name) $('#nrName').value = pre.name; if (pre && pre.shape) { this._shape = pre.shape; for (const x of $$('#roomShapes .shape-chip')) x.classList.toggle('on', x.dataset.shape === pre.shape); const sh = ROOM_SHAPES.find(r => r[0] === pre.shape); if (sh) $('#shapeNote').textContent = sh[2]; } }
   makeNewRoom() {
     if (!this.project) this.project = this.blankProject(); const w = Math.max(0.6, ((parseFloat($('#nrW').value) || 3640) - 120) / 1000), d = Math.max(0.6, ((parseFloat($('#nrD').value) || 2730) - 120) / 1000), h = Math.max(1.8, (parseFloat($('#nrH').value) || 2400) / 1000); const name = $('#nrName').value || '部屋';
     const b = houseBounds(this.project.rooms); const x = this.project.rooms.length ? b.maxX + WALL_T : 0, z = this.project.rooms.length ? b.minZ : 0; if (this._shape === 'bay') { /* 出窓は北側にはみ出す */ }
     const shape = this._shape || 'rect'; const lv = this.mode === 'plan' ? this.plan.level : this.walkLevel(); const room = { id: 'r' + Date.now().toString(36), name, level: lv, x, z, w, d, h, poly: shapePoly(shape, x, z, w, d, MODULES[this.module()].half), floor: { lib: 'oak' }, ceiling: { color: '#f7f6f2' }, walls: {}, openings: [], parts: [] }; normalizeRoom(room);
+    // 家の雰囲気と、和室/洋室(wayo.js)。和なら畳・聚楽壁・竿縁天井、洋風の家の洋室ならフローリング・白い壁紙
+    this.project.settings.wayo = this._nrMood || houseMood(this.project); this.updateWayoLabel(); const nrWa = this._nrWa ?? houseMood(this.project) === 'wa'; setRoomWa(room, nrWa, this.project); if (nrWa) applyFinish(room, true); else if (this._nrMood === 'yo') applyFinish(room, false);
     if (shape === 'column') room.parts.push({ id: uid(), type: 'column', x: x + w - 0.45, z, w: 0.45, d: 0.45 });
     if (shape === 'bay') { const e0 = edgeForCompass(room, 'N') ?? 0; const L = wallLength(room, e0); const bw = Math.min(2.03, L - 0.6); room.openings.push({ id: uid(), edge: e0, type: 'window', u: (L - bw) / 2, w: bw, h: 1.17, sill: 0.9, bay: 'trap', bayDepth: 0.23 }); }
     else if ($('#nrWin').checked) { let best = null, bl = 0; for (let e = 0; e < room.poly.length; e++) { const f = edgeFrame(room, e); if (f.normal.z > 0.7 && f.L > bl) { best = e; bl = f.L; } } if (best !== null) { const ww = Math.min(1.65, bl - 0.6); if (ww > 0.5) room.openings.push({ id: uid(), edge: best, type: 'window', u: (bl - ww) / 2, w: ww, h: bl > 2 ? 1.8 : 1.1, sill: bl > 2 ? 0.4 : 0.9 }); } }

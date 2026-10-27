@@ -4,6 +4,7 @@ import { WALL_T, wallLength, houseBounds, neighborAcross, edgeFrame, edgeName, n
 import { stairLayout, STAIR_KINDS, STAIR_STYLES, STAIR_CELLS, stairKindName } from './stairs.js';
 import { catalogEntry } from './items.js';
 import { SURFACE_LIB, TRIM_FINISHES } from './textures.js';
+import { roomIsWa, setRoomWa, finishMatches, applyFinish, wayoOf } from './wayo.js';
 
 export class PlanEditor {
   constructor(app, canvas) {
@@ -88,7 +89,10 @@ export class PlanEditor {
     const { owner, flip } = this.doorOwner(room, o); const swing = (owner.swing === 'out') !== flip ? 'out' : 'in'; const hinge = (owner.hinge === 'right') !== flip ? 'right' : 'left'; const open = owner.open ?? 0.9;
     const chip = (act, val, label, on) => `<button class="chip text${on ? ' on' : ''}" data-act="${act}" data-v="${val}">${label}</button>`;
     const st = owner.style || 'swing', slide = isSlideStyle(st), rm = owner.ranma ? (owner.ranmaStyle || 'koshi') : '';
-    const kinds = [['swing', '開き戸'], ['slide', '引き戸'], ['fusuma', '襖'], ['shoji', '障子'], ['glassdoor', 'ガラス戸(木)'], ['koshi', '格子戸']].map(([v, l]) => chip('dkind', v, l, st === v)).join('');
+    // 和室なら 襖・障子・格子戸 などの和の戸を先に(wayo.js)
+    let kl = [['swing', '開き戸'], ['slide', '引き戸'], ['fusuma', '襖'], ['shoji', '障子'], ['glassdoor', 'ガラス戸(木)'], ['koshi', '格子戸']];
+    if (roomIsWa(room, this.app.project)) kl = [...kl.filter(k => wayoOf('door', k[0]) === 'wa'), ...kl.filter(k => wayoOf('door', k[0]) !== 'wa')];
+    const kinds = kl.map(([v, l]) => chip('dkind', v, l, st === v)).join('');
     return `<div class="door-set"><div><span>戸の種類</span>${kinds}</div>
       ${slide ? '' : `<div><span>開く向き</span>${chip('dswing', 'in', '内開き(この部屋へ)', swing === 'in')}${chip('dswing', 'out', '外開き(向こうへ)', swing === 'out')}</div>
       <div><span>丁番の位置</span>${chip('dhinge', 'left', '左', hinge === 'left')}${chip('dhinge', 'right', '右', hinge === 'right')}<small>この部屋の中から ドアを見て</small></div>`}
@@ -106,8 +110,8 @@ export class PlanEditor {
   // 収納の戸:折れ戸・引き違い・襖、開け閉め
   closetInfo(r, o) { const own = o.twin ? this.doorOwner(r, o).owner : o; const chip = (act, v, label, on) => `<button class="chip text${on ? ' on' : ''}" data-act="${act}" data-v="${v}">${label}</button>`;
     return `<div class="lbl">戸の種類</div><div class="chips">${chip('cstyle', 'fold', '折れ戸', (own.style || 'fold') === 'fold')}${chip('cstyle', 'slide', '引き違い', own.style === 'slide')}${chip('cstyle', 'fusuma', '襖(ふすま)', own.style === 'fusuma')}</div><div class="chips">${chip('copen', '0', '閉める', !(own.open > 0.5))}${chip('copen', '1', '開ける', own.open > 0.5)}</div>`; }
-  roomTypeInfo(r) { const chip = (v, label) => `<button class="chip text${(r.closet || '') === v ? ' on' : ''}" data-act="rtype" data-v="${v}">${label}</button>`;
-    return `<div class="lbl">部屋の使い方</div><div class="chips">${chip('', 'ふつうの部屋')}${chip('cl', 'クローゼット')}${chip('wic', 'ウォークイン')}${chip('oshiire', '押入れ')}${chip('sic', 'シューズクローク')}${chip('storage', '納戸・物入れ')}</div><div class="lbl">和室の作り(柱・長押を見せる)</div><div class="chips"><button class="chip text${r.wa ? '' : ' on'}" data-act="rwa" data-v="">なし</button><button class="chip text${r.wa ? ' on' : ''}" data-act="rwa" data-v="1">あり</button></div>`; }
+  roomTypeInfo(r) { const wa = roomIsWa(r, this.app.project); const chip = (v, label) => `<button class="chip text${(r.closet || '') === v ? ' on' : ''}" data-act="rtype" data-v="${v}">${label}</button>`;
+    return `<div class="lbl">部屋の使い方</div><div class="chips">${chip('', 'ふつうの部屋')}${chip('cl', 'クローゼット')}${chip('wic', 'ウォークイン')}${chip('oshiire', '押入れ')}${chip('sic', 'シューズクローク')}${chip('storage', '納戸・物入れ')}</div><div class="lbl">和室/洋室(一覧で合う物を先に出す)</div><div class="chips"><button class="chip text${wa ? '' : ' on'}" data-act="rwa" data-v="">洋室</button><button class="chip text${wa ? ' on' : ''}" data-act="rwa" data-v="1">和室(柱・長押を見せる)</button></div>${finishMatches(r, wa) ? '' : `<div class="chips"><button class="chip text" data-act="rwafin" data-v="${wa ? 1 : ''}">${wa ? '床・壁・天井も和にする(畳・聚楽壁・竿縁天井)' : '床・壁・天井も洋にする(フローリング・白い壁紙)'}</button></div>`}`; }
   bayInfo(o) { const chip = (v, label) => `<button class="chip text${(o.bay || 'none') === v ? ' on' : ''}" data-act="obay" data-v="${v}">${label}</button>`;
     return `<div class="door-set"><div><span>出窓</span>${chip('none', 'ふつうの窓')}${chip('trap', '台形の出窓')}${chip('box', '角(箱型)の出窓')}</div></div>${o.bay ? `<div class="dims">${this.field('obd', '出幅(mm)', mmRaw(o.bayDepth ?? (o.bay === 'trap' ? 0.23 : 0.45)))}</div>` : ''}`; }
   bindInfo() {
@@ -135,7 +139,8 @@ export class PlanEditor {
       if (act === 'cwalk') { const it = s.item; this.setCeil(false); app.setMode('walk'); app.select(it.id); }
       if (act === 'bfin' || act === 'bwood' || act === 'bcross') { const p = s.part; app.snapshot(); if (act === 'bfin') { p.finish = b.dataset.v; this.beamResize(p); if (p.finish === 'wood' && (p.drop || 0.1) < 0.15) p.drop = 0.15; else if (p.finish === 'cross' && p.drop === 0.15) p.drop = 0.1; } if (act === 'bwood') p.wood = b.dataset.v; if (act === 'bcross') { if (b.dataset.v) p.cross = { lib: b.dataset.v }; else delete p.cross; } app.rebuildHouse(); app.touched(); this.draw(); this.info(null); app.toast(p.finish === 'wood' ? '化粧梁(木を見せる)にしました' : 'クロス巻き込みにしました', 1500); }
       if (act === 'cstyle' || act === 'copen') { const own = s.opening.twin ? this.doorOwner(s.room, s.opening).owner : s.opening; app.snapshot(); if (act === 'cstyle') own.style = b.dataset.v; else own.open = +b.dataset.v; app.rebuildHouse(); app.touched(); this.draw(); this.info(null); }
-      if (act === 'rwa') { app.snapshot(); if (b.dataset.v) s.room.wa = s.room.wa || { wood: 'wood_medium' }; else delete s.room.wa; app.rebuildHouse(); app.touched(); this.draw(); this.info(null); }
+      if (act === 'rwa') { app.snapshot(); setRoomWa(s.room, !!b.dataset.v, app.project); app.rebuildHouse(); app.touched(); this.draw(); this.info(null); app.toast(b.dataset.v ? '和室にしました(柱・長押を見せます)' : '洋室にしました', 1500); }
+      if (act === 'rwafin') { app.snapshot(); applyFinish(s.room, !!b.dataset.v); app.rebuildHouse(); app.touched(); this.draw(); this.info(null); app.toast(b.dataset.v ? '床・壁・天井を和にしました' : '床・壁・天井を洋にしました', 1500); }
       if (act === 'rtype') { app.setRoomType(s.room, b.dataset.v); this.draw(); this.info(null); }
       if (act === 'skind' || act === 'sstyle' || act === 'sdir' || act === 'sflip' || act === 'sfit') { app.stairEdit(s.room, act, b.dataset.v); this.fit(); this.draw(); this.info(null); }
       if (act === 'chamfer') { app.snapshot(); const len = parseFloat(prompt('斜めにする長さ(mm)', '800')) / 1000; if (len > 0.05) { chamferVertex(s.room, s.index, len); this.sel = { kind: 'room', room: s.room }; redo(); } }

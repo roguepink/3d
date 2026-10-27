@@ -1,7 +1,7 @@
 // 部屋のデータ → 壁・床・天井・窓・ドア・柱型・袖壁・梁 の3D
 // 部屋の形は多角形(poly: [[x,z],...] 絶対座標)。壁は多角形の「辺(edge)」。開口は辺の番号(edge)と、辺の始点からの距離(u)。
 import * as THREE from 'three';
-import { surfaceMaterial, trimMaterial } from './textures.js';
+import { surfaceMaterial, trimMaterial, CEIL_3D } from './textures.js';
 import { mergeGroup } from './merge.js';
 import { buildStair, stairHeights } from './stairs.js';
 
@@ -361,6 +361,19 @@ function buildWaWall(room, e, f, L, H, holes, wood, group) {
     for (const [a, b] of segs) { if (b - a < 0.05) continue; const m = tag(box(b - a, 0.09, 0.04, wood), 'nageshi'); m.position.copy(wallPoint(room, e, (a + b) / 2, y, 0.035)); m.rotation.y = f.rotY; } }
 }
 
+// 和室の天井の立体の部材:竿縁(一方向の細い竿)・網代と格天井(格子)。天井と同じく、上から見る画面では隠れる(kind:'ceiling')
+const ceilMats = new Map();
+function scanPoly(poly, axis, c) { const xs = []; for (let i = 0; i < poly.length; i++) { const [x1, z1] = poly[i], [x2, z2] = poly[(i + 1) % poly.length]; const p1 = axis === 'z' ? z1 : x1, p2 = axis === 'z' ? z2 : x2, q1 = axis === 'z' ? x1 : z1, q2 = axis === 'z' ? x2 : z2; if ((p1 <= c && p2 > c) || (p2 <= c && p1 > c)) xs.push(q1 + (c - p1) / (p2 - p1) * (q2 - q1)); } xs.sort((a, b) => a - b); const out = []; for (let i = 0; i + 1 < xs.length; i += 2) out.push([xs[i], xs[i + 1]]); return out; }
+function buildCeil3D(room, H, group) {
+  const spec = room.ceiling && CEIL_3D[room.ceiling.lib]; if (!spec) return;
+  if (!ceilMats.has(spec.color)) ceilMats.set(spec.color, new THREE.MeshStandardMaterial({ color: spec.color, roughness: .55 })); const mat = ceilMats.get(spec.color);
+  const b = polyBounds(room.poly), y = H - spec.d / 2;
+  const lines = axis => { const lo = axis === 'z' ? b.minZ : b.minX, hi = axis === 'z' ? b.maxZ : b.maxX, L = hi - lo, n = Math.max(1, Math.round(L / spec.step)), st = L / n;
+    for (let i = 1; i < n; i++) { const c = lo + st * i; for (const [a, e] of scanPoly(room.poly, axis, c)) { const len = e - a; if (len < .05) continue;
+      const m = box(axis === 'z' ? len : spec.w, spec.d, axis === 'z' ? spec.w : len, mat); m.castShadow = false; m.position.set(axis === 'z' ? (a + e) / 2 : c, y, axis === 'z' ? c : (a + e) / 2); m.userData = { kind: 'ceiling', roomId: room.id, mergeKey: 'ceil3d' }; group.add(m); } } };
+  lines('z'); if (spec.kind === 'grid') lines('x');
+}
+
 export function buildRoom(room, project, group) {
   normalizeRoom(room);
   const assets = project.assets || {};
@@ -378,6 +391,7 @@ export function buildRoom(room, project, group) {
   const ceil = new THREE.Mesh(slabGeometry(room.poly, false), surfaceMaterial('wall', room.ceiling || { color: '#f7f7f4' }, { w: room.w, h: room.d }, assets));
   ceil.rotation.x = Math.PI / 2; ceil.position.y = H; ceil.receiveShadow = true;
   ceil.userData = { kind: 'ceiling', roomId: room.id, keep: true }; roomGroup.add(ceil); pick.push(ceil);
+  buildCeil3D(room, H, roomGroup);
   // 壁(辺ごと)
   const n = room.poly.length;
   for (let e = 0; e < n; e++) {

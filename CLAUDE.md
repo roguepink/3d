@@ -90,7 +90,7 @@
 ## 和風の家・小物(2026-10-28)
 - ノブさんの希望:映画の「祖母の家」のような、**昭和の田舎の和風の家**(続き間・縁側・掘りごたつ・格子戸の玄関)を作れるように。映える古民家ではなく、使い込んだ普通の家。
 - 家の作り(house.js):`room.wa = { wood, hashira, nageshi, kamoi }` で真壁の柱・長押・木の枠。戸の style に `shoji` / `glassdoor` / `koshi`(WA_SLIDE)と、4枚以上の `fusuma`(`panels`)。`ranma` / `ranmaStyle` で欄間(となりの部屋の側も持ち主の設定で穴があく)。`toko:'left'|'right'` で床の間の口(床柱・落とし掛け。床框は sill と kamachi)。床の間は `drop:-0.1` の小さい部屋。
-- 材料(textures.js):床 tatami_old・tokoita・engawa・araidashi、壁 juraku・sunakabe_g・sunakabe_b、天井 sao・sao_light。
+- 材料(textures.js):床 tatami_old・tokoita・engawa・araidashi、壁 juraku・sunakabe_g・sunakabe_b、天井 sao・sao_light・tenjo_mesukashi・tenjo_ajiro・tenjo_gou・tenjo_mokume(2026-10-28 本物の和室の写真を見て作り直し。板は杉の山形の木目を絵で、竿縁・網代の枠・格天井の格子は house.js の buildCeil3D が CEIL_3D(textures.js)から立体で付ける。天井と同じく上から見る画面では隠れる)。
 - 図面の画面:ドアに「戸の種類」(開き戸・引き戸・襖・障子・ガラス戸・格子戸)と「欄間」、部屋に「和室の作り あり/なし」。
 - 置くもの:`js/wafu.js`(和の家具 22種:ちゃぶ台・掘りごたつ・座布団・仏壇・茶だんす・柱時計・黒電話・家具調テレビ・石油ストーブ・扇風機・和の照明・布団・掛け軸・長靴 など)、`js/komono.js`(小物 13種:掛け時計・置き時計・本・写真立て・額とポスター・カレンダー・日用品・コート掛け・傘立て・段ボール・ラジカセ・壁のフック・卓上ライト)。
 - 見本:`examples/wafu-mihon.js`(続き間・床の間・縁側・格子戸の玄関)。

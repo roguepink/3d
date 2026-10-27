@@ -142,12 +142,57 @@ function drawJuraku(g, w, h, r, { base = '#c9b48a', fiber = 0.08 }) {
   g.fillStyle = base; g.fillRect(0, 0, w, h); noise(g, w, h, r, 0.16);
   g.lineWidth = 1; for (let i = 0; i < w * h * fiber / 300; i++) { g.strokeStyle = r() > .5 ? 'rgba(90,70,40,.35)' : 'rgba(255,245,220,.35)'; const x = r() * w, y = r() * h, a = r() * Math.PI, l = 2 + r() * 5; g.beginPath(); g.moveTo(x, y); g.lineTo(x + Math.cos(a) * l, y + Math.sin(a) * l); g.stroke(); }
 }
-// 竿縁天井:細い板を張り、竿(細い角材)を 450mm ごとに通す
-function drawSaobuchi(g, w, h, r, { base = '#b48e62', dark = '#7a5a3a', sao = '#5b4027', tile = 1.8 }) {
-  drawWood(g, w, h, r, { base, dark, plankW: 0.3, tile, grainAlpha: 0.3 });
-  const ppm = w / tile, sw = Math.max(2, 0.035 * ppm); g.fillStyle = sao; for (let x = 0; x < w; x += 0.45 * ppm) g.fillRect(x, 0, sw, h);
-  g.fillStyle = 'rgba(0,0,0,.25)'; for (let x = 0; x < w; x += 0.45 * ppm) g.fillRect(x + sw, 0, 1.5, h);
+// ---------- 和室の天井(2026-10-28 本物の和室の写真を見て作り直し) ----------
+// 天井板1枚:杉の板目(山形の木目)/柾目(まっすぐの筋)。板の長い向きは絵の縦(y)。赤身(芯の赤い所)をときどき入れる
+function ceilBoard(g, x, y, bw, bh, r, o) {
+  g.save(); g.beginPath(); g.rect(x, y, bw, bh); g.clip();
+  const c = new THREE.Color(o.base); c.offsetHSL((r() - .5) * .015, (r() - .5) * .06, (r() - .5) * .06); g.fillStyle = '#' + c.getHexString(); g.fillRect(x, y, bw, bh);
+  if (o.red && r() < .65) { const rw = bw * (.25 + r() * .35), rx = x + bw * (.1 + r() * .5), gr = g.createLinearGradient(rx, 0, rx + rw, 0); gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(.5, o.red); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.globalAlpha = .4; g.fillStyle = gr; g.fillRect(rx, y, rw, bh); g.globalAlpha = 1; }
+  g.strokeStyle = o.dark; g.lineCap = 'round';
+  if (o.cathedral) {
+    const cx = x + bw * (.3 + r() * .4), n = 9 + Math.floor(r() * 6), tip0 = y + bh * (.1 + r() * .6);
+    for (let k = 0; k < n; k++) { const sp = bw * (.01 + k * .03), tip = tip0 - k * bh * .028, fl = bw * (.1 + k * .022);
+      g.globalAlpha = o.alpha * (.55 + r() * .5); g.lineWidth = 1 + r() * 1.6;
+      g.beginPath(); g.moveTo(cx - sp, bh * 2 + y); for (let t = 40; t >= 0; t--) { const yy = tip + (y + bh * 1.4 - tip) * t / 40; g.lineTo(cx - sp - Math.sqrt(t / 40) * fl + Math.sin(t * .5 + k) * .8, yy); }
+      g.arc(cx, tip, sp, Math.PI, 0); for (let t = 0; t <= 40; t++) { const yy = tip + (y + bh * 1.4 - tip) * t / 40; g.lineTo(cx + sp + Math.sqrt(t / 40) * fl + Math.sin(t * .5 + k + 1) * .8, yy); } g.stroke(); }
+  }
+  // 細かい筋(年輪の細い線)を板いっぱいに
+  for (let k = 0; k < 40; k++) { const xx = x + bw * r(); g.globalAlpha = o.alpha * (.12 + r() * .25); g.lineWidth = .6 + r() * .8; g.beginPath(); g.moveTo(xx, y); for (let t = 1; t <= 8; t++) g.lineTo(xx + Math.sin(t * .7 + k) * 1.5, y + bh * t / 8); g.stroke(); }
+  // 両わきの柾目(まっすぐの筋)
+  const m = o.cathedral ? 7 : 26; for (let k = 0; k < m; k++) { const side = o.cathedral ? (k % 2 ? x + bw * (.9 - r() * .08) : x + bw * (.03 + r() * .08)) : x + bw * r(); g.globalAlpha = o.alpha * (.35 + r() * .6); g.lineWidth = .8 + r() * 1.2; g.beginPath(); g.moveTo(side, y); for (let t = 1; t <= 8; t++) g.lineTo(side + Math.sin(t + k) * 1.2, y + bh * t / 8); g.stroke(); }
+  g.globalAlpha = 1; g.restore();
 }
+// 板を縦に並べる(幅 bwM、長さ bhM のメートル)。joint:'hane'(羽重ね:細い影)/'gap'(目透かし:黒いすき間)/'v'(V溝)
+function drawCeilBoards(g, w, h, r, { tile = 1.82, bwM = .455, bhM = 1.82, joint = 'hane', gap = .009, ...o }) {
+  const ppm = w / tile, bw = bwM * ppm, bh = bhM * ppm; g.fillStyle = o.base; g.fillRect(0, 0, w, h);
+  for (let x = 0; x < w - 1; x += bw) ceilBoard(g, x, 0, bw, h, r, o); // 天井板は長いので、継ぎ目を作らない
+  noise(g, w, h, r, .045);
+  for (let x = 0; x < w - 1; x += bw) {
+    if (joint === 'gap') { const gw = Math.max(3, gap * ppm); g.fillStyle = '#2b2017'; g.fillRect(x - gw / 2, 0, gw, h); g.fillStyle = 'rgba(0,0,0,.18)'; g.fillRect(x + gw / 2, 0, 3, h); }
+    else if (joint === 'v') { g.fillStyle = 'rgba(60,30,10,.55)'; g.fillRect(x - 1.5, 0, 3, h); g.fillStyle = 'rgba(255,240,220,.35)'; g.fillRect(x + 1.5, 0, 1.5, h); }
+    else if (joint === 'none') continue;
+    else { g.fillStyle = 'rgba(70,45,25,.35)'; g.fillRect(x - 1, 0, 2, h); g.fillStyle = 'rgba(0,0,0,.08)'; g.fillRect(x + 1, 0, 4, h); }
+  }
+}
+// 網代:細い薄板(ひご)を市松に編む。マスごとに縦横が入れかわる
+function drawAjiro(g, w, h, r, { tile = .6, cell = .075, strips = 3, base = '#c9a06c' }) {
+  const ppm = w / tile, cs = cell * ppm, n = Math.round(w / cs), sw = cs / strips;
+  for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) { const vert = (i + j) % 2 === 0, x0 = i * cs, y0 = j * cs;
+    for (let k = 0; k < strips; k++) { const c = new THREE.Color(base); c.offsetHSL((r() - .5) * .02, (r() - .5) * .1, (r() - .5) * .16); g.fillStyle = '#' + c.getHexString();
+      const rx = vert ? x0 + k * sw : x0, ry = vert ? y0 : y0 + k * sw, rw = vert ? sw : cs, rh = vert ? cs : sw; g.fillRect(rx, ry, rw, rh);
+      g.strokeStyle = 'rgba(60,35,15,.25)'; g.lineWidth = 1; for (let q = 0; q < 3; q++) { const t = .2 + r() * .6; g.beginPath(); if (vert) { g.moveTo(rx + rw * t, ry); g.lineTo(rx + rw * t, ry + rh); } else { g.moveTo(rx, ry + rh * t); g.lineTo(rx + rw, ry + rh * t); } g.stroke(); }
+      g.strokeStyle = 'rgba(40,22,8,.55)'; g.lineWidth = 1.2; g.strokeRect(rx + .5, ry + .5, rw - 1, rh - 1); }
+    const sh = g.createLinearGradient(x0, y0, vert ? x0 : x0 + cs, vert ? y0 + cs : y0); sh.addColorStop(0, 'rgba(0,0,0,.18)'); sh.addColorStop(.25, 'rgba(0,0,0,0)'); sh.addColorStop(.75, 'rgba(0,0,0,0)'); sh.addColorStop(1, 'rgba(0,0,0,.18)'); g.fillStyle = sh; g.fillRect(x0, y0, cs, cs); }
+  noise(g, w, h, r, .05);
+}
+// 天井の材料ごとの立体の部材(house.js が使う)。sao=竿縁、grid=格子
+export const CEIL_3D = {
+  sao: { kind: 'sao', color: '#b98e62', step: .455, w: .03, d: .032 },
+  sao_light: { kind: 'sao', color: '#cfa77a', step: .455, w: .03, d: .032 },
+  tenjo_ajiro: { kind: 'grid', color: '#6e4c2c', step: .91, w: .03, d: .025 },
+  tenjo_gou: { kind: 'grid', color: '#a87c50', step: .485, w: .05, d: .055 },
+};
+
 // 日に焼けた古い畳(黄色っぽく、まだらに)
 function drawTatamiOld(g, w, h, r) {
   g.fillStyle = '#c4ad6c'; g.fillRect(0, 0, w, h);
@@ -219,8 +264,13 @@ export const SURFACE_LIB = {
     { id: 'juraku', bump: 0.006, name: '聚楽壁(黄土)', size: .8, rough: .97, draw: (g, w, h, r) => drawJuraku(g, w, h, r, { base: '#c9b48a' }) },
     { id: 'sunakabe_g', bump: 0.006, name: '砂壁(うぐいす)', size: .8, rough: .97, draw: (g, w, h, r) => drawJuraku(g, w, h, r, { base: '#a39c6a', fiber: .03 }) },
     { id: 'sunakabe_b', bump: 0.006, name: '砂壁(ベージュ)', size: .8, rough: .97, draw: (g, w, h, r) => drawJuraku(g, w, h, r, { base: '#d3c3a1', fiber: .05 }) },
-    { id: 'sao', bump: 0.004, name: '竿縁天井(木)', size: 1.8, rough: .6, draw: (g, w, h, r) => drawSaobuchi(g, w, h, r, {}) },
-    { id: 'sao_light', bump: 0.004, name: '竿縁天井(白木)', size: 1.8, rough: .6, draw: (g, w, h, r) => drawSaobuchi(g, w, h, r, { base: '#d6bc90', dark: '#b39467', sao: '#8d6c45' }) },
+    // 和室の天井(竿・格子は house.js が CEIL_3D から立体で付ける)
+    { id: 'sao', px: 1024, bump: 0.002, name: '竿縁天井(杉)', size: 1.82, rough: .7, draw: (g, w, h, r) => drawCeilBoards(g, w, h, r, { base: '#d9b58a', dark: '#94603a', red: '#b8693f', alpha: .5, cathedral: true }) },
+    { id: 'sao_light', px: 1024, bump: 0.002, name: '竿縁天井(白っぽい杉)', size: 1.82, rough: .7, draw: (g, w, h, r) => drawCeilBoards(g, w, h, r, { base: '#e8d2ae', dark: '#a87a50', red: '#cc8e62', alpha: .42, cathedral: true }) },
+    { id: 'tenjo_mesukashi', px: 1024, bump: 0.003, name: '目透かし天井', size: 1.82, rough: .65, draw: (g, w, h, r) => drawCeilBoards(g, w, h, r, { bwM: .455, joint: 'gap', base: '#e3c9a2', dark: '#9a6c44', red: '#c48a60', alpha: .42, cathedral: true }) },
+    { id: 'tenjo_ajiro', px: 1024, bump: 0.006, name: '網代天井', size: .6, rough: .8, draw: (g, w, h, r) => drawAjiro(g, w, h, r, {}) },
+    { id: 'tenjo_gou', px: 1024, bump: 0.002, name: '格天井', size: 1.82, rough: .6, draw: (g, w, h, r) => drawCeilBoards(g, w, h, r, { bwM: .455, joint: 'none', base: '#e0bf94', dark: '#8f6440', red: '#b8734a', alpha: .45, cathedral: true }) },
+    { id: 'tenjo_mokume', px: 1024, bump: 0.002, name: '木目の天井板(昭和)', size: 1.82, rough: .38, draw: (g, w, h, r) => drawCeilBoards(g, w, h, r, { bwM: .303, joint: 'v', base: '#cf935a', dark: '#74401a', red: '#a5582a', alpha: .55, cathedral: true }) },
     { id: 'plaster', bump: 0.004, name: '漆喰', size: 1, rough: .95, draw: (g, w, h, r) => drawPlain(g, w, h, r, { base: '#f6f4ee', alpha: .1 }) },
     { id: 'wp_beige', name: '壁紙(ベージュ)', size: 1, rough: .9, draw: (g, w, h, r) => drawPlain(g, w, h, r, { base: '#e3d6bf', alpha: .05 }) },
     { id: 'wp_greige', name: '壁紙(グレージュ)', size: 1, rough: .9, draw: (g, w, h, r) => drawPlain(g, w, h, r, { base: '#c9c0b4', alpha: .05 }) },
@@ -260,7 +310,7 @@ export function dropTexture(id) { texCache.delete('user:' + id); }
 
 export function libTexture(kind, id) {
   const e = libEntry(kind, id); if (!e) return null;
-  return canvasTexture(`${kind}:${id}`, kind === 'fabric' ? 256 : 512, e.draw);
+  return canvasTexture(`${kind}:${id}`, e.px || (kind === 'fabric' ? 256 : 512), e.draw);
 }
 // さわったときの見本の小さい絵
 export function swatchCanvas(kind, id, color) {
