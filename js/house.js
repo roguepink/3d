@@ -1,7 +1,7 @@
 // 部屋のデータ → 壁・床・天井・窓・ドア・柱型・袖壁・梁 の3D
 // 部屋の形は多角形(poly: [[x,z],...] 絶対座標)。壁は多角形の「辺(edge)」。開口は辺の番号(edge)と、辺の始点からの距離(u)。
 import * as THREE from 'three';
-import { surfaceMaterial, trimMaterial, CEIL_3D } from './textures.js';
+import { surfaceMaterial, trimMaterial, ceilSpec, ceilPanelMaterial } from './textures.js';
 import { mergeGroup } from './merge.js';
 import { buildStair, stairHeights } from './stairs.js';
 
@@ -365,13 +365,42 @@ function buildWaWall(room, e, f, L, H, holes, wood, group) {
 const ceilMats = new Map();
 function scanPoly(poly, axis, c) { const xs = []; for (let i = 0; i < poly.length; i++) { const [x1, z1] = poly[i], [x2, z2] = poly[(i + 1) % poly.length]; const p1 = axis === 'z' ? z1 : x1, p2 = axis === 'z' ? z2 : x2, q1 = axis === 'z' ? x1 : z1, q2 = axis === 'z' ? x2 : z2; if ((p1 <= c && p2 > c) || (p2 <= c && p1 > c)) xs.push(q1 + (c - p1) / (p2 - p1) * (q2 - q1)); } xs.sort((a, b) => a - b); const out = []; for (let i = 0; i + 1 < xs.length; i += 2) out.push([xs[i], xs[i + 1]]); return out; }
 function buildCeil3D(room, H, group) {
-  const spec = room.ceiling && CEIL_3D[room.ceiling.lib]; if (!spec) return;
-  if (!ceilMats.has(spec.color)) ceilMats.set(spec.color, new THREE.MeshStandardMaterial({ color: spec.color, roughness: .55 })); const mat = ceilMats.get(spec.color);
-  const b = polyBounds(room.poly), y = H - spec.d / 2;
-  const lines = axis => { const lo = axis === 'z' ? b.minZ : b.minX, hi = axis === 'z' ? b.maxZ : b.maxX, L = hi - lo, n = Math.max(1, Math.round(L / spec.step)), st = L / n;
-    for (let i = 1; i < n; i++) { const c = lo + st * i; for (const [a, e] of scanPoly(room.poly, axis, c)) { const len = e - a; if (len < .05) continue;
-      const m = box(axis === 'z' ? len : spec.w, spec.d, axis === 'z' ? spec.w : len, mat); m.castShadow = false; m.position.set(axis === 'z' ? (a + e) / 2 : c, y, axis === 'z' ? c : (a + e) / 2); m.userData = { kind: 'ceiling', roomId: room.id, mergeKey: 'ceil3d' }; group.add(m); } } };
-  lines('z'); if (spec.kind === 'grid') lines('x');
+  const cs = ceilSpec(room.ceiling); if (!cs || !cs.type.d3) return; const d3 = cs.type.d3, T = cs.tone;
+  const col = d3.bamboo ? '#b7a467' : T.sao; if (!ceilMats.has(col)) ceilMats.set(col, new THREE.MeshStandardMaterial({ color: col, roughness: d3.bamboo ? .4 : .55 })); const mat = ceilMats.get(col);
+  const tag = (o, k = 'ceil3d') => { o.castShadow = false; o.receiveShadow = true; o.userData = { kind: 'ceiling', roomId: room.id, mergeKey: k }; group.add(o); return o; };
+  const bar = (axis, a, e, c, w, d, y, m = mat) => { const len = e - a; if (len < .03) return; const o = d3.bamboo ? new THREE.Mesh(new THREE.CylinderGeometry(w / 2, w / 2, len, 10), m) : box(axis === 'z' ? len : w, d, axis === 'z' ? w : len, m);
+    if (d3.bamboo) o.rotation[axis === 'z' ? 'z' : 'x'] = Math.PI / 2; o.position.set(axis === 'z' ? (a + e) / 2 : c, y, axis === 'z' ? c : (a + e) / 2); tag(o); };
+  const b = polyBounds(room.poly), rect = isRect(room);
+  // 折上げ:まわり cove(m) を斜めに下げる。中の平らな所が格天井
+  const cove = rect && d3.cove ? d3.cove : 0, rise = d3.rise || 0; const R = { minX: b.minX + cove, maxX: b.maxX - cove, minZ: b.minZ + cove, maxZ: b.maxZ - cove };
+  if (cove) {
+    const cmat = ceilPanelMaterial({ ...room.ceiling, lib: cs.lib }); const lo = H - rise;
+    const quad = (p) => { const geo = new THREE.BufferGeometry(); const v = [...p[0], ...p[1], ...p[2], ...p[0], ...p[2], ...p[3]]; geo.setAttribute('position', new THREE.Float32BufferAttribute(v, 3)); geo.setAttribute('uv', new THREE.Float32BufferAttribute([0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1], 2)); geo.computeVertexNormals(); const o = new THREE.Mesh(geo, cmat); tag(o, 'cove'); };
+    const O = [[b.minX, lo, b.minZ], [b.maxX, lo, b.minZ], [b.maxX, lo, b.maxZ], [b.minX, lo, b.maxZ]], I = [[R.minX, H, R.minZ], [R.maxX, H, R.minZ], [R.maxX, H, R.maxZ], [R.minX, H, R.maxZ]];
+    for (let k = 0; k < 4; k++) quad([O[k], O[(k + 1) % 4], I[(k + 1) % 4], I[k]]);
+    // 折上げの下の回り縁(壁ぞい)と、上の回り縁(中の枠)
+    const cr = .05; bar('z', b.minX, b.maxX, b.minZ + cr / 2, cr, .06, lo - .03); bar('z', b.minX, b.maxX, b.maxZ - cr / 2, cr, .06, lo - .03); bar('x', b.minZ, b.maxZ, b.minX + cr / 2, cr, .06, lo - .03); bar('x', b.minZ, b.maxZ, b.maxX - cr / 2, cr, .06, lo - .03);
+  }
+  const y = H - d3.d / 2;
+  if (d3.kind === 'sao') {
+    // 竿縁:板と直角に、一方向にだけ通す(吹寄せは2本ずつ)。dir='x' なら90°回す
+    const axis = cs.dir === 'x' ? 'x' : 'z', lo = axis === 'z' ? b.minZ : b.minX, hi = axis === 'z' ? b.maxZ : b.maxX, L = hi - lo, n = Math.max(1, Math.round(L / d3.step)), st = L / n;
+    for (let i = 1; i < n; i++) { const c0 = lo + st * i; for (const c of d3.pair ? [c0 - d3.pair / 2, c0 + d3.pair / 2] : [c0]) for (const [a, e] of scanPoly(room.poly, axis, c)) bar(axis, a, e, c, d3.w, d3.d, y); }
+    return;
+  }
+  // 格子:網代の枠・格天井の格縁。rim=壁ぞいにも格縁、panel=マスに鏡板、sub=小組(マスの中の細い格子)
+  const nx = Math.max(1, Math.round((R.maxX - R.minX) / d3.step)), nz = Math.max(1, Math.round((R.maxZ - R.minZ) / d3.step)), sx = (R.maxX - R.minX) / nx, sz = (R.maxZ - R.minZ) / nz;
+  const lineZ = (c, w, d, yy) => { for (const [a, e] of (cove ? [[R.minX, R.maxX]] : scanPoly(room.poly, 'z', c))) bar('z', a, e, c, w, d, yy); };
+  const lineX = (c, w, d, yy) => { for (const [a, e] of (cove ? [[R.minZ, R.maxZ]] : scanPoly(room.poly, 'x', c))) bar('x', a, e, c, w, d, yy); };
+  for (let i = d3.rim ? 0 : 1; i <= (d3.rim ? nz : nz - 1); i++) lineZ(Math.min(R.maxZ - d3.w / 2, Math.max(R.minZ + d3.w / 2, R.minZ + sz * i)), d3.w, d3.d, y);
+  for (let i = d3.rim ? 0 : 1; i <= (d3.rim ? nx : nx - 1); i++) lineX(Math.min(R.maxX - d3.w / 2, Math.max(R.minX + d3.w / 2, R.minX + sx * i)), d3.w, d3.d, y);
+  if (d3.sub) { const sw = .012, sd = .016, yy = H - sd / 2; for (let i = 0; i < nz; i++) for (let k = 1; k < d3.sub; k++) lineZ(R.minZ + sz * (i + k / d3.sub), sw, sd, yy); for (let i = 0; i < nx; i++) for (let k = 1; k < d3.sub; k++) lineX(R.minX + sx * (i + k / d3.sub), sw, sd, yy); }
+  if (cs.type.panel) {
+    // 鏡板:マスごとに1枚(木目の向きを交互に変えて、同じ板が並んで見えないように)
+    const pm = ceilPanelMaterial({ ...room.ceiling, lib: cs.lib });
+    for (let i = 0; i < nx; i++) for (let j = 0; j < nz; j++) { const cx = R.minX + sx * (i + .5), cz = R.minZ + sz * (j + .5); if (!pointInPoly(cx, cz, room.poly)) continue;
+      const o = new THREE.Mesh(new THREE.PlaneGeometry(sx, sz), pm); o.rotation.x = Math.PI / 2; o.rotation.z = ((i * 7 + j * 3) % 2) ? Math.PI : 0; o.position.set(cx, H - .002, cz); tag(o, 'panel'); }
+  }
 }
 
 export function buildRoom(room, project, group) {

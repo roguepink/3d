@@ -219,3 +219,8 @@ body.show-back #btnHome { visibility:hidden; }
 .cards .more-row { grid-column:1 / -1; min-height:44px; border-radius:14px; font-size:15px; font-weight:700; background:rgba(255,255,255,.08); border:1px dashed rgba(255,255,255,.3); }
 .tabs .tab-more { opacity:.75; border-style:dashed; }
 .tabs .tab-more.on { opacity:1; }
+
+/* 和室の天井の色・木目 */
+.ceil-opts { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 6px; margin: 2px 0 8px; }
+.ceil-opts .row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.ceil-opts .lbl { width: 100%; font-size: 13px; opacity: .8; }

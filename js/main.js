@@ -5,7 +5,7 @@ import { WalkControls } from './controls.js';
 import { buildHouse, walkable, groundAt, baseOf, levelOf, setFloorH, floorH, hasUpper, onLevel, roomAt, houseBounds, edgeFrame, wallPoint, wallUV, wallLength, edgeName, edgeForCompass, nearestEdge, edgeDistance, frameFromRot, clampIntoRoom, insideRoom, neighborAcross, normalizeRoom, shapePoly, chamferVertex, isRect, resizeRect, WALL_T, MODULES, ROOM_PRESETS, ROOM_SHAPES, shapeIconSVG, mm, mmRaw, joOf, innerOf, shinShin, roomJo, roomTrim } from './house.js';
 import { CATALOG, CATEGORIES, EQUIP_CATEGORIES, newItem, buildItem, catalogEntry, typeByWord } from './items.js';
 import { applyStyle, partVal, setPart, styleOf } from './kit.js';
-import { SURFACE_LIB, COLORS, colorByName, swatchCanvas, clearMaterialCache, libEntry, TRIM_FINISHES, trimMaterial, trimFinish, PALETTES, finishSwatch, finishName } from './textures.js';
+import { SURFACE_LIB, COLORS, colorByName, swatchCanvas, clearMaterialCache, libEntry, TRIM_FINISHES, trimMaterial, trimFinish, PALETTES, finishSwatch, finishName, ceilSpec, WOOD_TONES, GRAINS } from './textures.js';
 import { demoProject } from './demo.js';
 import { saveProject, loadProject, listProjects, deleteProject, download, shareOrDownload } from './store.js';
 import { parseCommand } from './commands.js';
@@ -542,7 +542,16 @@ class App {
     const cards = $('#surfCards'); cards.innerHTML = '';
     // 和室なら和の材料、洋室なら洋の材料を先に。反対側は最後の「ほかも見る」へ(wayo.js)
     const isWa = roomIsWa(room, this.project), wk = this._surfTab === '床' ? 'floor' : this._surfTab === '天井' ? 'ceiling' : 'wall';
-    const one = e => { const b = document.createElement('button'); b.className = 'card sw'; b.appendChild(swatchCanvas(kind, e.id)); const bb = document.createElement('b'); bb.textContent = e.name; b.appendChild(bb); b.onclick = () => apply({ lib: e.id }); cards.appendChild(b); };
+    // 和室の天井:木の色・木目・竿の向きを選ぶ(種類を変えても色と木目は引きつぐ)
+    const cur = wk === 'ceiling' ? ceilSpec(room.ceiling) : null;
+    if (cur) { const box = document.createElement('div'); box.className = 'ceil-opts';
+      const row = (label, items) => { const r = document.createElement('div'); r.className = 'row chips'; const l = document.createElement('span'); l.className = 'lbl'; l.textContent = label; r.appendChild(l); for (const [txt, on, f, bg] of items) { const b = document.createElement('button'); b.className = 'chip text' + (on ? ' on' : ''); b.textContent = txt; if (bg) { b.style.background = bg; b.style.color = '#222'; } b.onclick = f; r.appendChild(b); } box.appendChild(r); };
+      const set = patch => { apply({ ...room.ceiling, lib: cur.lib, ...patch }); this.openSurfaces('天井'); };
+      row('木の色', WOOD_TONES.map(t => [t.name, t.id === cur.tone.id, () => set({ tone: t.id }), t.base]));
+      if (!cur.type.pattern) row('木目', GRAINS.map(g => [g.name, g.id === cur.grain, () => set({ grain: g.id })]));
+      if (cur.type.d3 && cur.type.d3.kind === 'sao') row('竿の向き', [['たて', cur.dir === 'z', () => set({ dir: 'z' })], ['よこ', cur.dir === 'x', () => set({ dir: 'x' })]]);
+      cards.appendChild(box); }
+    const one = e => { const b = document.createElement('button'); b.className = 'card sw'; b.appendChild(swatchCanvas(kind, e.id)); const bb = document.createElement('b'); bb.textContent = e.name; b.appendChild(bb); b.onclick = () => { apply(cur && e.ceil ? { lib: e.id, tone: room.ceiling.tone, grain: room.ceiling.grain, dir: room.ceiling.dir } : { lib: e.id }); if (wk === 'ceiling') this.openSurfaces('天井'); }; cards.appendChild(b); };
     // 天井専用の材料(竿縁・目透かし・網代・格天井など)は天井タブだけに出し、先頭に並べる
     const libs = wk === 'wall' ? SURFACE_LIB[kind].filter(e => !isCeilOnly(e.id)) : SURFACE_LIB[kind];
     let { main, more } = sortByWayo(libs, isWa, wk); if (wk === 'ceiling') { main = ceilFirst(main); more = ceilFirst(more); } main.forEach(one);

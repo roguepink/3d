@@ -142,56 +142,106 @@ function drawJuraku(g, w, h, r, { base = '#c9b48a', fiber = 0.08 }) {
   g.fillStyle = base; g.fillRect(0, 0, w, h); noise(g, w, h, r, 0.16);
   g.lineWidth = 1; for (let i = 0; i < w * h * fiber / 300; i++) { g.strokeStyle = r() > .5 ? 'rgba(90,70,40,.35)' : 'rgba(255,245,220,.35)'; const x = r() * w, y = r() * h, a = r() * Math.PI, l = 2 + r() * 5; g.beginPath(); g.moveTo(x, y); g.lineTo(x + Math.cos(a) * l, y + Math.sin(a) * l); g.stroke(); }
 }
-// ---------- 和室の天井(2026-10-28 本物の和室の写真を見て作り直し) ----------
-// 天井板1枚:杉の板目(山形の木目)/柾目(まっすぐの筋)。板の長い向きは絵の縦(y)。赤身(芯の赤い所)をときどき入れる
-function ceilBoard(g, x, y, bw, bh, r, o) {
-  g.save(); g.beginPath(); g.rect(x, y, bw, bh); g.clip();
-  const c = new THREE.Color(o.base); c.offsetHSL((r() - .5) * .015, (r() - .5) * .06, (r() - .5) * .06); g.fillStyle = '#' + c.getHexString(); g.fillRect(x, y, bw, bh);
-  if (o.red && r() < .65) { const rw = bw * (.25 + r() * .35), rx = x + bw * (.1 + r() * .5), gr = g.createLinearGradient(rx, 0, rx + rw, 0); gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(.5, o.red); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.globalAlpha = .4; g.fillStyle = gr; g.fillRect(rx, y, rw, bh); g.globalAlpha = 1; }
-  g.strokeStyle = o.dark; g.lineCap = 'round';
-  if (o.cathedral) {
-    const cx = x + bw * (.3 + r() * .4), n = 9 + Math.floor(r() * 6), tip0 = y + bh * (.1 + r() * .6);
-    for (let k = 0; k < n; k++) { const sp = bw * (.01 + k * .03), tip = tip0 - k * bh * .028, fl = bw * (.1 + k * .022);
-      g.globalAlpha = o.alpha * (.55 + r() * .5); g.lineWidth = 1 + r() * 1.6;
-      g.beginPath(); g.moveTo(cx - sp, bh * 2 + y); for (let t = 40; t >= 0; t--) { const yy = tip + (y + bh * 1.4 - tip) * t / 40; g.lineTo(cx - sp - Math.sqrt(t / 40) * fl + Math.sin(t * .5 + k) * .8, yy); }
-      g.arc(cx, tip, sp, Math.PI, 0); for (let t = 0; t <= 40; t++) { const yy = tip + (y + bh * 1.4 - tip) * t / 40; g.lineTo(cx + sp + Math.sqrt(t / 40) * fl + Math.sin(t * .5 + k + 1) * .8, yy); } g.stroke(); }
-  }
-  // 細かい筋(年輪の細い線)を板いっぱいに
-  for (let k = 0; k < 40; k++) { const xx = x + bw * r(); g.globalAlpha = o.alpha * (.12 + r() * .25); g.lineWidth = .6 + r() * .8; g.beginPath(); g.moveTo(xx, y); for (let t = 1; t <= 8; t++) g.lineTo(xx + Math.sin(t * .7 + k) * 1.5, y + bh * t / 8); g.stroke(); }
-  // 両わきの柾目(まっすぐの筋)
-  const m = o.cathedral ? 7 : 26; for (let k = 0; k < m; k++) { const side = o.cathedral ? (k % 2 ? x + bw * (.9 - r() * .08) : x + bw * (.03 + r() * .08)) : x + bw * r(); g.globalAlpha = o.alpha * (.35 + r() * .6); g.lineWidth = .8 + r() * 1.2; g.beginPath(); g.moveTo(side, y); for (let t = 1; t <= 8; t++) g.lineTo(side + Math.sin(t + k) * 1.2, y + bh * t / 8); g.stroke(); }
-  g.globalAlpha = 1; g.restore();
-}
-// 板を縦に並べる(幅 bwM、長さ bhM のメートル)。joint:'hane'(羽重ね:細い影)/'gap'(目透かし:黒いすき間)/'v'(V溝)
-function drawCeilBoards(g, w, h, r, { tile = 1.82, bwM = .455, bhM = 1.82, joint = 'hane', gap = .009, ...o }) {
-  const ppm = w / tile, bw = bwM * ppm, bh = bhM * ppm; g.fillStyle = o.base; g.fillRect(0, 0, w, h);
-  for (let x = 0; x < w - 1; x += bw) ceilBoard(g, x, 0, bw, h, r, o); // 天井板は長いので、継ぎ目を作らない
-  noise(g, w, h, r, .045);
-  for (let x = 0; x < w - 1; x += bw) {
-    if (joint === 'gap') { const gw = Math.max(3, gap * ppm); g.fillStyle = '#2b2017'; g.fillRect(x - gw / 2, 0, gw, h); g.fillStyle = 'rgba(0,0,0,.18)'; g.fillRect(x + gw / 2, 0, 3, h); }
-    else if (joint === 'v') { g.fillStyle = 'rgba(60,30,10,.55)'; g.fillRect(x - 1.5, 0, 3, h); g.fillStyle = 'rgba(255,240,220,.35)'; g.fillRect(x + 1.5, 0, 1.5, h); }
-    else if (joint === 'none') continue;
-    else { g.fillStyle = 'rgba(70,45,25,.35)'; g.fillRect(x - 1, 0, 2, h); g.fillStyle = 'rgba(0,0,0,.08)'; g.fillRect(x + 1, 0, 4, h); }
-  }
-}
-// 網代:細い薄板(ひご)を市松に編む。マスごとに縦横が入れかわる
-function drawAjiro(g, w, h, r, { tile = .6, cell = .075, strips = 3, base = '#c9a06c' }) {
-  const ppm = w / tile, cs = cell * ppm, n = Math.round(w / cs), sw = cs / strips;
-  for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) { const vert = (i + j) % 2 === 0, x0 = i * cs, y0 = j * cs;
-    for (let k = 0; k < strips; k++) { const c = new THREE.Color(base); c.offsetHSL((r() - .5) * .02, (r() - .5) * .1, (r() - .5) * .16); g.fillStyle = '#' + c.getHexString();
-      const rx = vert ? x0 + k * sw : x0, ry = vert ? y0 : y0 + k * sw, rw = vert ? sw : cs, rh = vert ? cs : sw; g.fillRect(rx, ry, rw, rh);
-      g.strokeStyle = 'rgba(60,35,15,.25)'; g.lineWidth = 1; for (let q = 0; q < 3; q++) { const t = .2 + r() * .6; g.beginPath(); if (vert) { g.moveTo(rx + rw * t, ry); g.lineTo(rx + rw * t, ry + rh); } else { g.moveTo(rx, ry + rh * t); g.lineTo(rx + rw, ry + rh * t); } g.stroke(); }
-      g.strokeStyle = 'rgba(40,22,8,.55)'; g.lineWidth = 1.2; g.strokeRect(rx + .5, ry + .5, rw - 1, rh - 1); }
-    const sh = g.createLinearGradient(x0, y0, vert ? x0 : x0 + cs, vert ? y0 + cs : y0); sh.addColorStop(0, 'rgba(0,0,0,.18)'); sh.addColorStop(.25, 'rgba(0,0,0,0)'); sh.addColorStop(.75, 'rgba(0,0,0,0)'); sh.addColorStop(1, 'rgba(0,0,0,.18)'); g.fillStyle = sh; g.fillRect(x0, y0, cs, cs); }
-  noise(g, w, h, r, .05);
-}
-// 天井の材料ごとの立体の部材(house.js が使う)。sao=竿縁、grid=格子
-export const CEIL_3D = {
-  sao: { kind: 'sao', color: '#b98e62', step: .455, w: .03, d: .032 },
-  sao_light: { kind: 'sao', color: '#cfa77a', step: .455, w: .03, d: .032 },
-  tenjo_ajiro: { kind: 'grid', color: '#6e4c2c', step: .91, w: .03, d: .025 },
-  tenjo_gou: { kind: 'grid', color: '#a87c50', step: .485, w: .05, d: .055 },
+// ---------- 和室の天井(2026-10-28 作り直し:和室の天井の作りに合わせる) ----------
+// 天井板は床板とちがい、部屋の端から端まで続く長い薄板(継ぎ目を作らない)。板どうしの境は 羽重ね(細い影)・目透かし(すき間)・敷目板 など。
+// 木目は 板目(山形=タケノコ形が板の幅いっぱいに何重にも重なる)と 柾目(細い筋がまっすぐ平行)。色は WOOD_TONES から選ぶ。
+export const WOOD_TONES = [
+  { id: 'sugi', name: '杉(赤み)', base: '#ddb184', late: '#93582f', red: '#bb6638', sao: '#b0804f' },
+  { id: 'sugi_shiro', name: '杉(白っぽい)', base: '#ebcfa5', late: '#a87c52', red: '#cf9468', sao: '#c39b6c' },
+  { id: 'hinoki', name: '檜(白木)', base: '#efd6ac', late: '#b88d5c', red: null, sao: '#c9a473' },
+  { id: 'ame', name: 'あめ色(古い家)', base: '#c08c59', late: '#6c4220', red: '#93502a', sao: '#8c5e36' },
+  { id: 'yake', name: '焼けた濃い茶', base: '#96683f', late: '#4b2e18', red: '#6e3a1e', sao: '#5c3d22' },
+  { id: 'susu', name: 'すすけた黒茶', base: '#634a37', late: '#2b1d13', red: null, sao: '#3b2b1e' },
+];
+export function woodTone(id) { return WOOD_TONES.find(t => t.id === id) || WOOD_TONES[0]; }
+// 天井の種類ごとの決まり。bw=板の幅(m)、joint=板の境、d3=立体の部材(house.js が付ける)、panel=格子のマスに鏡板をはめる
+export const CEIL_TYPES = {
+  sao: { name: '竿縁天井', tone: 'sugi', grain: 'itame', bw: .455, joint: 'hane', d3: { kind: 'sao', step: .455, w: .03, d: .036 } },
+  sao_fukiyose: { name: '吹寄せ竿縁天井', tone: 'sugi', grain: 'itame', bw: .455, joint: 'hane', d3: { kind: 'sao', step: .606, pair: .075, w: .024, d: .03 } },
+  tenjo_mesukashi: { name: '目透かし天井', tone: 'hinoki', grain: 'masame', bw: .455, joint: 'gap' },
+  tenjo_shikime: { name: '敷目板天井', tone: 'sugi_shiro', grain: 'itame', bw: .455, joint: 'shikime' },
+  tenjo_ajiro: { name: '網代天井', tone: 'ame', pattern: 'ajiro', d3: { kind: 'grid', step: .91, w: .03, d: .028 } },
+  tenjo_gou: { name: '格天井', tone: 'hinoki', grain: 'itame', panel: true, d3: { kind: 'grid', step: .455, w: .05, d: .06, rim: true } },
+  tenjo_kogumi: { name: '小組格天井', tone: 'hinoki', grain: 'masame', panel: true, d3: { kind: 'grid', step: .606, w: .045, d: .055, rim: true, sub: 4 } },
+  tenjo_oriage: { name: '折上げ格天井', tone: 'hinoki', grain: 'itame', panel: true, d3: { kind: 'grid', step: .455, w: .05, d: .06, rim: true, cove: .3, rise: .22 } },
+  tenjo_yoshizu: { name: 'よしず天井', tone: 'sugi_shiro', pattern: 'yoshizu', d3: { kind: 'sao', step: .455, w: .02, d: .02, bamboo: true } },
+  tenjo_mokume: { name: '木目の天井板(昭和)', tone: 'ame', grain: 'itame', bw: .303, joint: 'v' },
 };
+export const GRAINS = [{ id: 'itame', name: '板目(山形の木目)' }, { id: 'masame', name: '柾目(まっすぐの筋)' }];
+// 天井の設定を読む(古い保存の sao_light も読める)。dir='x' で竿・板の向きを90°回す
+export function ceilSpec(spec) {
+  if (!spec || !spec.lib) return null; let lib = spec.lib, tone = spec.tone; if (lib === 'sao_light') { lib = 'sao'; tone = tone || 'sugi_shiro'; }
+  const T = CEIL_TYPES[lib]; if (!T) return null; return { lib, type: T, tone: woodTone(tone || T.tone), grain: spec.grain || T.grain || 'itame', dir: spec.dir === 'x' ? 'x' : 'z' };
+}
+const rgbOf = h => { const n = new THREE.Color(h).getHex(); return `${n >> 16 & 255},${n >> 8 & 255},${n & 255}`; };
+// 天井板1枚(板の長い向きは絵の縦)
+function woodBoard(g, x, y, bw, bh, r, T, grain, ppm) {
+  g.save(); g.beginPath(); g.rect(x, y, bw, bh); g.clip();
+  const c = new THREE.Color(T.base); c.offsetHSL((r() - .5) * .012, (r() - .5) * .05, (r() - .5) * .045); g.fillStyle = '#' + c.getHexString(); g.fillRect(x, y, bw, bh);
+  const band = (gx, gw, rgb, a) => { const gr = g.createLinearGradient(gx - gw / 2, 0, gx + gw / 2, 0); gr.addColorStop(0, `rgba(${rgb},0)`); gr.addColorStop(.5, `rgba(${rgb},${a})`); gr.addColorStop(1, `rgba(${rgb},0)`); g.fillStyle = gr; g.fillRect(gx - gw / 2, y, gw, bh); };
+  for (let i = 0; i < 4; i++) band(x + bw * r(), bw * (.2 + r() * .4), r() < .5 ? '255,248,235' : '70,40,15', .04 + r() * .06);
+  const late = rgbOf(T.late);
+  if (grain === 'masame') {
+    // 柾目:細い筋がまっすぐ平行。間かくは 2〜6mm、ときどき濃い筋
+    if (T.red && r() < .5) band(x + bw * (.3 + r() * .4), bw * .35, rgbOf(T.red), .12);
+    let xx = x + r() * 2; while (xx < x + bw) { const strong = r() < .2; g.strokeStyle = `rgba(${late},${strong ? .28 + r() * .2 : .06 + r() * .1})`; g.lineWidth = strong ? 1.3 : .8;
+      g.beginPath(); g.moveTo(xx, y - 2); let px = xx; for (let t = 1; t <= 12; t++) { px += (r() - .5) * .45; g.lineTo(px, y + bh * t / 12 + 2); } g.stroke(); xx += ppm * (.002 + r() * .004); }
+  } else {
+    // 板目:板の幅いっぱいの山形が何重にも。内側ほど細く、頂点が下がる。端に近いところは柾目のような筋
+    if (T.red && r() < .6) band(x + bw * (.35 + r() * .3), bw * (.3 + r() * .25), rgbOf(T.red), .15);
+    const cx = x + bw * (.42 + r() * .16), n = 8 + Math.floor(r() * 4), tip0 = y + bh * (.05 + r() * .3), W = bw * .47, L = bh * (.06 + r() * .05), dy = bh * (.045 + r() * .025), lean = (r() - .5) * bw * .05;
+    const ks = []; for (let k = 0; k < n; k++) ks.push({ k, w0: bw * (.008 + r() * .01), Wk: W * (1 - k / (n + 1.2)), a: .32 + r() * .25, lw: 1.3 + r() * 1.6, ph: r() * 6 });
+    const curve = (o, off) => { const tip = tip0 + o.k * dy + off, D = bh * 1.1, pts = []; for (let t = 0; t <= 34; t++) { const d = D * Math.pow(t / 34, 1.7); pts.push([d, o.w0 + (o.Wk - o.w0) * (1 - Math.exp(-d / L))]); }
+      g.beginPath(); for (let i = pts.length - 1; i >= 0; i--) { const [d, hw] = pts[i]; g.lineTo(cx - hw + Math.sin(d * .015 + o.ph) * 1.4 + lean * d / D, tip + d); } g.arc(cx, tip, o.w0, Math.PI, 0);
+      for (const [d, hw] of pts) g.lineTo(cx + hw + Math.sin(d * .015 + o.ph + 2) * 1.4 + lean * d / D, tip + d); };
+    for (const off of [0, -bh]) for (const o of ks) { curve(o, off); g.fillStyle = o.k % 2 ? 'rgba(255,248,235,.07)' : `rgba(${late},.08)`; g.fill(); g.strokeStyle = `rgba(${late},${o.a})`; g.lineWidth = o.lw; g.stroke(); }
+    for (const sd of [-1, 1]) for (let q = 0; q < 4; q++) { const xx = cx + sd * (W + (bw * .5 - W) * r() * 2); g.strokeStyle = `rgba(${late},${.1 + r() * .15})`; g.lineWidth = .8; g.beginPath(); g.moveTo(xx, y); g.lineTo(xx + (r() - .5) * 2, y + bh); g.stroke(); }
+  }
+  g.restore();
+}
+// 天井の絵(1.82m 四方)
+function drawCeiling(g, w, h, r, lib, spec) {
+  const cs = ceilSpec({ ...(spec || {}), lib }), T = cs.tone, ty = cs.type;
+  if (ty.pattern === 'ajiro') return drawAjiro(g, w, h, r, { base: T.base, late: T.late });
+  if (ty.pattern === 'yoshizu') return drawYoshizu(g, w, h, r, T);
+  const ppm = w / 1.82, bw = (ty.bw || .455) * ppm; g.fillStyle = T.base; g.fillRect(0, 0, w, h);
+  for (let x = 0; x < w - 1; x += bw) woodBoard(g, x, 0, bw, h, r, T, cs.grain, ppm);
+  const late = rgbOf(T.late);
+  for (let x = 0; x < w + 1; x += bw) {
+    if (ty.joint === 'gap') { const gw = Math.max(4, .009 * ppm); g.fillStyle = '#1f1710'; g.fillRect(x - gw / 2, 0, gw, h); const sh = g.createLinearGradient(x + gw / 2, 0, x + gw / 2 + 8, 0); sh.addColorStop(0, 'rgba(0,0,0,.22)'); sh.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = sh; g.fillRect(x + gw / 2, 0, 8, h); }
+    else if (ty.joint === 'shikime') { const gw = Math.max(6, .015 * ppm); g.fillStyle = shade(T.base, -.2); g.fillRect(x - gw / 2, 0, gw, h); g.fillStyle = `rgba(${late},.7)`; g.fillRect(x - gw / 2, 0, 1.5, h); g.fillRect(x + gw / 2 - 1.5, 0, 1.5, h); g.fillStyle = 'rgba(0,0,0,.15)'; g.fillRect(x + gw / 2, 0, 5, h); }
+    else if (ty.joint === 'v') { g.fillStyle = `rgba(${late},.65)`; g.fillRect(x - 1.5, 0, 3, h); g.fillStyle = 'rgba(255,240,220,.35)'; g.fillRect(x + 1.5, 0, 1.5, h); }
+    else { g.fillStyle = `rgba(${late},.55)`; g.fillRect(x - .75, 0, 1.5, h); const sh = g.createLinearGradient(x, 0, x + 7, 0); sh.addColorStop(0, 'rgba(0,0,0,.14)'); sh.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = sh; g.fillRect(x, 0, 7, h); }
+  }
+  noise(g, w, h, r, .025);
+}
+// 網代:細い薄板(ひご)を市松に編む
+function drawAjiro(g, w, h, r, { tile = .6, cell = .075, strips = 3, base = '#c9a06c', late = '#6c4220' }) {
+  const ppm = w / tile, cs = cell * ppm, n = Math.round(w / cs), sw = cs / strips, lr = rgbOf(late);
+  for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) { const vert = (i + j) % 2 === 0, x0 = i * cs, y0 = j * cs;
+    for (let k = 0; k < strips; k++) { const c = new THREE.Color(base); c.offsetHSL((r() - .5) * .02, (r() - .5) * .1, (r() - .5) * .14); g.fillStyle = '#' + c.getHexString();
+      const rx = vert ? x0 + k * sw : x0, ry = vert ? y0 : y0 + k * sw, rw = vert ? sw : cs, rh = vert ? cs : sw; g.fillRect(rx, ry, rw, rh);
+      g.strokeStyle = `rgba(${lr},.22)`; g.lineWidth = 1; for (let q = 0; q < 3; q++) { const t = .2 + r() * .6; g.beginPath(); if (vert) { g.moveTo(rx + rw * t, ry); g.lineTo(rx + rw * t, ry + rh); } else { g.moveTo(rx, ry + rh * t); g.lineTo(rx + rw, ry + rh * t); } g.stroke(); }
+      g.strokeStyle = `rgba(${lr},.6)`; g.lineWidth = 1.2; g.strokeRect(rx + .5, ry + .5, rw - 1, rh - 1); }
+    const sh = g.createLinearGradient(x0, y0, vert ? x0 : x0 + cs, vert ? y0 + cs : y0); sh.addColorStop(0, 'rgba(0,0,0,.16)'); sh.addColorStop(.25, 'rgba(0,0,0,0)'); sh.addColorStop(.75, 'rgba(0,0,0,0)'); sh.addColorStop(1, 'rgba(0,0,0,.16)'); g.fillStyle = sh; g.fillRect(x0, y0, cs, cs); }
+  noise(g, w, h, r, .04);
+}
+// よしず:細い葦を並べ、ところどころに節。糸で編んだ線が横に通る
+function drawYoshizu(g, w, h, r, T) {
+  const ppm = w / .91; g.fillStyle = shade(T.base, -.05); g.fillRect(0, 0, w, h); let x = 0;
+  while (x < w) { const rw = ppm * (.004 + r() * .004), c = new THREE.Color(T.base); c.offsetHSL(.01 + (r() - .5) * .02, (r() - .5) * .12, (r() - .5) * .14);
+    const gr = g.createLinearGradient(x, 0, x + rw, 0); gr.addColorStop(0, shade('#' + c.getHexString(), -.12)); gr.addColorStop(.4, '#' + c.getHexString()); gr.addColorStop(1, shade('#' + c.getHexString(), -.2)); g.fillStyle = gr; g.fillRect(x, 0, rw, h);
+    for (let y = r() * h; y < h; y += ppm * (.12 + r() * .2)) { g.fillStyle = `rgba(${rgbOf(T.late)},.45)`; g.fillRect(x, y, rw, 2); } x += rw + .5; }
+  for (let y = ppm * .15; y < h; y += ppm * .3) { g.fillStyle = 'rgba(40,28,18,.75)'; g.fillRect(0, y, w, 2.5); }
+  noise(g, w, h, r, .04);
+}
+// 格天井の鏡板(マス1つ分)の材質
+const panelCache = new Map();
+export function ceilPanelMaterial(spec) {
+  const cs = ceilSpec(spec); const key = cs.tone.id + ':' + cs.grain; if (panelCache.has(key)) return panelCache.get(key);
+  const t = canvasTexture('ceilpanel:' + key, 512, (g, w, h, r) => woodBoard(g, 0, 0, w, h, r, cs.tone, cs.grain, w / .45)); t.repeat.set(1, 1);
+  const m = new THREE.MeshStandardMaterial({ map: t, roughness: .62, side: THREE.DoubleSide, emissive: '#ffffff', emissiveMap: t, emissiveIntensity: .15 }); panelCache.set(key, m); return m;
+}
 
 // 日に焼けた古い畳(黄色っぽく、まだらに)
 function drawTatamiOld(g, w, h, r) {
@@ -264,13 +314,17 @@ export const SURFACE_LIB = {
     { id: 'juraku', bump: 0.006, name: '聚楽壁(黄土)', size: .8, rough: .97, draw: (g, w, h, r) => drawJuraku(g, w, h, r, { base: '#c9b48a' }) },
     { id: 'sunakabe_g', bump: 0.006, name: '砂壁(うぐいす)', size: .8, rough: .97, draw: (g, w, h, r) => drawJuraku(g, w, h, r, { base: '#a39c6a', fiber: .03 }) },
     { id: 'sunakabe_b', bump: 0.006, name: '砂壁(ベージュ)', size: .8, rough: .97, draw: (g, w, h, r) => drawJuraku(g, w, h, r, { base: '#d3c3a1', fiber: .05 }) },
-    // 和室の天井(竿・格子は house.js が CEIL_3D から立体で付ける)
-    { id: 'sao', px: 1024, bump: 0.002, name: '竿縁天井(杉)', size: 1.82, rough: .7, draw: (g, w, h, r) => drawCeilBoards(g, w, h, r, { base: '#d9b58a', dark: '#94603a', red: '#b8693f', alpha: .5, cathedral: true }) },
-    { id: 'sao_light', px: 1024, bump: 0.002, name: '竿縁天井(白っぽい杉)', size: 1.82, rough: .7, draw: (g, w, h, r) => drawCeilBoards(g, w, h, r, { base: '#e8d2ae', dark: '#a87a50', red: '#cc8e62', alpha: .42, cathedral: true }) },
-    { id: 'tenjo_mesukashi', px: 1024, bump: 0.003, name: '目透かし天井', size: 1.82, rough: .65, draw: (g, w, h, r) => drawCeilBoards(g, w, h, r, { bwM: .455, joint: 'gap', base: '#e3c9a2', dark: '#9a6c44', red: '#c48a60', alpha: .42, cathedral: true }) },
-    { id: 'tenjo_ajiro', px: 1024, bump: 0.006, name: '網代天井', size: .6, rough: .8, draw: (g, w, h, r) => drawAjiro(g, w, h, r, {}) },
-    { id: 'tenjo_gou', px: 1024, bump: 0.002, name: '格天井', size: 1.82, rough: .6, draw: (g, w, h, r) => drawCeilBoards(g, w, h, r, { bwM: .455, joint: 'none', base: '#e0bf94', dark: '#8f6440', red: '#b8734a', alpha: .45, cathedral: true }) },
-    { id: 'tenjo_mokume', px: 1024, bump: 0.002, name: '木目の天井板(昭和)', size: 1.82, rough: .38, draw: (g, w, h, r) => drawCeilBoards(g, w, h, r, { bwM: .303, joint: 'v', base: '#cf935a', dark: '#74401a', red: '#a5582a', alpha: .55, cathedral: true }) },
+    // 和室の天井(10種類。色 tone・木目 grain は spec で選ぶ。竿・格子・鏡板は house.js の buildCeil3D が立体で付ける)
+    { id: 'sao', ceil: true, px: 1024, bump: 0.0015, name: '竿縁天井', size: 1.82, rough: .7, draw: (g, w, h, r, sp) => drawCeiling(g, w, h, r, 'sao', sp) },
+    { id: 'sao_fukiyose', ceil: true, px: 1024, bump: 0.0015, name: '吹寄せ竿縁天井', size: 1.82, rough: .7, draw: (g, w, h, r, sp) => drawCeiling(g, w, h, r, 'sao_fukiyose', sp) },
+    { id: 'tenjo_mesukashi', ceil: true, px: 1024, bump: 0.0015, name: '目透かし天井', size: 1.82, rough: .66, draw: (g, w, h, r, sp) => drawCeiling(g, w, h, r, 'tenjo_mesukashi', sp) },
+    { id: 'tenjo_shikime', ceil: true, px: 1024, bump: 0.0015, name: '敷目板天井', size: 1.82, rough: .66, draw: (g, w, h, r, sp) => drawCeiling(g, w, h, r, 'tenjo_shikime', sp) },
+    { id: 'tenjo_ajiro', ceil: true, px: 1024, bump: 0.0015, name: '網代天井', size: .6, rough: .8, draw: (g, w, h, r, sp) => drawCeiling(g, w, h, r, 'tenjo_ajiro', sp) },
+    { id: 'tenjo_gou', ceil: true, px: 1024, bump: 0.0015, name: '格天井', size: 1.82, rough: .62, draw: (g, w, h, r, sp) => drawCeiling(g, w, h, r, 'tenjo_gou', sp) },
+    { id: 'tenjo_kogumi', ceil: true, px: 1024, bump: 0.0015, name: '小組格天井', size: 1.82, rough: .62, draw: (g, w, h, r, sp) => drawCeiling(g, w, h, r, 'tenjo_kogumi', sp) },
+    { id: 'tenjo_oriage', ceil: true, px: 1024, bump: 0.0015, name: '折上げ格天井', size: 1.82, rough: .62, draw: (g, w, h, r, sp) => drawCeiling(g, w, h, r, 'tenjo_oriage', sp) },
+    { id: 'tenjo_yoshizu', ceil: true, px: 1024, bump: 0.0015, name: 'よしず天井', size: .91, rough: .85, draw: (g, w, h, r, sp) => drawCeiling(g, w, h, r, 'tenjo_yoshizu', sp) },
+    { id: 'tenjo_mokume', ceil: true, px: 1024, bump: 0.0015, name: '木目の天井板(昭和)', size: 1.82, rough: .4, draw: (g, w, h, r, sp) => drawCeiling(g, w, h, r, 'tenjo_mokume', sp) },
     { id: 'plaster', bump: 0.004, name: '漆喰', size: 1, rough: .95, draw: (g, w, h, r) => drawPlain(g, w, h, r, { base: '#f6f4ee', alpha: .1 }) },
     { id: 'wp_beige', name: '壁紙(ベージュ)', size: 1, rough: .9, draw: (g, w, h, r) => drawPlain(g, w, h, r, { base: '#e3d6bf', alpha: .05 }) },
     { id: 'wp_greige', name: '壁紙(グレージュ)', size: 1, rough: .9, draw: (g, w, h, r) => drawPlain(g, w, h, r, { base: '#c9c0b4', alpha: .05 }) },
@@ -296,7 +350,7 @@ export const SURFACE_LIB = {
     { id: 'lace', name: 'レース', size: .2, rough: .9, tint: false, lace: true, draw: drawLace },
   ],
 };
-export function libEntry(kind, id) { return (SURFACE_LIB[kind] || []).find(e => e.id === id) || null; }
+export function libEntry(kind, id) { if (id === 'sao_light') id = 'sao'; return (SURFACE_LIB[kind] || []).find(e => e.id === id) || null; }
 
 // ユーザーが貼った写真(見本帳など)
 export const userTextures = new Map(); // id -> {name, dataUrl, size}
@@ -308,8 +362,9 @@ export function textureFromDataUrl(id, dataUrl) {
 }
 export function dropTexture(id) { texCache.delete('user:' + id); }
 
-export function libTexture(kind, id) {
+export function libTexture(kind, id, spec) {
   const e = libEntry(kind, id); if (!e) return null;
+  if (e.ceil) { const cs = ceilSpec({ ...(spec || {}), lib: id }); const sp = { tone: cs.tone.id, grain: cs.grain }; return canvasTexture(`${kind}:${e.id}:${sp.tone}:${sp.grain}`, e.px, (g, w, h, r) => e.draw(g, w, h, r, sp)); }
   return canvasTexture(`${kind}:${id}`, e.px || (kind === 'fabric' ? 256 : 512), e.draw);
 }
 // さわったときの見本の小さい絵
@@ -338,11 +393,12 @@ export function surfaceMaterial(kind, spec, dims = {}, assets = {}) {
   } else {
     const e = libEntry(kind, spec.lib) || (kind === 'fabric' ? libEntry('fabric', 'plain') : null);
     if (e) {
-      const t = libTexture(kind, e.id).clone(); t.needsUpdate = true;
-      const s = e.size; t.repeat.set((dims.w || 1) / s, (dims.h || 1) / s); if (e.rotate) t.rotation = Math.PI / 2;
+      const t = libTexture(kind, e.id, spec).clone(); t.needsUpdate = true;
+      const s = e.size; t.repeat.set((dims.w || 1) / s, (dims.h || 1) / s); if (e.rotate || (e.ceil && spec.dir === 'x')) t.rotation = Math.PI / 2;
       const color = (e.tint || kind === 'fabric') && spec.color ? spec.color : (spec.color && kind !== 'fabric' ? spec.color : '#ffffff');
       mat = new THREE.MeshStandardMaterial({ map: t, color: e.tint ? (spec.color || '#ffffff') : color, roughness: e.rough, metalness: 0 });
       if (e.bump) { mat.bumpMap = t; mat.bumpScale = e.bump; }
+      if (e.ceil) { mat.emissive = new THREE.Color('#ffffff'); mat.emissiveMap = t; mat.emissiveIntensity = .15; } // 天井は光が当たりにくいので、木の色が沈まないように少しだけ明るく
       if (e.lace) { mat.transparent = true; mat.opacity = .55; mat.alphaMap = t; mat.side = THREE.DoubleSide; }
     } else {
       mat = new THREE.MeshStandardMaterial({ color: spec.color || '#f4f4f0', roughness: .9, metalness: 0 });

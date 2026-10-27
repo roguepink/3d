@@ -36,7 +36,7 @@ export const WAYO = {
 };
 
 // 天井専用の材料(SURFACE_LIB.wall に入っているが、壁タブには出さない)。和室の天井タブではこの順で先頭に
-export const CEIL_ORDER = ['sao', 'sao_light', 'tenjo_mesukashi', 'tenjo_ajiro', 'tenjo_gou', 'tenjo_mokume'];
+export const CEIL_ORDER = ['sao', 'sao_fukiyose', 'tenjo_mesukashi', 'tenjo_shikime', 'tenjo_ajiro', 'tenjo_gou', 'tenjo_kogumi', 'tenjo_oriage', 'tenjo_yoshizu', 'tenjo_mokume'];
 export function isCeilOnly(id) { return /^(sao|tenjo_)/.test(id || ''); }
 // 天井専用の物を先に(CEIL_ORDER の順、知らない id はそのあと)、ほかはもとの順
 export function ceilFirst(list, getId = x => x.id) {
