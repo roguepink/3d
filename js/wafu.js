@@ -282,7 +282,7 @@ function ikouBuild(it) {
     for (const zz of [0.03, -0.03]) { const m = mesh(geo, mat, 0, 0, zz); g.add(m); }
     g.add(box(sw * 2, 0.02, 0.07, mat, 0, top + 0.005, 0));
     // 衿(えり):首から斜めに下りる白い線
-    const eri = std('#e8dcc4', .8); for (const sx of [-1, 1]) { const e = box(0.035, 0.5, 0.004, eri, sx * 0.07, top - 0.24, 0.034); e.rotation.z = sx * 0.28; g.add(e); }
+    const eri = std('#e8dcc4', .8); for (const sx of [-1, 1]) { const e = box(0.035, 0.5, 0.004, eri, sx * 0.07, top - 0.24, 0.034); e.rotation.z = -sx * 0.28; g.add(e); }
   }
   return fitStyle(g, it);
 }
@@ -310,9 +310,9 @@ function hashiraBuild(it) {
   // 胴(振り子の窓)
   const by = -0.12, bh = 0.34; g.add(box(0.24, bh, D - 0.01, wood, 0, by, (D - 0.01) / 2)); g.add(box(0.27, 0.03, D + 0.005, wood, 0, by - bh / 2 - 0.01, D / 2));
   g.add(box(0.17, bh - 0.06, 0.004, dark, 0, by, D - 0.008));
-  const pd = new THREE.Group(); pd.position.set(0, by + bh / 2 - 0.04, D - 0.02); pd.rotation.z = 0.12; pd.add(box(0.006, 0.2, 0.003, brass, 0, -0.1, 0)); const bob = cyl(0.035, 0.035, 0.006, brass, 0, -0.2, 0, 24); bob.rotation.x = Math.PI / 2; pd.add(bob); g.add(pd);
-  g.add(box(0.15, bh - 0.08, 0.003, glass, 0, by, D - 0.003));
-  for (const sx of [-1, 1]) g.add(box(0.02, bh, 0.01, wood, sx * 0.095, by, D - 0.002));
+  const pd = new THREE.Group(); pd.position.set(0, by + bh / 2 - 0.04, D - 0.002); pd.rotation.z = 0.12; pd.add(box(0.006, 0.2, 0.003, brass, 0, -0.1, 0)); const bob = cyl(0.035, 0.035, 0.006, brass, 0, -0.2, 0, 24); bob.rotation.x = Math.PI / 2; pd.add(bob); g.add(pd);
+  g.add(box(0.15, bh - 0.08, 0.003, glass, 0, by, D + 0.006));
+  for (const sx of [-1, 1]) g.add(box(0.02, bh, 0.016, wood, sx * 0.095, by, D));
   return fitStyle(g, it);
 }
 
@@ -470,12 +470,163 @@ function futonBuild(it) {
   return g;
 }
 
+// ---- 掛け軸 ----
+// 部分:表装の布 / 軸先。絵はだれの作でもない、山と霞の色の面(sansui)か、墨の線(sho)
+function jikuArt(kind) {
+  return paint('jiku' + kind, 128, 320, (c, W, H) => {
+    c.fillStyle = '#e6dcc2'; c.fillRect(0, 0, W, H); const gr = c.createLinearGradient(0, 0, 0, H); gr.addColorStop(0, 'rgba(120,90,40,.10)'); gr.addColorStop(1, 'rgba(120,90,40,.22)'); c.fillStyle = gr; c.fillRect(0, 0, W, H);
+    if (kind === 'sansui') {
+      const mt = (y, amp, col, seed) => { c.fillStyle = col; c.beginPath(); c.moveTo(0, H); for (let x = 0; x <= W; x += 8) c.lineTo(x, y - Math.abs(Math.sin(x / W * 3.1 + seed)) * amp - Math.sin(x / 17 + seed) * 4); c.lineTo(W, H); c.fill(); };
+      mt(110, 60, 'rgba(110,118,120,.45)', 0.6); c.fillStyle = 'rgba(240,235,220,.6)'; c.fillRect(0, 120, W, 30);
+      mt(190, 50, 'rgba(70,78,76,.55)', 2.1); c.fillStyle = 'rgba(240,235,220,.55)'; c.fillRect(0, 200, W, 24);
+      mt(270, 30, 'rgba(50,55,50,.6)', 4.0); c.fillStyle = 'rgba(160,60,40,.7)'; c.fillRect(W - 22, 30, 10, 10);
+    } else {
+      c.strokeStyle = 'rgba(25,22,20,.88)'; c.lineCap = 'round';
+      const st = (pts, w) => { c.lineWidth = w; c.beginPath(); c.moveTo(pts[0], pts[1]); for (let i = 2; i < pts.length; i += 2) c.lineTo(pts[i], pts[i + 1]); c.stroke(); };
+      // 草書のように流れる線(字としては読めない)
+      const cv = (w, ...p) => { c.lineWidth = w; c.beginPath(); c.moveTo(p[0], p[1]); for (let i = 2; i + 5 < p.length + 1; i += 6) c.bezierCurveTo(p[i], p[i + 1], p[i + 2], p[i + 3], p[i + 4], p[i + 5]); c.stroke(); };
+      cv(8, 44, 40, 90, 30, 96, 70, 60, 84, 30, 98, 70, 120, 74, 140); cv(6, 74, 140, 80, 160, 40, 170, 56, 190); cv(9, 70, 176, 100, 186, 86, 220, 62, 236, 40, 252, 78, 262, 72, 284); cv(4, 40, 120, 52, 128, 48, 140, 42, 146);
+      c.fillStyle = 'rgba(160,60,40,.75)'; c.fillRect(W - 30, 270, 12, 12);
+    }
+  }, .9);
+}
+function kakejikuBuild(it) {
+  const g = new THREE.Group(), s = styleOf(it).id, cloth = pm(it, 'cloth', .85), tip = pm(it, 'tip', .4), gold = std('#a88a4a', .5, .3), W = 0.5, H = 1.7;
+  // 背中が z=0、y は真ん中
+  g.add(box(W, H - 0.04, 0.006, cloth, 0, 0, 0.003));
+  g.add(plane(W * 0.72, H * 0.52, jikuArt(s), 0, -0.04, 0.0075));
+  for (const y of [H * 0.26 - 0.04 + 0.012, -H * 0.26 - 0.04 - 0.012]) g.add(box(W * 0.72, 0.02, 0.002, gold, 0, y, 0.008));
+  g.add(box(W, 0.04, 0.022, std('#3a2a1e', .5), 0, H / 2 - 0.02, 0.012));
+  const ax = cyl(0.014, 0.014, W + 0.02, std('#3a2a1e', .5), 0, -H / 2 + 0.01, 0.016, 10); ax.rotation.z = Math.PI / 2; g.add(ax);
+  for (const sx of [-1, 1]) { const t = cyl(0.02, 0.02, 0.04, tip, sx * (W / 2 + 0.03), -H / 2 + 0.01, 0.016, 10); t.rotation.z = Math.PI / 2; g.add(t); g.add(box(0.025, H * 0.22, 0.002, cloth, sx * 0.08, H / 2 - 0.04 - H * 0.11, 0.009)); }
+  rod(g, std('#6a5a3a', .8), [0, H / 2 + 0.12, 0.006], [-0.1, H / 2 - 0.01, 0.008], 0.004, true); rod(g, std('#6a5a3a', .8), [0, H / 2 + 0.12, 0.006], [0.1, H / 2 - 0.01, 0.008], 0.004, true);
+  return fitStyle(g, it);
+}
+
+// ---- 花瓶に花 ----
+// 部分:花瓶 / 花。lift で棚や床の間の上へ
+function flower(g, x, y, z, col, leaf, r = 0.022) { g.add(ell(r, col, x, y, z, 1, 0.7, 1)); g.add(ell(r * 0.4, std('#e8c060', .7), x, y + r * 0.5, z)); }
+function kabinBuild(it) {
+  const g = new THREE.Group(), s = styleOf(it).id, vase = pm(it, 'vase', .35), fl = pm(it, 'flower', .7), stem = std('#4f6b3a', .8), leaf = std('#566f3e', .7);
+  if (s === 'suiban') {
+    // 水盤に生け花(低い)
+    g.add(cyl(0.16, 0.13, 0.05, vase, 0, 0.025, 0, 24)); g.add(cyl(0.15, 0.15, 0.002, std('#3a4a50', .1), 0, 0.045, 0, 24));
+    const pts = [[-0.02, 0.42, 0.0, -0.18, 0.0], [0.04, 0.3, 0.02, 0.15, 0.04], [0, 0.18, 0.05, 0.02, 0.1]];
+    for (const [x, hh, z, lx, lz] of pts) { rod(g, stem, [x, 0.05, z], [x + lx, hh, z + lz], 0.006, true); flower(g, x + lx, hh, z + lz, fl, leaf, 0.028); }
+    for (let i = 0; i < 4; i++) { const l = ell(0.05, leaf, -0.04 + i * 0.03, 0.09, 0.03 - i * 0.02, 0.3, 1, 0.08); l.rotation.z = -0.6 + i * 0.4; g.add(l); }
+  } else if (s === 'ichirin') {
+    g.add(cyl(0.022, 0.035, 0.16, vase, 0, 0.08, 0, 14)); g.add(cyl(0.012, 0.022, 0.03, vase, 0, 0.175, 0, 12));
+    rod(g, stem, [0, 0.18, 0], [0.04, 0.36, 0.01], 0.004, true); flower(g, 0.04, 0.36, 0.01, fl, leaf, 0.02); const l = ell(0.035, leaf, 0.02, 0.26, 0, 0.3, 1, 0.08); l.rotation.z = -0.5; g.add(l);
+  } else {
+    // 壺の花瓶に枝もの
+    g.add(ell(0.11, vase, 0, 0.12, 0, 1, 1.1, 1)); g.add(cyl(0.05, 0.07, 0.08, vase, 0, 0.25, 0, 18)); g.add(cyl(0.065, 0.05, 0.03, vase, 0, 0.3, 0, 18));
+    const br = [[-0.22, 0.62, 0.02], [0.18, 0.7, -0.03], [0.05, 0.52, 0.12], [-0.08, 0.48, -0.1], [0.26, 0.5, 0.06]];
+    for (const [x, y, z] of br) { rod(g, std('#4a3a2a', .8), [0, 0.3, 0], [x, y, z], 0.008, true); for (let k = 0; k < 3; k++) flower(g, x * (0.6 + k * 0.2), y - 0.12 + k * 0.06, z * (0.6 + k * 0.2) + 0.01, fl, leaf, 0.02); }
+  }
+  return fitStyle(g, it);
+}
+
+// ---- はきもの(長靴・草履・つっかけ・下駄) ----
+// 部分:色
+function bootOne(g, mat, sole, x, z, rot, fallen) {
+  const b = new THREE.Group(); b.position.set(x, 0, z); b.rotation.y = rot; g.add(b);
+  const inner = new THREE.Group(); b.add(inner); if (fallen) { inner.rotation.z = -0.3; inner.rotation.x = 0.12; inner.position.set(-0.01, 0.0, 0); }
+  inner.add(cyl(0.055, 0.05, 0.3, mat, 0, 0.18, -0.03, 14)); inner.add(rbox(0.1, 0.08, 0.26, 0.035, mat, 0, 0.045, 0.03)); inner.add(rbox(0.105, 0.02, 0.27, 0.01, sole, 0, 0.01, 0.03));
+  inner.add(cyl(0.057, 0.057, 0.025, std('#1d1d1b', .4), 0, 0.33, -0.03, 14)); inner.add(cyl(0.047, 0.047, 0.004, std('#111', .9), 0, 0.344, -0.03, 14));
+}
+function hakimonoBuild(it) {
+  const g = new THREE.Group(), s = styleOf(it).id, m = pm(it, 'color', .55), sole = std('#2a2622', .8), wood = std('#b89a72', .7), hana = std('#3a2a3a', .6);
+  if (s === 'nagagutsu') { bootOne(g, m, sole, -0.07, 0, 0.1, false); bootOne(g, m, sole, 0.1, 0.03, -0.35, true); }
+  else {
+    for (const sx of [-1, 1]) {
+      const f = new THREE.Group(); f.position.set(sx * 0.07, 0, sx * 0.015); f.rotation.y = sx * -0.05; g.add(f);
+      if (s === 'geta') { f.add(rbox(0.1, 0.025, 0.23, 0.01, wood, 0, 0.055, 0)); for (const z of [-0.06, 0.06]) f.add(box(0.09, 0.04, 0.025, wood, 0, 0.022, z)); }
+      else if (s === 'zori') f.add(rbox(0.1, 0.022, 0.24, 0.012, std('#d9c9a0', .9), 0, 0.011, 0));
+      else { f.add(rbox(0.1, 0.03, 0.25, 0.012, std('#3a3330', .7), 0, 0.015, 0)); f.add(rbox(0.105, 0.05, 0.1, 0.025, m, 0, 0.045, 0.05)); continue; }
+      const top = s === 'geta' ? 0.07 : 0.024; rod(f, s === 'geta' ? hana : m, [0, top, 0.07], [-0.045, top + 0.02, -0.02], 0.012, true); rod(f, s === 'geta' ? hana : m, [0, top, 0.07], [0.045, top + 0.02, -0.02], 0.012, true);
+    }
+  }
+  return fitStyle(g, it);
+}
+
+// ---- 下駄箱(和風の木の靴箱) ----
+// 部分:本体 / 戸 / 取っ手。上に物を置ける高さ
+function getabakoBuild(it) {
+  const g = new THREE.Group(), w = it.w, h = it.h, d = it.d, s = styleOf(it).id, body = pm(it, 'body', .45), door = pm(it, 'door', .45), kn = pm(it, 'knob', .35, .7), z = d / 2;
+  g.add(box(w - 0.02, 0.06, d - 0.03, std('#2a2018', .7), 0, 0.03, -0.01)); g.add(box(w, h - 0.09, d - 0.01, body, 0, 0.06 + (h - 0.09) / 2, -0.005)); g.add(box(w + 0.03, 0.03, d + 0.02, body, 0, h - 0.015, 0.005));
+  const n = Math.max(2, Math.round(w / 0.45)), dw = (w - 0.02) / n, y0 = 0.07, y1 = h - 0.04;
+  for (let i = 0; i < n; i++) { const x = -w / 2 + 0.01 + dw * (i + 0.5);
+    if (s === 'koushi') { g.add(box(dw - 0.008, y1 - y0, 0.014, door, x, (y0 + y1) / 2, z + 0.005)); for (let k = 1; k < 6; k++) g.add(box(0.01, y1 - y0 - 0.06, 0.008, body, x - dw / 2 + k * dw / 6, (y0 + y1) / 2, z + 0.014)); }
+    else { const ym = y0 + (y1 - y0) * 0.5; for (const [a, b] of [[y0, ym], [ym, y1]]) { g.add(box(dw - 0.008, b - a - 0.008, 0.014, door, x, (a + b) / 2, z + 0.005)); g.add(box(dw * 0.6, (b - a) * 0.6, 0.004, body, x, (a + b) / 2, z + 0.013)); } }
+    const kx = x + (i % 2 ? -1 : 1) * (dw / 2 - 0.035); g.add(box(0.012, 0.06, 0.014, kn, kx, (y0 + y1) / 2 + (s === 'koushi' ? 0 : 0.05), z + 0.02)); }
+  return g;
+}
+
+// ---- 衝立 ----
+// 部分:わく / 面
+function tsuitateBuild(it) {
+  const g = new THREE.Group(), s = styleOf(it).id, fr = pm(it, 'frame', .45), W = 0.9, H = 1.2, ph = 0.95, py = 0.2;
+  for (const sx of [-1, 1]) { g.add(rbox(0.06, 0.06, 0.35, 0.02, fr, sx * (W / 2 - 0.04), 0.03, 0)); }
+  for (const sx of [-1, 1]) g.add(box(0.04, H - 0.06, 0.04, fr, sx * (W / 2 - 0.04), 0.06 + (H - 0.06) / 2, 0));
+  g.add(box(W, 0.04, 0.045, fr, 0, H - 0.02, 0)); g.add(box(W - 0.08, 0.035, 0.035, fr, 0, py, 0));
+  const pw = W - 0.12, pcy = py + 0.02 + ph / 2 - 0.02, pH = H - 0.04 - py - 0.02;
+  if (s === 'shoji') {
+    g.add(box(pw, pH, 0.006, std('#ede6d2', .95), 0, py + 0.02 + pH / 2, 0));
+    for (let k = 1; k < 4; k++) g.add(box(0.012, pH, 0.016, fr, -pw / 2 + k * pw / 4, py + 0.02 + pH / 2, 0));
+    for (let k = 1; k < 5; k++) g.add(box(pw, 0.012, 0.016, fr, 0, py + 0.02 + k * pH / 5, 0));
+  } else if (s === 'ajiro') {
+    const m = paint('ajiro', 128, 128, (c, W2, H2) => { c.fillStyle = '#9a7a52'; c.fillRect(0, 0, W2, H2); for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) { c.fillStyle = (x + y) % 2 ? 'rgba(60,40,20,.35)' : 'rgba(255,240,210,.15)'; c.save(); c.translate(x * 8 + 4, y * 8 + 4); c.rotate(((x + Math.floor(y / 2)) % 2) ? 0 : Math.PI / 2); c.fillRect(-4, -1.6, 8, 3.2); c.restore(); } }, .9);
+    m.map.repeat.set(3, 3); g.add(box(pw, pH, 0.01, m, 0, py + 0.02 + pH / 2, 0));
+  } else { g.add(box(pw, pH, 0.01, std('#e6dcc2', .9), 0, py + 0.02 + pH / 2, 0)); for (const zz of [0.0055, -0.0055]) { const p = plane(pw * 0.9, pH * 0.9, jikuArt('sansui'), 0, py + 0.02 + pH / 2, zz); if (zz < 0) p.rotation.y = Math.PI; g.add(p); } }
+  void pcy; return fitStyle(g, it);
+}
+
+// ---- 傘立て(和) ----
+// 部分:立て / 傘
+function kasatateBuild(it) {
+  const g = new THREE.Group(), s = styleOf(it).id, m = pm(it, 'stand', .5), um = pm(it, 'umbrella', .6);
+  if (s === 'take') { const bm = m; for (let i = 0; i < 16; i++) { const a = i / 16 * Math.PI * 2; g.add(box(0.03, 0.5, 0.008, bm, Math.cos(a) * 0.11, 0.25, Math.sin(a) * 0.11).rotateY(-a + Math.PI / 2)); } for (const y of [0.08, 0.42]) { const r = new THREE.Mesh(new THREE.TorusGeometry(0.115, 0.008, 4, 20), std('#5a4a30', .7)); r.rotation.x = Math.PI / 2; r.position.y = y; g.add(r); } g.add(cyl(0.11, 0.11, 0.02, std('#2a2420', .7), 0, 0.01, 0, 16)); }
+  else { g.add(cyl(0.12, 0.11, 0.5, m, 0, 0.25, 0, 20)); g.add(cyl(0.125, 0.125, 0.03, m, 0, 0.49, 0, 20)); g.add(cyl(0.1, 0.1, 0.004, std('#1a1614', .9), 0, 0.505, 0, 20)); }
+  if (it.opts.umb) { const cols = [um, std('#2a2a2c', .6), std('#7a6a4a', .7)];
+    [[0.03, 0.02, 0.12], [-0.04, -0.02, -0.1], [0.0, -0.05, 0.05]].forEach(([x, z, t], i) => { const u = new THREE.Group(); u.position.set(x, 0.03, z); u.rotation.z = t; u.rotation.x = -t * 0.5; g.add(u);
+      u.add(cyl(0.006, 0.035, 0.62, cols[i], 0, 0.45, 0, 8)); u.add(cyl(0.004, 0.004, 0.2, std('#6a5a40', .6), 0, 0.85, 0, 6)); if (i < 2) { const h = new THREE.Mesh(new THREE.TorusGeometry(0.03, 0.007, 5, 10, Math.PI), std('#4a3a28', .6)); h.position.set(0.03, 0.95, 0); h.rotation.z = Math.PI; u.add(h); } else u.add(cyl(0.012, 0.012, 0.03, std('#4a3a28', .6), 0, 0.96, 0, 8)); }); }
+  return fitStyle(g, it);
+}
+
+// ---- 昭和の小物(急須と湯のみ・蚊取り線香・うちわ・新聞の束) ----
+// 部分:色。lift でちゃぶ台(330)などの上へ
+function wakomonoBuild(it) {
+  const g = new THREE.Group(), s = styleOf(it).id, m = pm(it, 'color', .4);
+  if (s === 'kyusu') {
+    // お盆に急須・湯のみ2つ・茶托
+    g.add(cyl(0.16, 0.15, 0.015, std('#3a2216', .35), 0, 0.0075, 0, 28));
+    g.add(ell(0.055, m, -0.05, 0.065, -0.03, 1, 0.82, 1)); g.add(cyl(0.035, 0.04, 0.012, m, -0.05, 0.115, -0.03, 14)); g.add(sph(0.01, m, -0.05, 0.127, -0.03));
+    rod(g, m, [-0.0, 0.06, -0.03], [0.04, 0.1, -0.03], 0.014, true); rod(g, m, [-0.1, 0.07, -0.03], [-0.17, 0.08, -0.03], 0.018, true);
+    for (const [x, z] of [[0.07, 0.07], [-0.03, 0.09]]) { g.add(cyl(0.04, 0.04, 0.006, std('#4a2e1e', .4), x, 0.018, z, 16)); g.add(cyl(0.032, 0.026, 0.065, std('#d9cfb8', .35), x, 0.054, z, 16)); g.add(cyl(0.028, 0.028, 0.002, std('#7a8a4a', .2), x, 0.084, z, 14)); }
+  } else if (s === 'katori') {
+    // 豚の蚊やり+うずまきの線香
+    g.add(ell(0.08, m, 0, 0.08, 0, 1.25, 0.95, 1)); const mouth = cyl(0.055, 0.055, 0.01, std('#1a1614', .9), 0, 0.08, 0.1, 18); mouth.rotation.x = Math.PI / 2; g.add(mouth);
+    for (const sx of [-1, 1]) { g.add(cyl(0.015, 0.018, 0.03, m, sx * 0.05, 0.015, 0.03, 8)); g.add(cyl(0.015, 0.018, 0.03, m, sx * 0.05, 0.015, -0.04, 8)); const ear = new THREE.Mesh(new THREE.ConeGeometry(0.02, 0.035, 6), m); ear.position.set(sx * 0.045, 0.155, 0.04); g.add(ear); }
+    const coil = new THREE.Mesh(new THREE.TorusGeometry(0.045, 0.003, 4, 20), std('#3e5a34', .8)); coil.position.set(0, 0.08, 0.098); g.add(coil); const coil2 = coil.clone(); coil2.scale.setScalar(0.6); g.add(coil2);
+  } else if (s === 'uchiwa') {
+    const face = paint('uchiwa', 64, 64, (c, W, H) => { c.fillStyle = '#efe8d8'; c.fillRect(0, 0, W, H); c.fillStyle = '#4a6a9a'; c.beginPath(); c.arc(40, 26, 12, 0, Math.PI * 2); c.fill(); c.strokeStyle = 'rgba(80,60,40,.4)'; for (let i = 0; i < 9; i++) { c.beginPath(); c.moveTo(32, 64); c.lineTo(i * 8, 0); c.stroke(); } }, .9, { side: THREE.DoubleSide });
+    const disc = mesh(new THREE.CircleGeometry(0.12, 24), face, 0, 0.006, -0.04); disc.rotation.x = -Math.PI / 2; g.add(disc); g.add(box(0.016, 0.008, 0.14, std('#a88a5a', .6), 0, 0.006, 0.13));
+  } else {
+    // 新聞の束(ひもでしばる)
+    const pp = std('#ddd6c4', .95), ln = std('#cfc6b0', .95);
+    for (let i = 0; i < 8; i++) g.add(box(0.41, 0.022, 0.27, i % 2 ? ln : pp, (i % 3 - 1) * 0.006, 0.011 + i * 0.022, (i % 2) * 0.006));
+    const tie = std('#d8cfa8', .9); g.add(box(0.425, 0.006, 0.006, tie, 0, 0.18, 0)); g.add(box(0.006, 0.006, 0.285, tie, 0, 0.18, 0));
+    for (const sz of [-1, 1]) { g.add(box(0.006, 0.18, 0.006, tie, 0, 0.09, sz * 0.142)); g.add(box(0.006, 0.18, 0.006, tie, sz * 0.212, 0.09, 0)); }
+  }
+  return fitStyle(g, it);
+}
+
 export const WAFU = {
   chabudai: { name: 'ちゃぶ台・座卓', emoji: '🍵', cat: '和の家具', kind: 'floor', size: [0.75, 0.33, 0.75], range: { w: [0.4, 2.2], h: [0.02, 0.5], d: [0.4, 1.4] }, color: 'w_walnut', opts: { lift: 0 }, words: ['ちゃぶ台', 'ちゃぶだい', '座卓', '丸いちゃぶ台', '和室のテーブル'],
     parts: [{ key: 'top', name: '天板', pal: 'wood', def: 'w_walnut' }, { key: 'legs', name: '脚・幕板', pal: 'wood', def: 'w_walnut' }],
     styles: [
       { id: 'round', name: '丸いちゃぶ台(脚を折りたためる)', size: [0.75, 0.33, 0.75], words: ['丸いちゃぶ台', 'ちゃぶ台', '折りたたみちゃぶ台'] },
-      { id: 'large', name: '座卓(大・長方形)', size: [1.5, 0.33, 0.9], words: ['座卓', '大きい座卓', '長い座卓'], parts: { top: 'w_walnut', legs: 'w_black' } },
+      { id: 'large', name: '座卓(大・長方形)', size: [1.5, 0.33, 0.9], words: ['座卓', '大きい座卓', '長い座卓'], parts: { top: 'w_walnut', legs: 'w_walnut' } },
       { id: 'mid', name: '座卓(中)', size: [1.2, 0.33, 0.75], words: ['中くらいの座卓', '小さい座卓'], parts: { top: 'w_medium', legs: 'w_walnut' } },
       { id: 'tenban', name: '掘りごたつ・こたつの天板(板だけ)', size: [0.9, 0.03, 0.9], words: ['天板', 'こたつの天板', '掘りごたつの天板'], parts: { top: 'w_medium' }, opts: { lift: 0 } },
     ],
@@ -519,11 +670,11 @@ export const WAFU = {
       { id: 'seiri', name: '整理だんす(引き出し)', size: [0.9, 1.1, 0.45], words: ['整理だんす', '整理箪笥'], parts: { body: 'w_medium', front: 'w_medium', knob: 'm_black' } },
     ],
     build: tansuBuild },
-  kyoudai: { name: '鏡台', emoji: '🪞', cat: '和の家具', kind: 'floor', size: [0.62, 1.15, 0.36], range: { w: [0.35, 1.0], h: [0.6, 1.8], d: [0.25, 0.6] }, color: 'w_walnut', opts: { cover: false }, words: ['鏡台', 'きょうだい', '三面鏡', '一面鏡'],
+  kyoudai: { name: '鏡台', emoji: '🪞', cat: '和の家具', kind: 'floor', size: [0.62, 1.15, 0.36], range: { w: [0.35, 1.0], h: [0.6, 1.8], d: [0.25, 0.6] }, color: 'w_walnut', opts: { cover: false }, words: ['鏡台', 'きょうだい', '三面鏡の鏡台', '和の鏡台'],
     parts: [{ key: 'body', name: '本体', pal: 'wood', def: 'w_walnut' }, { key: 'cover', name: 'かけ布', pal: 'color', def: '#5e3a40' }],
     styles: [
-      { id: 'sanmen', name: '三面鏡(すわって使う)', size: [0.62, 1.15, 0.36], words: ['三面鏡', '鏡台'] },
-      { id: 'ichimen', name: '一面鏡(縦長)', size: [0.45, 1.45, 0.34], words: ['一面鏡'], opts: { cover: true } },
+      { id: 'sanmen', name: '三面鏡(すわって使う)', size: [0.62, 1.15, 0.36], words: ['三面鏡の鏡台', '鏡台'] },
+      { id: 'ichimen', name: '一面鏡(縦長)', size: [0.45, 1.45, 0.34], words: ['一面鏡の鏡台'], opts: { cover: true } },
     ],
     params: [['cover', '布のカバーをかける', 'bool']], build: kyoudaiBuild },
   ikou: { name: '衣桁(着物を掛ける)', emoji: '👘', cat: '和の家具', kind: 'floor', size: [1.4, 1.5, 0.42], range: { w: [0.8, 2.0], h: [1.0, 1.9], d: [0.3, 0.6] }, color: 'w_walnut', opts: { cloth: false }, words: ['衣桁', 'いこう', '着物掛け', '着物かけ'],
@@ -533,11 +684,11 @@ export const WAFU = {
       { id: 'cloth', name: '着物を掛ける', size: [1.4, 1.5, 0.42], words: ['着物掛け', '着物かけ'], opts: { cloth: true } },
     ],
     params: [['cloth', '着物を掛ける', 'bool']], build: ikouBuild },
-  hashiradokei: { name: '柱時計(振り子)', emoji: '🕰️', cat: '和の家具', kind: 'wall', size: [0.3, 0.64, 0.13], range: { w: [0.2, 0.6], h: [0.4, 1.2], d: [0.08, 0.25] }, color: 'w_walnut', opts: {}, words: ['柱時計', 'はしらどけい', 'ボンボン時計', '振り子時計', '昔の時計'],
+  hashiradokei: { name: '柱時計(振り子)', emoji: '🕰️', cat: '和の家具', kind: 'wall', size: [0.3, 0.64, 0.13], range: { w: [0.2, 0.6], h: [0.4, 1.2], d: [0.08, 0.25] }, color: 'w_walnut', opts: {}, words: ['柱時計', 'はしらどけい', 'ボンボン時計', '昔の柱時計', '昔の時計'],
     parts: [{ key: 'case', name: '木のわく', pal: 'wood', def: 'w_walnut' }, { key: 'face', name: '文字盤', pal: 'color', def: '#efe6cf' }],
     styles: [
       { id: 'maru', name: '丸い顔', size: [0.3, 0.64, 0.13], words: ['柱時計', 'ボンボン時計'] },
-      { id: 'hakkaku', name: '八角の顔', size: [0.3, 0.64, 0.13], words: ['八角時計'], parts: { case: 'w_cherry' } },
+      { id: 'hakkaku', name: '八角の顔', size: [0.3, 0.64, 0.13], words: ['八角時計'], parts: { case: 'w_black' } },
       { id: 'kaku', name: '四角い顔', size: [0.33, 0.66, 0.13], words: ['四角い柱時計'], parts: { case: 'w_medium' } },
     ],
     build: hashiraBuild },
@@ -584,4 +735,59 @@ export const WAFU = {
       { id: 'tatamu', name: 'たたんで積んだ', size: [1.0, 0.55, 0.7], words: ['たたんだ布団', '布団を積む'], parts: { kake: '#4c5a6e' } },
     ],
     build: futonBuild },
+  kakejiku: { name: '掛け軸', emoji: '🖼️', cat: '和の家具', kind: 'wall', size: [0.5, 1.7, 0.03], range: { w: [0.25, 1.0], h: [0.6, 2.2], d: [0.01, 0.06] }, color: '#6a6048', opts: {}, words: ['掛け軸', 'かけじく', '床の間の掛け軸', '山水画', '書の掛け軸'],
+    parts: [{ key: 'cloth', name: '表装の布', pal: 'color', def: '#6a6048' }, { key: 'tip', name: '軸先', pal: 'color', def: '#2a1c14' }],
+    styles: [
+      { id: 'sansui', name: '山と霞の絵', size: [0.5, 1.7, 0.03], words: ['掛け軸', '山水画'] },
+      { id: 'sho', name: '墨の書(読めない線)', size: [0.5, 1.7, 0.03], words: ['書の掛け軸'], parts: { cloth: '#4a5048' } },
+    ],
+    build: kakejikuBuild },
+  kabin: { name: '花瓶に花(和)', emoji: '💐', cat: '和の家具', kind: 'floor', size: [0.5, 0.75, 0.3], range: { w: [0.08, 1.0], h: [0.1, 1.2], d: [0.08, 0.6] }, color: '#4a5a62', opts: { lift: 0 }, words: ['花瓶', '生け花', 'いけばな', '一輪挿し', '壺の花', '水盤'],
+    parts: [{ key: 'vase', name: '花瓶', pal: 'ceramic', def: '#4a5a62' }, { key: 'flower', name: '花', pal: 'color', def: '#e8e2e6' }],
+    styles: [
+      { id: 'tsubo', name: '壺に枝もの', size: [0.5, 0.75, 0.3], words: ['花瓶', '壺の花'] },
+      { id: 'suiban', name: '水盤の生け花', size: [0.4, 0.45, 0.32], words: ['生け花', 'いけばな', '水盤'], parts: { vase: '#3a3a36', flower: '#d8a040' } },
+      { id: 'ichirin', name: '一輪挿し', size: [0.1, 0.38, 0.08], words: ['一輪挿し'], parts: { vase: 'c_ivory', flower: '#b8384a' } },
+    ],
+    params: [LIFT], build: kabinBuild },
+  hakimono: { name: '長靴・草履・下駄', emoji: '🥾', cat: '和の家具', kind: 'floor', size: [0.42, 0.34, 0.36], range: { w: [0.15, 0.6], h: [0.03, 0.5], d: [0.2, 0.5] }, color: '#2f3a2e', opts: {}, words: ['長靴', 'ながぐつ', '草履', 'ぞうり', 'サンダル', 'つっかけ', '下駄', 'げた'],
+    parts: [{ key: 'color', name: '色', pal: 'color', def: '#2f3a2e' }],
+    styles: [
+      { id: 'nagagutsu', name: '長靴(1足・置きっぱなし)', size: [0.42, 0.34, 0.36], words: ['長靴', 'ながぐつ'] },
+      { id: 'zori', name: '草履', size: [0.25, 0.04, 0.27], words: ['草履', 'ぞうり'], parts: { color: '#6a3a3a' } },
+      { id: 'sandal', name: 'つっかけ(サンダル)', size: [0.26, 0.07, 0.28], words: ['サンダル', 'つっかけ'], parts: { color: '#6a5a4a' } },
+      { id: 'geta', name: '下駄', size: [0.25, 0.09, 0.26], words: ['下駄', 'げた'], parts: { color: '#3a2a3a' } },
+    ],
+    build: hakimonoBuild },
+  getabako: { name: '下駄箱(和風・木)', emoji: '👞', cat: '和の家具', kind: 'floor', size: [0.9, 0.95, 0.35], range: { w: [0.5, 2.0], h: [0.6, 1.3], d: [0.25, 0.45] }, color: 'w_walnut', opts: {}, words: ['和風の下駄箱', '木の下駄箱', '昔の下駄箱', '和風の靴箱'],
+    parts: [{ key: 'body', name: '本体', pal: 'wood', def: 'w_walnut' }, { key: 'door', name: '戸', pal: 'wood', def: 'w_medium' }, { key: 'knob', name: '取っ手', pal: 'metal', def: 'm_black' }],
+    styles: [
+      { id: 'hiraki', name: '開き戸(上下2段)', size: [0.9, 0.95, 0.35], words: ['和風の下駄箱', '木の下駄箱'] },
+      { id: 'koushi', name: '格子の戸', size: [1.2, 0.95, 0.35], words: ['昔の下駄箱'], parts: { door: 'w_walnut' } },
+    ],
+    build: getabakoBuild },
+  tsuitate: { name: '衝立', emoji: '🪟', cat: '和の家具', kind: 'floor', size: [0.9, 1.2, 0.35], range: { w: [0.5, 1.8], h: [0.6, 1.8], d: [0.2, 0.5] }, color: 'w_walnut', opts: {}, words: ['衝立', 'ついたて', '玄関の衝立'],
+    parts: [{ key: 'frame', name: 'わく', pal: 'wood', def: 'w_walnut' }],
+    styles: [
+      { id: 'shoji', name: '障子の衝立', size: [0.9, 1.2, 0.35], words: ['衝立', 'ついたて'] },
+      { id: 'ajiro', name: '網代(編んだ板)', size: [0.9, 1.2, 0.35], words: ['網代'] },
+      { id: 'e', name: '絵の衝立', size: [0.9, 1.2, 0.35], words: ['玄関の衝立', '絵の衝立'] },
+    ],
+    build: tsuitateBuild },
+  kasatate: { name: '傘立て(和)', emoji: '☂️', cat: '和の家具', kind: 'floor', size: [0.25, 0.5, 0.25], range: { w: [0.15, 0.5], h: [0.3, 1.2], d: [0.15, 0.5] }, color: '#7a5a3e', opts: { umb: true }, words: ['和の傘立て', '陶器の傘立て', '竹の傘立て'],
+    parts: [{ key: 'stand', name: '傘立て', pal: 'color', def: '#7a5a3e' }, { key: 'umbrella', name: '傘', pal: 'color', def: '#3a4a6a' }],
+    styles: [
+      { id: 'tsubo', name: '焼き物の筒', size: [0.25, 0.5, 0.25], words: ['陶器の傘立て', '和の傘立て'] },
+      { id: 'take', name: '竹', size: [0.25, 0.5, 0.25], words: ['竹の傘立て'], parts: { stand: '#b8a070' } },
+    ],
+    params: [['umb', '傘をさしておく', 'bool']], build: kasatateBuild },
+  wakomono: { name: '昭和の小物', emoji: '🍵', cat: '和の家具', kind: 'floor', size: [0.32, 0.13, 0.32], range: { w: [0.05, 0.8], h: [0.01, 0.5], d: [0.05, 0.6] }, color: '#5a4a3e', opts: { lift: 0 }, words: ['急須', 'きゅうす', '湯のみ', '湯呑み', '蚊取り線香', '蚊やり', 'うちわ', '新聞の束', '古新聞'],
+    parts: [{ key: 'color', name: '色', pal: 'color', def: '#5a4a3e' }],
+    styles: [
+      { id: 'kyusu', name: '急須と湯のみ(お盆)', size: [0.32, 0.13, 0.32], words: ['急須', 'きゅうす', '湯のみ', '湯呑み'] },
+      { id: 'katori', name: '蚊取り線香(豚の蚊やり)', size: [0.2, 0.18, 0.22], words: ['蚊取り線香', '蚊やり'], parts: { color: '#7a6a5a' } },
+      { id: 'uchiwa', name: 'うちわ(置いた)', size: [0.24, 0.012, 0.36], words: ['うちわ'] },
+      { id: 'shinbun', name: '新聞の束', size: [0.43, 0.19, 0.29], words: ['新聞の束', '古新聞'] },
+    ],
+    params: [LIFT], build: wakomonoBuild },
 };
