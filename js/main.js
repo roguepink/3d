@@ -4,7 +4,8 @@ import { Scene3D } from './scene3d.js';
 import { WalkControls } from './controls.js';
 import { buildHouse, walkable, groundAt, baseOf, levelOf, setFloorH, floorH, hasUpper, onLevel, roomAt, houseBounds, edgeFrame, wallPoint, wallUV, wallLength, edgeName, edgeForCompass, nearestEdge, edgeDistance, frameFromRot, clampIntoRoom, insideRoom, neighborAcross, normalizeRoom, shapePoly, chamferVertex, isRect, resizeRect, WALL_T, MODULES, ROOM_PRESETS, ROOM_SHAPES, shapeIconSVG, mm, mmRaw, joOf, innerOf, shinShin, roomJo, roomTrim } from './house.js';
 import { CATALOG, CATEGORIES, EQUIP_CATEGORIES, newItem, buildItem, catalogEntry, typeByWord } from './items.js';
-import { SURFACE_LIB, COLORS, colorByName, swatchCanvas, clearMaterialCache, libEntry, TRIM_FINISHES, trimMaterial, trimFinish } from './textures.js';
+import { applyStyle, partVal, setPart, styleOf } from './kit.js';
+import { SURFACE_LIB, COLORS, colorByName, swatchCanvas, clearMaterialCache, libEntry, TRIM_FINISHES, trimMaterial, trimFinish, PALETTES, finishSwatch, finishName } from './textures.js';
 import { demoProject } from './demo.js';
 import { saveProject, loadProject, listProjects, deleteProject, download, shareOrDownload } from './store.js';
 import { parseCommand } from './commands.js';
@@ -13,6 +14,7 @@ import { PlanEditor } from './plan.js';
 import * as AI from './ai.js';
 import { stairLayout as stairLayoutOf, STAIR_CELLS, stairKindName } from './stairs.js';
 import { thumbnail } from './thumbs.js';
+import { openAngles } from './angles.js';
 import { projectToLink, linkToProject } from './link.js';
 
 const $ = s => document.querySelector(s), $$ = s => Array.from(document.querySelectorAll(s));
@@ -51,7 +53,7 @@ class App {
     $('#btnPhoto').onclick = () => { this.closeSheets(); openPhotoWizard(this); };
     $('#btnMaterial').onclick = () => this.openSurfaces();
     $('#btnDayNight').onclick = () => this.setDaytime({ day: 'evening', evening: 'night', night: 'day' }[this.project.settings.daytime || (this.project.settings.night ? 'night' : 'day')]);
-    $('#btnShot').onclick = () => this.shot();
+    $('#btnShot').onclick = () => this.shot(); $('#mAngles').onclick = () => openAngles(this);
     $('#zoomIn').onclick = () => this.setZoom(this.s3.zoom * 1.25); $('#zoomOut').onclick = () => this.setZoom(this.s3.zoom / 1.25); $('#zoomReset').onclick = () => this.setZoom(1); this.zoomLabel();
     $('#btnSend').onclick = () => this.runCommand($('#cmd').value);
     $('#cmd').addEventListener('keydown', e => { if (e.key === 'Enter') { this.runCommand($('#cmd').value); $('#cmd').blur(); } });
@@ -148,6 +150,7 @@ class App {
   // いまの視点のまま組み立て直す
   reload() { const cam = { x: this.s3.camera.position.x, z: this.s3.camera.position.z, yaw: this.walk.yaw, pitch: this.walk.pitch, gy: this.walk.floorY, lv: this.levelView }; const mode = this.mode; this.load(this.project); this.walk.floorY = cam.gy; this.levelView = cam.lv; this.s3.camera.position.set(cam.x, cam.gy + 1.5, cam.z); this.walk.yaw = cam.yaw; this.walk.pitch = cam.pitch; this.setMode(mode); }
   load(p) {
+    if (p && p.items) p.items = p.items.filter(Boolean); // 作り直し中などで種類が見つからない物は飛ばす
     this.project = p; p.assets = p.assets || {}; p.items = p.items || []; p.settings = p.settings || {}; setFloorH(p.settings.floorH || 2.9); for (const r of (p.rooms || [])) normalizeRoom(r); this.selectedId = null; this.setPin(null);
     clearMaterialCache(); this.rebuildHouse(); this.rebuildItems(); this.setDaytime(p.settings.daytime || (p.settings.night ? 'night' : 'day'), true);
     const b = houseBounds(p.rooms); this.s3.setSunTarget((b.minX + b.maxX) / 2, (b.minZ + b.maxZ) / 2, Math.max(b.maxX - b.minX, b.maxZ - b.minZ) / 2 + 2);
@@ -299,10 +302,15 @@ class App {
   openCatalog(equip = false) {
     this.openSheet('catalog'); const tabs = $('#catTabs'), cards = $('#catCards'); tabs.innerHTML = ''; const cats = equip ? EQUIP_CATEGORIES : CATEGORIES; const key = equip ? '_ecat' : '_cat'; this[key] = cats.includes(this[key]) ? this[key] : cats[0];
     $('#catTitle').textContent = equip ? '設備を付ける' : '置くもの'; $('#catHint').textContent = equip ? '見ている壁や床に付けます。コンセントやスイッチは一般的な高さに自動で付きます(あとで上下に動かせます)。' : '選ぶと、見ている場所(画面の中央の○)に置きます。';
-    for (const c of cats) { const b = document.createElement('button'); b.textContent = c; b.classList.toggle('on', c === this[key]); b.onclick = () => { this[key] = c; this.openCatalog(equip); }; tabs.appendChild(b); }
+    for (const c of cats) { const b = document.createElement('button'); b.textContent = c; b.classList.toggle('on', c === this[key]); b.onclick = () => { this[key] = c; this._catType = null; this.openCatalog(equip); }; tabs.appendChild(b); }
     if (equip) { const hb = document.createElement('button'); hb.textContent = this.hideEquip ? '👁 設備を見せる' : '🙈 設備を隠す'; hb.onclick = () => { this.hideEquip = !this.hideEquip; this.applyEquipVisibility(); this.openCatalog(true); }; tabs.appendChild(hb); }
     cards.innerHTML = '';
-    for (const [type, e] of Object.entries(CATALOG)) { if (e.cat !== this[key] || !!e.equip !== equip) continue; const b = document.createElement('button'); b.className = 'card sw'; const th = thumbnail(type); if (th) { const img = document.createElement('img'); img.src = th; img.alt = e.name; b.appendChild(img); } else b.textContent = e.emoji; const bb = document.createElement('b'); bb.textContent = e.name; b.appendChild(bb); b.onclick = () => { const it = this.place(type, this.target()); if (it) { this.closeSheets(); this.select(it.id); this.toast(e.name + 'を置きました。指で引っぱると動かせます'); } }; cards.appendChild(b); }
+    const put = (type, style) => { const e = CATALOG[type]; const it = this.place(type, this.target(), style ? { style } : {}); if (it) { this.closeSheets(); this.select(it.id); this.toast((style ? styleOf(it).name + 'の' : '') + e.name + 'を置きました。指で引っぱると動かせます'); } };
+    const card = (type, e, style, label, many) => { const b = document.createElement('button'); b.className = 'card sw'; const th = thumbnail(type, style); if (th) { const img = document.createElement('img'); img.src = th; img.alt = label; b.appendChild(img); } else b.textContent = e.emoji; const bb = document.createElement('b'); bb.textContent = label; b.appendChild(bb); if (many) { const m = document.createElement('span'); m.className = 'many'; m.textContent = many + '種類'; b.appendChild(m); } cards.appendChild(b); return b; };
+    // 形がいくつもあるもの(ベッドなど)は、押すと形の一覧を出す
+    if (this._catType && CATALOG[this._catType] && CATALOG[this._catType].cat === this[key]) { const type = this._catType, e = CATALOG[type]; const back = document.createElement('button'); back.className = 'card'; back.innerHTML = '←<b>もどる</b>'; back.onclick = () => { this._catType = null; this.openCatalog(equip); }; cards.appendChild(back); for (const st of e.styles) card(type, e, st.id, st.name).onclick = () => { this._catType = null; put(type, st.id); }; return; }
+    this._catType = null;
+    for (const [type, e] of Object.entries(CATALOG)) { if (e.cat !== this[key] || !!e.equip !== equip) continue; const many = e.styles && e.styles.length > 1 ? e.styles.length : 0; card(type, e, null, e.name, many).onclick = () => { if (many) { this._catType = type; this.openCatalog(equip); } else put(type); }; }
   }
   // 種類と場所から、置き場所を決めて置く
   place(type, t, over = {}) {
@@ -355,12 +363,25 @@ class App {
     const prev = this.selectedId; this.selectedId = id; this.updateSelHelper(); if (!id) { $('#edit').classList.add('hidden'); this.updateInset(); this.restoreView(); return; }
     const it = this.item(id), c = catalogEntry(it.type); const wasOpen = !$('#edit').classList.contains('hidden'); this.openSheet('edit'); $('#editName').textContent = c.name; if (!wasOpen) this.editTab(this._etab || 'color', true);
     const colors = $('#editColors'); colors.innerHTML = '';
+    // 形をえらぶ(ベッドの「シングル・二段」、キッチンの「I型・L型」など)
+    const stBox = $('#editStyles'), ptBox = $('#editParts'); stBox.innerHTML = ''; ptBox.innerHTML = '';
+    if (c.styles && c.styles.length > 1) { const cur = styleOf(it); for (const st of c.styles) { const b = document.createElement('button'); b.className = 'card sw' + (st === cur ? ' on' : ''); const th = thumbnail(it.type, st.id); if (th) { const img = document.createElement('img'); img.src = th; b.appendChild(img); } const bb = document.createElement('b'); bb.textContent = st.name; b.appendChild(bb); b.onclick = () => { if (st === styleOf(it)) return; this.snapshot(); applyStyle(it, st.id); this.rebuildItem(it, true); this.select(id); this.toast(st.name + 'にしました'); }; stBox.appendChild(b); }
+      setTimeout(() => { const on = stBox.querySelector('.on'); if (on) stBox.scrollLeft = on.offsetLeft - 40; }, 0); }
+    // 部分ごとの色(わく・扉・天板など)。色見本は名前つきで出す
+    if (c.parts) {
+      if (!c.parts.find(p => p.key === this._part)) this._part = c.parts[0].key; const part = c.parts.find(p => p.key === this._part);
+      if (c.parts.length > 1) for (const p of c.parts) { const b = document.createElement('button'); b.className = 'chip text' + (p === part ? ' on' : ''); b.textContent = p.name; b.onclick = () => { this._part = p.key; this.select(id, { noFrame: true }); }; ptBox.appendChild(b); }
+      const val = partVal(it, part.key), choose = v => { setPart(it, part.key, v); this.rebuildItem(it); this.select(id, { noFrame: true }); };
+      const pal = PALETTES[part.pal];
+      if (pal && this._palOpen !== id + part.key) { const grid = document.createElement('div'); grid.className = 'fins'; for (const fid of pal) { const b = document.createElement('button'); b.className = 'fin' + (val === fid ? ' on' : ''); b.appendChild(finishSwatch(fid)); const sp = document.createElement('span'); sp.textContent = finishName(fid); b.appendChild(sp); b.onclick = () => choose(fid); grid.appendChild(b); } colors.appendChild(grid); const more = document.createElement('button'); more.className = 'chip text'; more.textContent = 'ほかの色'; more.onclick = () => { this._palOpen = id + part.key; this.select(id, { noFrame: true }); }; colors.appendChild(more); }
+      else { for (const [n, hex] of Object.entries(COLORS)) { const b = document.createElement('button'); b.className = 'chip' + (val === hex ? ' on' : ''); b.style.background = hex; b.title = n; b.onclick = () => choose(hex); colors.appendChild(b); } if (pal) { const back = document.createElement('button'); back.className = 'chip text'; back.textContent = '色見本にもどる'; back.onclick = () => { this._palOpen = null; this.select(id, { noFrame: true }); }; colors.appendChild(back); } }
+    } else
     // エアコンなどは「白・グレー・黒」だけ先に出す。ほかの色は「その他」で開く
     { const pal = c.palette ? { 白: '#f4f4f2', グレー: '#9a9da3', 黒: '#2b2b2e' } : null; const full = !pal || this._palOpen === id || !Object.values(pal).includes(it.color);
       const list = pal && !full ? pal : COLORS; for (const [n, hex] of Object.entries(pal && !full ? pal : (pal ? { ...pal, ...COLORS } : COLORS))) { const b = document.createElement('button'); b.className = 'chip' + (it.color === hex ? ' on' : ''); b.style.background = hex; b.title = n; b.onclick = () => { it.color = hex; this.rebuildItem(it); this.select(id); }; colors.appendChild(b); }
       if (pal && !full) { const more = document.createElement('button'); more.className = 'chip text'; more.textContent = 'その他'; more.onclick = () => { this._palOpen = id; this.select(id); }; colors.appendChild(more); } void list; }
     const mats = $('#editMats'); mats.innerHTML = '';
-    if (c.fabric !== undefined && c.fabric !== null && it.type !== 'lace') { for (const f of SURFACE_LIB.fabric) { const b = document.createElement('button'); b.className = 'card sw' + (it.fabric === f.id ? ' on' : ''); b.appendChild(swatchCanvas('fabric', f.id, f.tint ? it.color : null)); const bb = document.createElement('b'); bb.textContent = f.name; b.appendChild(bb); b.onclick = () => { it.fabric = f.id; it.userTex = null; this.rebuildItem(it); this.select(id); }; mats.appendChild(b); }
+    if (c.fabric !== undefined && c.fabric !== null && it.type !== 'lace' && (!c.parts || this._part === c.parts[0].key)) { for (const f of SURFACE_LIB.fabric) { const b = document.createElement('button'); b.className = 'card sw' + (it.fabric === f.id ? ' on' : ''); b.appendChild(swatchCanvas('fabric', f.id, f.tint ? it.color : null)); const bb = document.createElement('b'); bb.textContent = f.name; b.appendChild(bb); b.onclick = () => { it.fabric = f.id; it.userTex = null; this.rebuildItem(it); this.select(id); }; mats.appendChild(b); }
       for (const [aid, a] of Object.entries(this.project.assets)) { if (a.kind !== 'tile') continue; const b = document.createElement('button'); b.className = 'card sw' + (it.userTex === aid ? ' on' : ''); const img = document.createElement('img'); img.src = a.dataUrl; b.appendChild(img); const bb = document.createElement('b'); bb.textContent = a.name || '写真'; b.appendChild(bb); b.onclick = () => { it.userTex = aid; it.texSize = a.size || .5; it.fabric = null; this.rebuildItem(it); this.select(id); }; mats.appendChild(b); }
       const lab = document.createElement('label'); lab.className = 'filebtn'; lab.textContent = '📷 生地の写真'; const inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'image/*'; inp.onchange = e => this.userTextureFor(e.target.files[0], 'fabric', it); lab.appendChild(inp); mats.appendChild(lab); }
     const params = $('#editParams'); params.innerHTML = '';
@@ -560,7 +581,7 @@ class App {
     const findItems = type => { const room = this.currentRoom(); return this.project.items.filter(i => i.type === type && (!room || i.roomId === room.id)); };
     const nearest = type => { const list = findItems(type); if (!list.length) return null; const p = (t && t.point) || this.s3.camera.position; list.sort((a, b) => Math.hypot(a.x - p.x, a.z - p.z) - Math.hypot(b.x - p.x, b.z - p.z)); return list[0]; };
     switch (cmd.action) {
-      case 'add': { const over = {}; if (cmd.color) over.color = cmd.color; if (cmd.fabric) over.fabric = cmd.fabric; if (cmd.side) over.side = cmd.side; if (cmd.size) { over.w = cmd.size.w ?? undefined; if (cmd.size.h) over.h = cmd.size.h; } for (const k of Object.keys(over)) if (over[k] === undefined) delete over[k];
+      case 'add': { const over = {}; if (cmd.style) over.style = cmd.style; if (cmd.color) over.color = cmd.color; if (cmd.fabric) over.fabric = cmd.fabric; if (cmd.side) over.side = cmd.side; if (cmd.size) { over.w = cmd.size.w ?? undefined; if (cmd.size.h) over.h = cmd.size.h; } for (const k of Object.keys(over)) if (over[k] === undefined) delete over[k];
         let tt = t; const room = this.currentRoom(); if (cmd.where === 'window' && room) { const w = (room.openings || []).find(o => o.type === 'window'); if (w) tt = { kind: 'window', roomId: room.id, edge: w.edge, point: wallPoint(room, w.edge, w.u + w.w / 2, w.sill + w.h / 2, 0), normal: edgeFrame(room, w.edge).normal }; }
         else if (cmd.side && room) { const e = edgeForCompass(room, cmd.side, this.s3.camera.position); if (e !== null) tt = { kind: 'wall', roomId: room.id, edge: e, point: wallPoint(room, e, wallLength(room, e) / 2, 1.2, 0), normal: edgeFrame(room, e).normal }; delete over.side; }
         else if ((cmd.where === 'center' || (!cmd.where && !this.pin && catalogEntry(cmd.type).kind === 'ceiling')) && room) { tt = { kind: 'floor', roomId: room.id, point: new THREE.Vector3(room.x + room.w / 2, 0, room.z + room.d / 2), normal: new THREE.Vector3(0, 1, 0) }; }

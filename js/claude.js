@@ -43,7 +43,7 @@ async function systemPrompt() {
   let example = '';
   try { const src = await (await fetch('./js/demo.js', { cache: 'no-cache' })).text(); const a = src.indexOf('export function demoProject() {') + 'export function demoProject() {'.length, b = src.lastIndexOf('return { v: 1');
     example = src.slice(a, b).split('\n').filter(l => !/^\s*(seq = 0; const FH|const rooms = \[|const items = \[\];|const add = \(type|const H = Math\.PI)/.test(l)).join('\n') + "\n  return { name: '見本の家', floorH: FH, camera: { x: 7.5, z: 7.0, yaw: Math.PI / 3.2, gy: 0 } };"; } catch {}
-  const types = Object.entries(CATALOG).map(([k, v]) => `${k}(${v.name}${v.size ? ' ' + v.size.map(n => Math.round(n * 1000)).join('×') : ''})`).join(', ');
+  const types = Object.entries(CATALOG).map(([k, v]) => `${k}(${v.name}${v.size ? ' ' + v.size.map(n => Math.round(n * 1000)).join('×') : ''}${v.styles ? ' 形 style:' + v.styles.map(t => t.id + '=' + t.name).join('/') : ''}${v.parts ? ' 部分の色 parts:' + v.parts.slice(1).map(p => p.key + '=' + p.name).join('/') : ''})`).join(', ');
   return `あなたは日本の木造住宅の一級建築士とインテリアコーディネーターです。住宅インテリアの3Dアプリ「おへや3D」の家を、決められた書き方の JavaScript で作ります。
 返事は \`\`\`js で始まるコードのかたまり1つだけ。説明の文は書かない。コードは「関数の中身」だけ(import や関数の宣言は書かない)。最後に return { name, floorH: FH, camera: { x, z, yaw, gy: 0 } } を返す。
 
@@ -52,7 +52,7 @@ async function systemPrompt() {
 - room(id, 名前, 階0/1, x0, z0, x1, z1, opts):壁の中心線の位置をマス数で(0.5刻み可)。部屋の内側は中心線から60mm内側。opts: floor:{lib}, walls:{0:北,1:東,2:南,3:西 の {lib}}, h(天井高 既定2.4), poly(L字など。内側の座標・時計回り), closet:'cl'|'wic'|'oshiire'|'sic'|'storage', drop:0.15 と h:2.55(玄関の土間), stair:{kind:'u_winder',style:'box',dir:'N'|'S'|'E'|'W',flip:false,finish:'wood_natural'}(階段は level 0 に1つ・2×2マス)
 - link(a, 'N'|'E'|'S'|'W', b, s, w, props):a の壁に開口を作り b とつなぐ。s は開口の端(北南の壁は x、東西の壁は z の小さいほう)。props:ドア {swing:'in'|'out',hinge:'left'|'right',open}、引き戸 {style:'slide'}、戸なし {type:'open'}、収納の戸 {type:'closet',style:'fold'|'slide'|'fusuma'}(a=収納)、玄関の框 {type:'open',sill:0.15,twinSill:0,h:2.2}(a=玄関)、階段の1階の上り口 {type:'open',h:2.4}、2階の出口 {type:'open',sill:FH,twinSill:0}
 - win(r, side, s, w, h, sill):外に面した壁だけ。niche(r, side, s, w, h, sill)
-- add(type, roomId, x, y, z, rot, over):床の物 y=0、壁の物 y=中心の高さ、天井の物 y=天井高。rot 0=南向き P=北 H=東 -H=西。over で {w,h,d,color,opts}
+- add(type, roomId, x, y, z, rot, over):床の物 y=0、壁の物 y=中心の高さ、天井の物 y=天井高。rot 0=南向き P=北 H=東 -H=西。over で {w,h,d,color,opts,style,parts}。style は形(下の一覧)、parts は部分の色 {key:'#rrggbb' か 色見本の id(w_natural 木目ナチュラル・w_walnut・f_white・f_navy・s_white 白い天板・m_steel ステンレスなど)}
 - beam(room, x, z, w, d, {finish:'cross'})
 置ける物の種類(type): ${types}
 

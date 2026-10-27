@@ -72,6 +72,8 @@
     <button data-etab="color" class="on">色・素材</button><button data-etab="size">大きさ</button><button data-etab="pos">位置</button>
   </div>
   <div class="epane" data-pane="color">
+    <div class="row hscroll" id="editStyles"></div>
+    <div class="row chips" id="editParts"></div>
     <div class="row chips" id="editColors"></div>
     <div class="row" id="editMats"></div>
   </div>
@@ -133,6 +135,12 @@
 </section>
 
 <!-- メニュー -->
+<section id="angles" class="sheet hidden">
+  <div class="sheet-head"><b>🎬 アングル</b><span><button class="ib peek" title="押している間だけ欄を消す">👁</button><button class="ib close" data-close="angles">✕</button></span></div>
+  <p class="hint">見え方(カメラの位置と向き)を保存して、いつでも同じ見え方に戻せます。映画の絵を作るときの「配置の見本」に。</p>
+  <div class="row"><button id="angAdd">＋ 今の見え方</button><button id="angAuto">🏠 この部屋を5方向から</button><button id="angSheet">🖼 まとめて1枚に</button></div>
+  <div id="angList"></div>
+</section>
 <section id="menu" class="sheet hidden">
   <div class="sheet-head"><b>メニュー</b><button class="ib close" data-close="menu">✕</button></div>
   <div class="menu-list">
@@ -140,6 +148,7 @@
     <button id="mOpen">📂 開く</button>
     <button id="mAIHouse">🏗 AIに家を作ってもらう(Claude)</button>
     <button id="mLink">🔗 この家をリンクで送る</button>
+    <button id="mAngles">🎬 アングル(カメラの位置を保存・撮る)</button>
     <button id="mExport">⬇ ファイルに書き出す</button>
     <label class="filebtn">⬆ ファイルを読み込む<input type="file" id="mImport" accept=".json,application/json"></label>
     <button id="mGyro">📱 スマホを動かして見回す</button>
@@ -231,7 +240,7 @@
 // 起動係:毎回「いまの版」を確かめてから部品を読む。
 // 更新の直後に、古い部品と新しい部品が混ざって開けなくなるのを防ぐ。
 (function () {
-  var FILES = ['main', 'scene3d', 'controls', 'house', 'items', 'textures', 'demo', 'store', 'commands', 'photo', 'plan', 'ai', 'merge', 'thumbs', 'stairs', 'plants', 'link', 'builder', 'claude'];
+  var FILES = ['main', 'scene3d', 'controls', 'house', 'items', 'textures', 'demo', 'store', 'commands', 'photo', 'plan', 'ai', 'merge', 'thumbs', 'stairs', 'plants', 'link', 'builder', 'claude', 'kit', 'furniture', 'wet', 'film', 'angles'];
   var THREE_URL = 'https://cdn.jsdelivr.net/npm/three@0.186.1/';
   var started = false, retried = false;
   try { retried = sessionStorage.getItem('oheya-retry') === '1'; } catch (e) {}

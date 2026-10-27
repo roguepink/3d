@@ -34,7 +34,7 @@ export function makeHelpers(FH = 2.9) {
   function link(a, side, b, s, w, props = {}) { const o = opening(a, side, s, w, props, nearOf(b, side)); const fb = edgeOf(b, OPP[side], s, w, nearOf(a, OPP[side])); const t = { id: 'd' + (++seq), edge: fb.e, u: fb.u, w, h: o.h, type: o.type, twin: o.id }; if (props.twinSill !== undefined) t.sill = props.twinSill; delete o.twinSill; b.openings.push(t); return o; }
   const win = (r, side, s, w, h, sill, props = {}) => opening(r, side, s, w, { type: 'window', h, sill, ...props });
   const niche = (r, side, s, w, h, sill) => opening(r, side, s, w, { type: 'niche', h, sill, depth: 0.1 });
-  const add = (type, roomId, x, y, z, rot = 0, over = {}) => { const it = newItem(type, { roomId, x, y, z, rot, ...over }); items.push(it); return it; };
+  const add = (type, roomId, x, y, z, rot = 0, over = {}) => { const it = newItem(type, { roomId, x, y, z, rot, ...over }); if (it) items.push(it); return it; };
   // 梁(部屋の中を通す)。core=木の幅、クロス巻き込みは見付 core+0.05
   const beam = (r, x, z, w, d, o = {}) => { r.parts.push({ id: 'b' + (++seq), type: 'beam', x, z, w, d, core: 0.15, drop: 0.1, finish: 'cross', ...o }); };
   return { G, T, H, P, FH, W0, room, link, opening, win, niche, add, beam, rooms, items };

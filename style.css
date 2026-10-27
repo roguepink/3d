@@ -197,3 +197,21 @@ body.plan-mode #levelBar, body.sheet-open #levelBar { display:none; }
 body.show-back #btnHome { visibility:hidden; }
 #aihouse textarea { width:100%; box-sizing:border-box; font-size:16px; padding:10px; border-radius:12px; border:1px solid var(--line); background:var(--panel2); color:var(--text); margin:6px 0; }
 #ahStatus { min-height:1.4em; font-weight:700; color:var(--accent); }
+
+/* 形をえらぶ(横にすべる)・部分ごとの色・色見本 */
+.hscroll { flex-wrap:nowrap; overflow-x:auto; -webkit-overflow-scrolling:touch; padding-bottom:2px; }
+.hscroll:empty, #editParts:empty { display:none; }
+.hscroll .card.sw { flex:0 0 96px; min-height:84px; }
+.hscroll .card.sw img { height:62px; object-fit:contain; background:linear-gradient(#2b2f3a,#1d2027); }
+#editParts .chip.text.on { background:var(--accent); color:#111; outline:none; }
+.fins { display:grid; grid-template-columns:repeat(auto-fill, minmax(70px,1fr)); gap:6px; width:100%; }
+.fin { padding:0; border-radius:10px; overflow:hidden; border:2px solid rgba(255,255,255,.18); background:#1b1e25; display:flex; flex-direction:column; }
+.fin canvas { width:100%; height:34px; display:block; }
+.fin span { font-size:11px; line-height:1.2; padding:3px 2px; color:#e8e8ea; min-height:28px; display:flex; align-items:center; justify-content:center; text-align:center; }
+.fin.on { border-color:var(--accent); box-shadow:0 0 0 2px var(--accent); }
+.card .many { position:absolute; top:4px; right:4px; background:var(--accent); color:#111; font-size:11px; font-weight:800; border-radius:10px; padding:2px 7px; }
+
+/* アングルの一覧 */
+.angrow { display:flex; gap:6px; align-items:center; margin:6px 0; }
+.angrow input { flex:1; min-width:0; height:42px; border-radius:10px; border:1px solid var(--line); background:#111318; color:#fff; padding:0 10px; font-size:16px; }
+.angrow button { width:44px; height:42px; padding:0; font-size:18px; }

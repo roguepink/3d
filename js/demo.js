@@ -125,7 +125,7 @@ export function demoProject() {
 
   const rooms = [genkan, wc1, wash, bath, hall1, sic, stair, osh, wa, ldk, stoA, wc2, hall2a, hall2b, hall2c, stoB, stoC, kid2, cl2, cl1, master, wic, kid1];
   const items = [];
-  const add = (type, roomId, x, y, z, rot, over = {}) => { const it = newItem(type, { roomId, x, y, z, rot, ...over }); items.push(it); return it; };
+  const add = (type, roomId, x, y, z, rot, over = {}) => { const it = newItem(type, { roomId, x, y, z, rot, ...over }); if (it) items.push(it); return it; };
   const H = Math.PI / 2, P = Math.PI;
   // LDK(内側 x 2.79〜8.13、z 1.88〜7.22)
   add('kitchen', 'ldk', 6.8, 0, 2.205, 0, { w: 2.55 });                 // 壁付けI型(前の通路 865mm)

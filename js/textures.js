@@ -283,3 +283,49 @@ export function trimMaterial(id) {
   else m = new THREE.MeshStandardMaterial({ color: f.color, roughness: .55, metalness: 0 });
   trimCache.set(f.id, m); return m;
 }
+
+// ---------- 家具・キッチン・洗面台の色見本(部分ごとの色) ----------
+// 値は id(下の一覧)か '#rrggbb'。wood=木目、metal=金属、stone=天板の石、gloss=つやあり
+export const FINISHES = [
+  // 扉・家具の単色
+  { id: 'f_white', name: 'ホワイト', color: '#f3f2ee' }, { id: 'f_wgloss', name: 'ホワイト(つや)', color: '#f7f7f5', rough: .18 }, { id: 'f_offwhite', name: 'オフホワイト', color: '#ece6da' }, { id: 'f_beige', name: 'ベージュ', color: '#d8c8ad' }, { id: 'f_greige', name: 'グレージュ', color: '#b8afa3' },
+  { id: 'f_lgray', name: 'ライトグレー', color: '#c9cbcd' }, { id: 'f_gray', name: 'グレー', color: '#8d9095' }, { id: 'f_charcoal', name: 'チャコール', color: '#4b4e54' }, { id: 'f_black', name: 'ブラック', color: '#2a2a2d' },
+  { id: 'f_navy', name: 'ネイビー', color: '#2f3d5c' }, { id: 'f_blue', name: 'くすみブルー', color: '#7d93a8' }, { id: 'f_green', name: 'くすみグリーン', color: '#8a9a82' }, { id: 'f_dgreen', name: 'ディープグリーン', color: '#3f5546' }, { id: 'f_pink', name: 'くすみピンク', color: '#d4aaa3' }, { id: 'f_mustard', name: 'マスタード', color: '#c79a3c' }, { id: 'f_red', name: 'レッド', color: '#a8392f' },
+  // 木目
+  { id: 'w_white', name: 'ホワイトウッド', wood: { base: '#ece4d6', dark: '#cfc4b2' } }, { id: 'w_light', name: '木目(ライト)', wood: { base: '#e3cfae', dark: '#bda080' } }, { id: 'w_natural', name: '木目(ナチュラル)', wood: { base: '#caa36f', dark: '#8f6b43' } }, { id: 'w_oak', name: 'オーク', wood: { base: '#bf9a68', dark: '#93714a' } },
+  { id: 'w_medium', name: '木目(ミディアム)', wood: { base: '#a97a4e', dark: '#6e4a2c' } }, { id: 'w_cherry', name: 'チェリー', wood: { base: '#a8603f', dark: '#74391f' } }, { id: 'w_walnut', name: 'ウォールナット', wood: { base: '#6b4a33', dark: '#3b2616' } }, { id: 'w_gray', name: 'グレー木目', wood: { base: '#a39e97', dark: '#77726b' } }, { id: 'w_black', name: 'ブラック木目', wood: { base: '#3c3934', dark: '#211f1b' } },
+  // 天板
+  { id: 's_white', name: '白(人工大理石)', color: '#f5f4f0', rough: .22 }, { id: 's_marble', name: '大理石', color: '#eeece8', rough: .15, marble: true }, { id: 's_beige', name: 'ベージュの石', color: '#d9cfbf', rough: .3 }, { id: 's_gray', name: 'グレーの石', color: '#9a9b9c', rough: .35 }, { id: 's_black', name: '黒い石', color: '#2d2d30', rough: .3 }, { id: 'm_steel', name: 'ステンレス', color: '#c4c9ce', rough: .3, metal: .85 },
+  // 金物(取っ手・脚・水栓)
+  { id: 'm_chrome', name: 'クローム', color: '#dfe3e7', rough: .12, metal: 1 }, { id: 'm_black', name: '黒い金属', color: '#2b2b2e', rough: .4, metal: .6 }, { id: 'm_gold', name: 'ゴールド', color: '#c9a45a', rough: .25, metal: .9 }, { id: 'm_white', name: '白い金属', color: '#ededeb', rough: .35, metal: .3 },
+  // 陶器(便器・洗面ボウル)
+  { id: 'c_white', name: '白', color: '#f8f8f6', rough: .15 }, { id: 'c_ivory', name: 'アイボリー', color: '#f1ead8', rough: .15 }, { id: 'c_pink', name: 'ピンク', color: '#efd4d4', rough: .15 }, { id: 'c_gray', name: 'グレー', color: '#b9bcbf', rough: .2 }, { id: 'c_black', name: '黒', color: '#2e2e31', rough: .15 },
+];
+// 部分ごとに出す色見本の組み合わせ
+export const PALETTES = {
+  door: ['f_white', 'f_wgloss', 'f_offwhite', 'f_beige', 'f_greige', 'f_lgray', 'f_gray', 'f_charcoal', 'f_black', 'f_navy', 'f_blue', 'f_green', 'f_dgreen', 'f_pink', 'f_mustard', 'w_white', 'w_light', 'w_natural', 'w_oak', 'w_medium', 'w_cherry', 'w_walnut', 'w_gray', 'w_black'],
+  wood: ['w_white', 'w_light', 'w_natural', 'w_oak', 'w_medium', 'w_cherry', 'w_walnut', 'w_gray', 'w_black', 'f_white', 'f_offwhite', 'f_lgray', 'f_gray', 'f_black', 'f_navy', 'f_green', 'f_pink'],
+  top: ['s_white', 's_marble', 's_beige', 's_gray', 's_black', 'm_steel', 'w_light', 'w_natural', 'w_oak', 'w_walnut'],
+  metal: ['m_steel', 'm_chrome', 'm_black', 'm_gold', 'm_white'],
+  ceramic: ['c_white', 'c_ivory', 'c_pink', 'c_gray', 'c_black'],
+};
+export function finishById(id) { return FINISHES.find(f => f.id === id) || null; }
+export function finishName(v) { const f = finishById(v); if (f) return f.name; let best = '', bd = 1e9; const c = new THREE.Color(v || '#ffffff'); for (const [n, h] of Object.entries(COLORS)) { const d = new THREE.Color(h); const dist = (c.r - d.r) ** 2 + (c.g - d.g) ** 2 + (c.b - d.b) ** 2; if (dist < bd) { bd = dist; best = n; } } return best; }
+const finCache = new Map();
+// 色見本 → 材質。v は id か '#rrggbb'。rough/metal は '#' の色のときの値
+export function finishMaterial(v, rough = .5, metal = 0) {
+  const k = v + '|' + rough + '|' + metal; if (finCache.has(k)) return finCache.get(k);
+  const f = finishById(v); let m;
+  if (f && f.wood) { const t = canvasTexture('fin:' + f.id, 256, (g, w, h, r) => drawWood(g, w, h, r, { base: f.wood.base, dark: f.wood.dark, plankW: 1.2, tile: 1.2, grainAlpha: .2 })); m = new THREE.MeshStandardMaterial({ map: t, roughness: .5, metalness: 0 }); }
+  else if (f && f.marble) { const t = canvasTexture('fin:' + f.id, 256, (g, w, h, r) => { g.fillStyle = f.color; g.fillRect(0, 0, w, h); g.strokeStyle = 'rgba(120,120,125,.35)'; g.lineWidth = 1.2; for (let i = 0; i < 7; i++) { g.beginPath(); let x = r() * w, y = 0; g.moveTo(x, y); while (y < h) { x += (r() - .5) * 30; y += 12 + r() * 14; g.lineTo(x, y); } g.stroke(); } }); m = new THREE.MeshStandardMaterial({ map: t, roughness: f.rough, metalness: 0 }); }
+  else if (f) m = new THREE.MeshStandardMaterial({ color: f.color, roughness: f.rough ?? rough, metalness: f.metal ?? metal });
+  else m = new THREE.MeshStandardMaterial({ color: v || '#f4f4f0', roughness: rough, metalness: metal });
+  finCache.set(k, m); return m;
+}
+// 色見本の小さい絵(ボタン用)
+export function finishSwatch(v) {
+  const c = document.createElement('canvas'); c.width = 64; c.height = 40; const g = c.getContext('2d'); const f = finishById(v);
+  if (f && (f.wood || f.marble)) { const m = finishMaterial(v); g.drawImage(m.map.userData.canvas, 0, 0, 64, 40); }
+  else { g.fillStyle = f ? f.color : (v || '#fff'); g.fillRect(0, 0, 64, 40); if (f && f.metal) { const gr = g.createLinearGradient(0, 0, 64, 40); gr.addColorStop(0, 'rgba(255,255,255,.55)'); gr.addColorStop(.5, 'rgba(255,255,255,0)'); gr.addColorStop(1, 'rgba(0,0,0,.18)'); g.fillStyle = gr; g.fillRect(0, 0, 64, 40); } }
+  return c;
+}

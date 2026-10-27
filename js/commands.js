@@ -1,5 +1,6 @@
 // 日本語の指示 → やること(ルールで解釈。AIの鍵があれば分からないときだけAIへ)
 import { typeByWord, CATALOG, catalogEntry } from './items.js';
+import { styleByWord } from './kit.js';
 import { colorByName, COLORS, COLOR_ALIASES, SURFACE_LIB } from './textures.js';
 
 const z2h = s => s.replace(/[０-９．]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0)).replace(/[、。,!！?？「」\s]/g, ' ');
@@ -161,7 +162,7 @@ export function parseCommand(raw, app) {
     if (hereWord && /(動か|移動|移し|うつし|持ってき|もってき)/.test(t)) return { action: 'move', type, where: 'here' };
     // 置く
     if (addVerb || t.length <= 12) {
-      const sz = size ? { w: size } : null; const over = { action: 'add', type, color: color ? color.hex : null, fabric: fabric && !(type === 'lace' && fabric === 'lace') ? fabric : null, size: sz, count, where, side };
+      const sz = size ? { w: size } : null; const over = { action: 'add', type, style: styleByWord(type, t), color: color ? color.hex : null, fabric: fabric && !(type === 'lace' && fabric === 'lace') ? fabric : null, size: sz, count, where, side };
       if (/大き(い|め|な)/.test(t) && !size) over.size = { w: c.size[0] * 1.4, h: c.size[1] * (c.kind === 'floor' ? 1 : 1.15) }; if (/小さ(い|め|な)/.test(t) && !size) over.size = { w: c.size[0] * 0.7, h: c.size[1] * (c.kind === 'floor' ? 1 : 0.85) };
       return over;
     }
