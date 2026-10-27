@@ -423,8 +423,8 @@ function wallShelfBuild(it) {
   const g = new THREE.Group(), w = it.w, h = it.h, d = it.d, n = { one: 1, two: 2, three: 3 }[styleOf(it).id] || 2, bd = pm(it, 'board', .5);
   for (let i = 0; i < n; i++) {
     const y = -h / 2 + (n === 1 ? 0 : i * h / n) + 0.03; g.add(box(w, 0.03, d, bd, 0, y, d / 2));
-    if (it.opts.led !== false) { const col = partVal(it, i % 2 ? 'led2' : 'led'); g.add(box(w - 0.04, 0.008, 0.012, emissive(col, 1.6), 0, y - 0.02, d - 0.012)); light(g, col, 0.7, 0, y - 0.06, d * 0.8, { distance: 2.2 }); }
-    if (it.opts.fill !== false) gadgetRow(g, -w / 2, w / 2, y + 0.015, d * 0.5, it.id + i);
+    if (it.opts.led !== false) { const col = partVal(it, i % 2 ? 'led2' : 'led'); g.add(box(w - 0.04, 0.01, 0.014, emissive(col, 2.6), 0, y - 0.021, d - 0.014)); for (const lx of w > 1.4 ? [-w / 4, w / 4] : [0]) light(g, col, 1.4, lx, y - 0.08, d * 0.6, { distance: 2.0 }); }
+    if (it.opts.fill !== false) gadgetRow(g, -w / 2, w / 2, y + 0.015, d * 0.5, it.id + i, Math.min(1.5, Math.max(0.8, d / 0.16)));
   }
   return g;
 }
