@@ -23,7 +23,7 @@ const texCache = new Map();
 function paint(key, w, h, draw, rough = .85, extra = {}) {
   if (texCache.has(key)) return texCache.get(key);
   const c = document.createElement('canvas'); c.width = w; c.height = h; draw(c.getContext('2d'), w, h);
-  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; t.wrapS = t.wrapT = THREE.RepeatWrapping;
   const m = new THREE.MeshStandardMaterial({ map: t, roughness: rough, ...extra }); texCache.set(key, m); return m;
 }
 // 板(正面 +z を向いた薄い面)
@@ -109,9 +109,10 @@ function kotatsuBuild(it) {
 // ---- 座布団 ----
 // 部分:側地(布) / 房。柄は形「柄(かすり)」で、色は側地の色
 function kasuri(color) {
-  return paint('kasuri' + color, 128, 128, (c, W, H) => { c.fillStyle = color; c.fillRect(0, 0, W, H); c.fillStyle = 'rgba(235,228,212,.55)';
+  const m = paint('kasuri' + color, 128, 128, (c, W, H) => { c.fillStyle = color; c.fillRect(0, 0, W, H); c.fillStyle = 'rgba(235,228,212,.55)';
     for (let y = 0; y < 4; y++) for (let x = 0; x < 4; x++) { const cx = x * 32 + (y % 2) * 16 + 8, cy = y * 32 + 12; c.fillRect(cx - 7, cy - 1.5, 14, 3); c.fillRect(cx - 1.5, cy - 7, 3, 14); }
     c.fillStyle = 'rgba(0,0,0,.08)'; for (let i = 0; i < 60; i++) c.fillRect((i * 37) % W, (i * 53) % H, 2, 1); }, .95);
+  m.map.repeat.set(5, 5); return m;
 }
 function zabutonBuild(it) {
   const g = new THREE.Group(), w = it.w, h = it.h, d = it.d, s = styleOf(it).id, tas = pm(it, 'tassel', .8);
@@ -182,7 +183,7 @@ function butsudanBuild(it) {
 function dishes(g, x0, x1, y, z, seed) {
   const pl = std('#efeae0', .3), cup = std('#d9cdb8', .4), blue = std('#5a6d8a', .4);
   let x = x0 + 0.03; let i = seed;
-  while (x < x1 - 0.06) { const k = i++ % 4;
+  while (x < x1 - 0.17) { const k = i++ % 4;
     if (k === 0) { for (let j = 0; j < 4; j++) g.add(cyl(0.07, 0.06, 0.012, pl, x + 0.07, y + 0.006 + j * 0.013, z)); x += 0.16; }
     else if (k === 1) { g.add(cyl(0.035, 0.028, 0.06, cup, x + 0.035, y + 0.03, z)); g.add(cyl(0.035, 0.028, 0.06, blue, x + 0.035, y + 0.03, z - 0.08)); x += 0.08; }
     else if (k === 2) { g.add(cyl(0.05, 0.035, 0.05, blue, x + 0.05, y + 0.025, z)); x += 0.11; }
@@ -205,23 +206,29 @@ function waDrawers(g, x, y0, y1, z, w, n, front, kn, ring) {
 function tansuBuild(it) {
   const g = new THREE.Group(), w = it.w, h = it.h, d = it.d, s = styleOf(it).id, body = pm(it, 'body', .45), front = pm(it, 'front', .45), kn = pm(it, 'knob', .35, .7), back = std('#d8c9ac', .7), glass = GLASS();
   const z = d / 2 - 0.008, iw = w - 0.04;
-  g.add(box(w - 0.03, 0.05, d - 0.03, body, 0, 0.025, -0.01)); g.add(box(w, h - 0.08, d - 0.02, body, 0, 0.05 + (h - 0.08) / 2, -0.01)); g.add(box(w + 0.02, 0.03, d + 0.01, body, 0, h - 0.015, 0.0));
+  g.add(box(w - 0.03, 0.05, d - 0.03, body, 0, 0.025, -0.01)); g.add(box(w + 0.02, 0.03, d + 0.01, body, 0, h - 0.015, 0.0));
+  // 中が詰まった段 / ガラス戸の段(横板と奥の板だけ)
+  const solid = (ya, yb) => g.add(box(w, yb - ya, d - 0.02, body, 0, (ya + yb) / 2, -0.01));
+  const hollow = (ya, yb) => { for (const sx of [-1, 1]) g.add(box(0.02, yb - ya, d - 0.02, body, sx * (w / 2 - 0.01), (ya + yb) / 2, -0.01)); g.add(box(w, yb - ya, 0.015, body, 0, (ya + yb) / 2, -d / 2 + 0.0075)); };
   if (s === 'seiri') {
+    solid(0.05, h - 0.03);
     const y0 = 0.06, y1 = h - 0.04, top = y1 - (y1 - y0) * 0.17;
     for (const sx of [-1, 1]) waDrawers(g, sx * iw / 4, top, y1, z, iw / 2, 1, front, kn, true);
     waDrawers(g, 0, y0, top, z, iw, 4, front, kn, true);
     return g;
   }
   // ガラス戸の中(奥の板と棚と食器)
-  const glassBox = (ya, yb) => { g.add(box(iw, yb - ya - 0.004, 0.01, back, 0, (ya + yb) / 2, -d / 2 + 0.03)); const mid = (ya + yb) / 2; g.add(box(iw, 0.015, d - 0.08, body, 0, mid, -0.02)); dishes(g, -iw / 2, iw / 2, ya + 0.005, 0.0, 1); dishes(g, -iw / 2, iw / 2, mid + 0.008, 0.0, 3); };
+  const glassBox = (ya, yb) => { g.add(box(iw, yb - ya - 0.004, 0.01, back, 0, (ya + yb) / 2, -d / 2 + 0.022)); const mid = (ya + yb) / 2; g.add(box(iw, 0.015, d - 0.08, body, 0, mid, -0.02)); dishes(g, -iw / 2, iw / 2, ya + 0.005, 0.0, 1); dishes(g, -iw / 2, iw / 2, mid + 0.008, 0.0, 3); };
   if (s === 'cha') {
     const a = 0.06, b = h * 0.42, c = h * 0.55, e = h - 0.04;
+    solid(0.05, c); hollow(c, h - 0.03); g.add(box(w, 0.015, d - 0.02, body, 0, c, -0.01));
     slideDoors(g, iw, a, b, z - 0.014, front, kn, null);
     waDrawers(g, 0, b + 0.005, c - 0.005, z, iw, 1, front, kn, false); for (const x of [-iw / 3, iw / 3]) g.add(box(0.006, c - b - 0.01, 0.018, body, x, (b + c) / 2, z + 0.002));
     glassBox(c, e); slideDoors(g, iw, c + 0.005, e, z - 0.014, front, kn, glass);
   } else {
     // 水屋だんす:下の引き戸・引き出しの段・ガラス戸・いちばん上の小さい戸(天袋)
     const a = 0.06, b = h * 0.34, c = h * 0.45, e = h * 0.88, f = h - 0.035;
+    solid(0.05, c + 0.02); hollow(c + 0.02, e); solid(e, h - 0.03);
     slideDoors(g, iw, a, b, z - 0.014, front, kn, null);
     for (const sx of [-1, 1]) waDrawers(g, sx * iw / 4, b + 0.005, c - 0.005, z, iw / 2, 1, front, kn, false);
     glassBox(c + 0.02, e - 0.01); slideDoors(g, iw, c + 0.02, e - 0.01, z - 0.014, front, kn, glass);
@@ -267,14 +274,15 @@ function ikouBuild(it) {
     const col = partVal(it, 'cloth');
     const mat = paint('kimono' + col, 128, 256, (c, w, h) => { c.fillStyle = col; c.fillRect(0, 0, w, h); c.strokeStyle = 'rgba(240,230,210,.35)'; c.lineWidth = 2;
       for (let y = 0; y < 8; y++) for (let x = 0; x < 4; x++) { const cx = x * 32 + (y % 2) * 16, cy = y * 32 + 16; c.beginPath(); c.moveTo(cx, cy - 10); c.lineTo(cx + 9, cy); c.lineTo(cx, cy + 10); c.lineTo(cx - 9, cy); c.closePath(); c.stroke(); }
-      const gr = c.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(1, 'rgba(60,30,20,.35)'); c.fillStyle = gr; c.fillRect(0, h * 0.75, w, h * 0.25); }, .9, { side: THREE.DoubleSide });
+    }, .9, { side: THREE.DoubleSide });
     // 着物の形(袖を広げた T の形)を、上の棒の前とうしろに
     const sh = new THREE.Shape(); const sw = 0.68, bw = 0.32, top = H - 0.03, sl = 0.48, bot = 0.12;
     sh.moveTo(-sw, top); sh.lineTo(sw, top); sh.lineTo(sw, top - sl); sh.lineTo(bw, top - sl); sh.lineTo(bw + 0.02, bot); sh.lineTo(-bw - 0.02, bot); sh.lineTo(-bw, top - sl); sh.lineTo(-sw, top - sl); sh.closePath();
     const geo = new THREE.ShapeGeometry(sh); const uv = geo.attributes.uv, p = geo.attributes.position; for (let i = 0; i < p.count; i++) uv.setXY(i, (p.getX(i) + sw) / (sw * 2) * 1.2, p.getY(i) / H * 2);
     for (const zz of [0.03, -0.03]) { const m = mesh(geo, mat, 0, 0, zz); g.add(m); }
     g.add(box(sw * 2, 0.02, 0.07, mat, 0, top + 0.005, 0));
-    g.add(box(0.06, top - bot - 0.1, 0.004, std('#e8dcc4', .8), -0.06, (top + bot) / 2 - 0.05, 0.033));
+    // 衿(えり):首から斜めに下りる白い線
+    const eri = std('#e8dcc4', .8); for (const sx of [-1, 1]) { const e = box(0.035, 0.5, 0.004, eri, sx * 0.07, top - 0.24, 0.034); e.rotation.z = sx * 0.28; g.add(e); }
   }
   return fitStyle(g, it);
 }
@@ -289,8 +297,8 @@ export const WAFU = {
       { id: 'tenban', name: '掘りごたつ・こたつの天板(板だけ)', size: [0.9, 0.03, 0.9], words: ['天板', 'こたつの天板', '掘りごたつの天板'], parts: { top: 'w_medium' }, opts: { lift: 0 } },
     ],
     params: [LIFT], build: chabudaiBuild },
-  kotatsu: { name: 'こたつ・掘りごたつ', emoji: '🟫', cat: '和の家具', kind: 'floor', size: [1.05, 0.39, 0.75], range: { w: [0.6, 2.2], h: [0.3, 0.5], d: [0.5, 1.6] }, color: '#7a5a48', fabric: 'plain', opts: { futon: true, heat: false }, words: ['こたつ', '炬燵', '家具調こたつ', '掘りごたつ', '掘り炬燵', 'ほりごたつ'],
-    parts: [{ key: 'futon', name: 'こたつ布団', pal: 'fabric', def: '#7a5a48' }, { key: 'top', name: '天板', pal: 'wood', def: 'w_walnut' }, { key: 'frame', name: 'わく・脚', pal: 'wood', def: 'w_black' }],
+  kotatsu: { name: 'こたつ・掘りごたつ', emoji: '🟫', cat: '和の家具', kind: 'floor', size: [1.05, 0.39, 0.75], range: { w: [0.6, 2.2], h: [0.3, 0.5], d: [0.5, 1.6] }, color: '#6e4a3a', fabric: 'plain', opts: { futon: true, heat: false }, words: ['こたつ', '炬燵', '家具調こたつ', '掘りごたつ', '掘り炬燵', 'ほりごたつ'],
+    parts: [{ key: 'futon', name: 'こたつ布団', pal: 'fabric', def: '#6e4a3a' }, { key: 'top', name: '天板', pal: 'wood', def: 'w_walnut' }, { key: 'frame', name: 'わく・脚', pal: 'wood', def: 'w_walnut' }],
     styles: [
       { id: 'kagu', name: '家具調こたつ', size: [1.05, 0.39, 0.75], words: ['家具調こたつ', 'こたつ', '炬燵'] },
       { id: 'hori', name: '掘りごたつ(床に掘ってある)', size: [1.3, 0.4, 1.0], words: ['掘りごたつ', '掘り炬燵', 'ほりごたつ'], opts: { futon: false, heat: false } },
@@ -329,14 +337,14 @@ export const WAFU = {
     ],
     build: tansuBuild },
   kyoudai: { name: '鏡台', emoji: '🪞', cat: '和の家具', kind: 'floor', size: [0.62, 1.15, 0.36], range: { w: [0.35, 1.0], h: [0.6, 1.8], d: [0.25, 0.6] }, color: 'w_walnut', opts: { cover: false }, words: ['鏡台', 'きょうだい', '三面鏡', '一面鏡'],
-    parts: [{ key: 'body', name: '本体', pal: 'wood', def: 'w_walnut' }, { key: 'cover', name: 'かけ布', pal: 'color', def: '#7a3e48' }],
+    parts: [{ key: 'body', name: '本体', pal: 'wood', def: 'w_walnut' }, { key: 'cover', name: 'かけ布', pal: 'color', def: '#5e3a40' }],
     styles: [
       { id: 'sanmen', name: '三面鏡(すわって使う)', size: [0.62, 1.15, 0.36], words: ['三面鏡', '鏡台'] },
       { id: 'ichimen', name: '一面鏡(縦長)', size: [0.45, 1.45, 0.34], words: ['一面鏡'], opts: { cover: true } },
     ],
     params: [['cover', '布のカバーをかける', 'bool']], build: kyoudaiBuild },
-  ikou: { name: '衣桁(着物を掛ける)', emoji: '👘', cat: '和の家具', kind: 'floor', size: [1.4, 1.5, 0.42], range: { w: [0.8, 2.0], h: [1.0, 1.9], d: [0.3, 0.6] }, color: 'w_black', opts: { cloth: false }, words: ['衣桁', 'いこう', '着物掛け', '着物かけ'],
-    parts: [{ key: 'frame', name: 'わく', pal: 'wood', def: 'w_black' }, { key: 'cloth', name: '掛けた布', pal: 'color', def: '#4a5470' }],
+  ikou: { name: '衣桁(着物を掛ける)', emoji: '👘', cat: '和の家具', kind: 'floor', size: [1.4, 1.5, 0.42], range: { w: [0.8, 2.0], h: [1.0, 1.9], d: [0.3, 0.6] }, color: 'w_walnut', opts: { cloth: false }, words: ['衣桁', 'いこう', '着物掛け', '着物かけ'],
+    parts: [{ key: 'frame', name: 'わく', pal: 'wood', def: 'w_walnut' }, { key: 'cloth', name: '掛けた布', pal: 'color', def: '#4a5470' }],
     styles: [
       { id: 'empty', name: '何も掛けない', size: [1.4, 1.5, 0.42], words: ['衣桁'] },
       { id: 'cloth', name: '着物を掛ける', size: [1.4, 1.5, 0.42], words: ['着物掛け', '着物かけ'], opts: { cloth: true } },
