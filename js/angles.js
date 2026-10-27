@@ -35,7 +35,7 @@ export function autoAngles(app, room) {
 }
 // 1つの見え方を、決まった大きさで描いて canvas にする
 function renderAt(app, a, W, H) {
-  go(app, a); const s3 = app.s3, R = s3.renderer, cam = s3.activeCamera(); const old = new THREE.Vector2(); R.getSize(old);
+  go(app, a); if (app.labels) app.labels.visible = false; if (app.selHelper) app.selHelper.visible = false; const s3 = app.s3, R = s3.renderer, cam = s3.activeCamera(); const old = new THREE.Vector2(); R.getSize(old);
   R.setSize(W, H, false); for (const c of [s3.camera, s3.orbitCam]) { c.aspect = W / H; c.clearViewOffset(); c.updateProjectionMatrix(); } s3.applyFov();
   if (a.mode === 'orbit') cam.lookAt(...a.t); s3.scene.updateMatrixWorld(); R.render(s3.scene, cam);
   const c = document.createElement('canvas'); c.width = W; c.height = H; c.getContext('2d').drawImage(R.domElement, 0, 0, W, H);

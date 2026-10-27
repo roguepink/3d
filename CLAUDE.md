@@ -76,3 +76,13 @@
 - ブラウザから直接 fetch(ヘッダー x-api-key / anthropic-version 2023-06-01 / anthropic-dangerous-direct-browser-access: true / anthropic-beta: server-side-fallback-2026-07-01、本文 fallbacks:'default')。モデル claude-opus-5-5、effort high(直しは medium)、stream で文字数を知らせる。
 - 流れ:system に部品の説明+見本の家(demo.js の中身)→ Claude が builder.js の書き方の JS を返す → buildFromSource → audit → 問題があれば最大2回 Claude に直させる → 読み込み(前の家は「(前の家)」で保存)。作った書き方は project.settings.aiSource に入れ、次の「直す」で使う。料金の目安(円)を表示(yenOf)。
 - three.js 以外の外部ライブラリを入れない決まりのため、Anthropic の SDK ではなく fetch で呼ぶ。
+
+## 形・部分ごとの色・映画用(2026-10-27)
+- 置くものは4つのファイルに分かれる:`items.js`(カーテン・照明など昔からの物と一覧のまとめ)/ `furniture.js`(ベッド・机・椅子・ソファ・小物)/ `wet.js`(キッチン・トイレ・洗面台)/ `film.js`(ペタル・人の目印)。共通の部品は `kit.js`(CATALOG もここ。循環 import を避けるため)。
+- **形(styles)と部分ごとの色(parts)**:カタログに `styles:[{id,name,size,words,opts,parts}]` と `parts:[{key,name,pal,def}]`。保存は `it.style` と `it.parts`。1番目の部分の色は `it.color`(古い保存・「青にして」とつながる)。作るときは `pm(it,key)` で材質、`styleOf(it).id` で形。styles の1番目が既定(古い保存の物はこれになる)。
+- 色見本は textures.js の `FINISHES`(id:f_ 単色 / w_ 木目 / s_ 天板 / m_ 金物 / c_ 陶器)と `PALETTES`(door / wood / top / metal / ceramic)。pal 'color' はふつうの色、'fabric' は布の色と柄。`finishMaterial(v)` は id でも '#rrggbb' でもよい。
+- 画面:「置く」で形が2つ以上ある物は「N種類」→ 押すと形の一覧。編集欄の「色・素材」に、形(横にすべる)・部分のボタン・名前つきの色見本(「ほかの色」でふつうの色)。言葉「二段ベッドを置いて」は styles の words(commands.js → styleByWord)。
+- **映画とのつながり(ノブさん指示)**:ペタル(映画のロボット)の見た目と、映画に出る部屋の形は、このリポジトリ(public)に置いてよい。ストーリーとは関係ないため。脚本・ストーリー・人物の設定は置かない。人物4人の見た目はまだ許可をもらっていない(人の目印はだれだか分からない人形)。詳しくは ai-film-project の docs/anime-remake.md §11。
+- ペタル:白い丸い体・黒い画面の顔・紫の目と口・紫のヘッドホン・胸に光る桜(見本は ai-film-project の assets/refs/petal-v3-*)。形=座る/立つ。大きさは設定がないので座って高さ 300mm を仮の値にした。`opts.lift` で机やベッドの上にのせる(人の目印も同じ)。
+- **アングル**(js/angles.js、メニュー「🎬 アングル」):見え方を `project.settings.angles` に保存(歩く=位置・向き・ズーム、全体=カメラと注目点)。「この部屋を5方向から」= 真上+4つの角(目の高さ1.5m)。「まとめて1枚に」= 名前つきの設定シート画像(画像生成の配置の見本)。
+- 見つからない種類の物が保存にあっても止まらない(load で null を飛ばす・buildItem が null)。
