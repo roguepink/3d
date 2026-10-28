@@ -79,7 +79,7 @@ add('walight', 'hall', 3.4, 2.35, 2.2, 0, { style: 'hadaka' }); add('calendar', 
 // 洋室(4.5畳:子ども部屋)
 add('bed', 'you', 1.45, 0, 0.6, H, { w: 0.97 }); add('chest', 'you', 0.29, 0, 2.0, H, { w: 0.8 });
 add('ceilingLight', 'you', 1.4, 2.35, 1.5, 0, { w: 0.45 }); add('radio', 'you', 2.5, 0.9, 0.5, -H);
-add('curtain', 'you', 1.6, 1.375, 0.06, 0, { w: 1.9, h: 1.35, color: '#c9a77a', fabric: 'check', opts: { open: 0.3 } });
+add('curtain', 'you', 1.6, 1.375, 0.06, 0, { fit: true, w: 1.9, h: 1.35, color: '#c9a77a', fabric: 'check', opts: { mount: 'ceiling', open: 0.3 } });
 // DK:壁付けの古いキッチン(扉は木目・天板はステンレス・高さ 800)と、食卓
 add('kitchen', 'dk', 4.8, 0, 3.285, 0, { w: 2.1, h: 0.8, parts: { door: 'w_medium', top: 'm_steel' }, opts: { hood: true, wall: true } });
 add('fridge', 'dk', 6.215, 0, 3.9, -H, { w: 0.6, color: '#e8e2cf' });

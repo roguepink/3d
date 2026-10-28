@@ -19,6 +19,7 @@ export function onLevel(r, level) { return levelOf(r) === level || (r.stair && l
 const STEP_MAX = 0.3; // 1歩で上り下りできる高さ
 
 export const WALL_T = 0.12;      // 壁の厚み
+export const SASH_Z = -WALL_T + 0.035; // サッシ・ガラスの位置(室内側の壁の面から外へ85mm)。窓枠の内側に約60mmの奥行きができ、ロールスクリーン・ブラインドを枠の内側に付けられる
 export const SIDES = ['N', 'E', 'S', 'W'];
 export const SIDE_NAME = { N: '奥の壁', E: '右の壁', S: '手前の壁', W: '左の壁' };
 const SIDE_IDX = { N: 0, E: 1, S: 2, W: 3 };
@@ -104,6 +105,24 @@ export function partBox(part) { // 平面上の向き付き長方形 {cx, cz, w,
   return { cx: part.x + part.w / 2, cz: part.z + part.d / 2, w: part.w, d: part.d, rot: 0 };
 }
 export function pointInPart(px, pz, part, margin = 0) { const b = partBox(part); const c = Math.cos(b.rot), s = Math.sin(b.rot); const dx = px - b.cx, dz = pz - b.cz; const lx = dx * c - dz * s, lz = dx * s + dz * c; return Math.abs(lx) <= b.w / 2 + margin && Math.abs(lz) <= b.d / 2 + margin; }
+
+export function fitWindowItem(it, room) {
+    if (!room) return false;
+    let edge = Number.isInteger(it.edge) ? it.edge : null;
+    if (edge === null) { let best = 0.3; for (let e = 0; e < room.poly.length; e++) { const f = edgeFrame(room, e), d = Math.abs(edgeDistance(room, e, it.x, it.z)), da = Math.abs(Math.atan2(Math.sin(f.rotY - (it.rot || 0)), Math.cos(f.rotY - (it.rot || 0)))); if (da < 0.2 && d < best) { best = d; edge = e; } } }
+    if (edge === null) return false; const f = edgeFrame(room, edge), u = (it.x - f.A[0]) * f.along.x + (it.z - f.A[1]) * f.along.z;
+    const wins = room.openings.filter(o => o.edge === edge && (o.type === 'window' || o.style === 'sash' || o.style === 'glassdoor')); if (!wins.length) return false; // 掃き出しのアルミサッシ(バルコニーへの戸)も窓として扱う
+    const o = wins.sort((a, b) => Math.abs(a.u + a.w / 2 - u) - Math.abs(b.u + b.w / 2 - u))[0]; if (Math.abs(o.u + o.w / 2 - u) > o.w / 2 + 0.6) return false;
+    const sill = o.sill || 0, cu = o.u + o.w / 2, top = sill + (o.h || 2.0), mount = it.opts.mount || 'front', curtain = it.type === 'curtain' || it.type === 'lace', koshi = sill > 0.3;
+    const px = f.A[0] + f.along.x * cu + f.normal.x * 0.06, pz = f.A[1] + f.along.z * cu + f.normal.z * 0.06; let ceilY = room.h;
+    for (const part of room.parts || []) if (part.type === 'beam' && pointInPart(px, pz, part, 0.02)) ceilY = Math.min(ceilY, room.h - (part.drop || 0.1));
+    let w, tp, bot;
+    if (curtain) { w = o.w + 0.3; tp = mount === 'ceiling' ? ceilY - 0.035 : Math.min(ceilY - 0.045, top + 0.1); bot = koshi ? Math.max(0.02, sill - 0.15) : 0.01; } // 幅は左右150ずつ広く。腰窓は窓台の下150まで、掃き出しは床から10
+    else if (mount === 'inside') { w = o.w - 0.01; tp = top - 0.005; bot = sill + 0.005; } // 枠の内側:窓の内のりに合わせる
+    else { w = o.w + 0.1; tp = mount === 'ceiling' ? ceilY - 0.005 : Math.min(ceilY - 0.02, top + 0.1); bot = koshi ? sill - 0.05 : 0.01; }
+    w = Math.min(w, f.L - 0.02); const uc = Math.min(f.L - w / 2 - 0.01, Math.max(w / 2 + 0.01, cu));
+    it.w = w; it.h = tp - bot; it.y = (tp + bot) / 2; it.x = f.A[0] + f.along.x * uc; it.z = f.A[1] + f.along.z * uc; it.rot = f.rotY; it.edge = edge; return true;
+}
 
 // ---------- 材質 ----------
 const matWood = new THREE.MeshStandardMaterial({ color: '#efece6', roughness: .6 });
@@ -520,14 +539,14 @@ export function buildRoom(room, project, group) {
         const sb = tagTrim(box(h.w + EAR * 2, 0.03, WALL_T + EAR, mFrame)); sb.position.set(0, h.sill - 0.015, -WALL_T / 2 + EAR / 2); og.add(sb);
       }
       if (isWin && !bay) {
-        const glass = new THREE.Mesh(new THREE.PlaneGeometry(h.w, h.h), matGlass); glass.position.set(0, h.sill + h.h / 2, -WALL_T / 2); og.add(glass);
+        const glass = new THREE.Mesh(new THREE.PlaneGeometry(h.w, h.h), matGlass); glass.position.set(0, h.sill + h.h / 2, SASH_Z); og.add(glass);
         glass.userData = { kind: 'window', roomId: room.id, edge: e, openingId: o.id, keep: true }; pick.push(glass);
         const fw = 0.04;
-        if (!o.fix) { const s1 = box(fw, h.h, 0.05, matSash); s1.position.set(0, h.sill + h.h / 2, -WALL_T / 2); og.add(s1); }
+        if (!o.fix) { const s1 = box(fw, h.h, 0.05, matSash); s1.position.set(0, h.sill + h.h / 2, SASH_Z); og.add(s1); }
         if (o.grille) { for (let x = -h.w / 2 + .06; x < h.w / 2 - .03; x += .1) { const gb = box(.02, h.h + .04, .02, matRail); gb.position.set(x, h.sill + h.h / 2, -WALL_T - .05); og.add(gb); } for (const yy of [h.sill - .01, h.sill + h.h + .01]) { const gb = box(h.w + .06, .03, .03, matRail); gb.position.set(0, yy, -WALL_T - .05); og.add(gb); } } // 面格子(共用廊下側の窓)
-        const s2 = box(h.w, fw, 0.05, matSash); s2.position.set(0, h.sill + fw / 2, -WALL_T / 2); og.add(s2);
+        const s2 = box(h.w, fw, 0.05, matSash); s2.position.set(0, h.sill + fw / 2, SASH_Z); og.add(s2);
         const s3 = s2.clone(); s3.position.y = h.sill + h.h - fw / 2; og.add(s3);
-        const s4 = box(fw, h.h, 0.05, matSash); s4.position.set(-h.w / 2 + fw / 2, h.sill + h.h / 2, -WALL_T / 2); og.add(s4);
+        const s4 = box(fw, h.h, 0.05, matSash); s4.position.set(-h.w / 2 + fw / 2, h.sill + h.h / 2, SASH_Z); og.add(s4);
         const s5 = s4.clone(); s5.position.x = h.w / 2 - fw / 2; og.add(s5);
       } else if (bay) {
         buildBay(og, o, h, { mFrame, matGlass, matSash, matOuter, wallMat, roomId: room.id, edge: e, pick, tagTrim, ear: (casingOn ? caseW : 0) + 0.02 });

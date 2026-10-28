@@ -92,17 +92,17 @@ add('lowtable', 'ldk', 4.35, 0, 6.85, H); add('rug', 'ldk', 4.45, 0, 6.85, H, { 
 add('ceilingLight', 'ldk', 4.45, CH, 6.6, 0, { w: 0.6 }); add('aircon', 'ldk', 2.76, 2.25, 5.4, H);
 add('intercom', 'ldk', 2.76, 1.45, 3.75, H); add('smoke', 'ldk', 4.45, CH, 5.2, 0);
 add('monstera', 'ldk', 3.15, 0, 5.65, 0, { w: 0.8, h: 1.1, d: 0.8 });
-add('curtain', 'ldk', 5.275, 1.18, 7.84, P, { w: 1.7, h: 2.34, color: '#d6d0c4', opts: { open: 0.4, lace: true } });
+add('curtain', 'ldk', 5.275, 1.18, 7.84, P, { fit: true, w: 1.7, h: 2.34, color: '#d6d0c4', opts: { mount: 'ceiling', open: 0.4, lace: true } });
 add('switch', 'ldk', 4.7, 1.2, 3.26, 0);
 // 洋室1(主寝室)
 add('bed', 'you1', 1.63, 0, 5.05, -H, { w: 1.4 }); add('chest', 'you1', 0.29, 0, 6.45, H, { w: 0.8 });
 add('ceilingLight', 'you1', 1.35, CH, 5.0, 0, { w: 0.5 }); add('aircon', 'you1', 2.64, 2.25, 6.6, -H); add('switch', 'you1', 2.64, 1.2, 3.7, -H);
-add('curtain', 'you1', 1.595, 1.155, 7.84, P, { w: 2.2, h: 2.3, color: '#6c7a9c', fabric: 'linen', opts: { open: 0.3, lace: true } });
+add('curtain', 'you1', 1.595, 1.155, 7.84, P, { fit: true, w: 2.2, h: 2.3, color: '#6c7a9c', fabric: 'linen', opts: { mount: 'ceiling', open: 0.3, lace: true } });
 add('downlight', 'cl1', 0.9, 2.4, 2.8, 0);
 // 洋室2
 add('bed', 'you2', 7.74, 0, 5.95, -H, { w: 0.97 }); add('desk', 'you2', 6.85, 0, 7.5, P, { w: 1.0 }); add('chair', 'you2', 6.85, 0, 6.95, 0);
 add('ceilingLight', 'you2', 7.5, CH, 5.9, 0, { w: 0.45 }); add('switch', 'you2', 6.26, 1.2, 6.15, H);
-add('curtain', 'you2', 7.05, 1.155, 7.84, P, { w: 1.7, h: 2.3, color: '#b9c9a5', opts: { open: 0.3, lace: true } });
+add('curtain', 'you2', 7.05, 1.155, 7.84, P, { fit: true, w: 1.7, h: 2.3, color: '#b9c9a5', opts: { mount: 'ceiling', open: 0.3, lace: true } });
 add('downlight', 'cl2', 7.5, 2.4, 4.4, 0); add('downlight', 'pantry', 7.5, 2.4, 0.5, 0);
 // バルコニー
 add('chair', 'bal', 5.0, 0, 8.8, 0); add('chair', 'bal', 5.7, 0, 8.8, 0); add('umbellata', 'bal', 8.3, 0, 8.4, 0, { w: 0.6, h: 1.2, d: 0.6 });

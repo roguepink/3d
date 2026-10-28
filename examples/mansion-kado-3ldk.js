@@ -97,8 +97,8 @@ add('tvboard', 'ldk', 2.86, 0, 9.4, H, { w: 1.5 });
 add('aircon', 'ldk', 2.66, 2.25, 10.0, H); // 配管は南の壁から外へ
 add('ceilingLight', 'ldk', 4.3, CH, 9.2, 0, { w: 0.55 });
 add('downlight', 'ldk', 3.3, CH, 6.0, 0); add('downlight', 'ldk', 5.0, CH - 0.2, 6.3, 0); add('downlight', 'ldk', 6.0, CH - 0.2, 6.3, 0);
-add('curtain', 'ldk', 4.55, 1.005, 10.47, P, { w: 3.4, h: 1.99, color: '#d8ccb6', opts: { open: 0.35, lace: true } });
-add('curtain', 'ldk', 6.67, 1.005, 8.85, -H, { w: 2.0, h: 1.99, color: '#d8ccb6', opts: { open: 0.35, lace: true } });
+add('curtain', 'ldk', 4.55, 1.005, 10.47, P, { fit: true, w: 3.4, h: 1.99, color: '#d8ccb6', opts: { mount: 'ceiling', open: 0.35, lace: true } });
+add('curtain', 'ldk', 6.67, 1.005, 8.85, -H, { fit: true, w: 2.0, h: 1.99, color: '#d8ccb6', opts: { mount: 'ceiling', open: 0.35, lace: true } });
 add('roller', 'ldk', 6.67, 1.5, 6.43, -H, { w: 0.7, h: 1.0 });
 add('intercom', 'ldk', 3.65, 1.4, 5.36, 0); add('switch', 'ldk', 2.66, 1.2, 5.5, H); add('smoke', 'ldk', 4.6, CH, 8.4, 0);
 add('monstera', 'ldk', 6.5, 0, 9.85, 0, { w: 0.6, h: 0.9, d: 0.6 });
@@ -106,20 +106,20 @@ add('monstera', 'ldk', 6.5, 0, 9.85, 0, { w: 0.6, h: 0.9, d: 0.6 });
 add('bed', 'yo1', 4.96, 0, 1.4, H, { w: 1.4 }); // 頭は西(廊下側)の壁
 add('aircon', 'yo1', 5.8, 1.84, 0.06, 0); // 北の壁・梁の下。室外機は共用廊下側
 add('ceilingLight', 'yo1', 5.3, CH, 1.7, 0, { w: 0.5 }); add('switch', 'yo1', 3.96, 1.2, 3.12, H); add('smoke', 'yo1', 5.3, CH, 2.6, 0);
-add('curtain', 'yo1', 4.75, 1.375, 0.32, 0, { w: 1.5, h: 1.25, color: '#6c7a9c', fabric: 'linen', opts: { open: 0.25, lace: true } });
-add('curtain', 'yo1', 6.68, 1.375, 1.6, -H, { w: 1.5, h: 1.25, color: '#6c7a9c', fabric: 'linen', opts: { open: 0.25 } });
+add('curtain', 'yo1', 4.75, 1.375, 0.32, 0, { fit: true, w: 1.5, h: 1.25, color: '#6c7a9c', fabric: 'linen', opts: { mount: 'ceiling', open: 0.25, lace: true } });
+add('curtain', 'yo1', 6.68, 1.375, 1.6, -H, { fit: true, w: 1.5, h: 1.25, color: '#6c7a9c', fabric: 'linen', opts: { mount: 'ceiling', open: 0.25 } });
 add('downlight', 'wic', 5.9, CH, 4.3, 0);
 // 洋室2(内側 x 0.06〜2.54、z 0.06〜3.14)
 add('bed', 'yo2', 1.06, 0, 1.75, H, { w: 1.0 });
 add('desk', 'yo2', 1.15, 0, 0.29, 0, { w: 1.0, d: 0.45 }); add('chair', 'yo2', 1.15, 0, 0.8, P);
 add('aircon', 'yo2', 2.1, 1.84, 0.06, 0);
 add('ceilingLight', 'yo2', 1.3, CH, 1.7, 0, { w: 0.45 }); add('switch', 'yo2', 2.54, 1.2, 3.12, -H); add('smoke', 'yo2', 1.3, CH, 2.6, 0);
-add('curtain', 'yo2', 1.15, 1.375, 0.32, 0, { w: 1.5, h: 1.25, color: '#b9c9a5', opts: { open: 0.3 } });
+add('curtain', 'yo2', 1.15, 1.375, 0.32, 0, { fit: true, w: 1.5, h: 1.25, color: '#b9c9a5', opts: { mount: 'ceiling', open: 0.3 } });
 // 洋室3(内側 x 0.06〜2.54、z 8.21〜10.74)
 add('bed', 'yo3', 1.06, 0, 9.2, H, { w: 1.0 });
 add('aircon', 'yo3', 2.54, 2.25, 9.95, -H); // 配管は南の壁から外へ
 add('ceilingLight', 'yo3', 1.3, CH, 9.3, 0, { w: 0.45 }); add('switch', 'yo3', 2.54, 1.2, 8.55, -H); add('smoke', 'yo3', 1.3, CH, 8.8, 0);
-add('curtain', 'yo3', 1.4, 1.005, 10.47, P, { w: 1.9, h: 1.99, color: '#cbb89a', opts: { open: 0.3, lace: true } });
+add('curtain', 'yo3', 1.4, 1.005, 10.47, P, { fit: true, w: 1.9, h: 1.99, color: '#cbb89a', opts: { mount: 'ceiling', open: 0.3, lace: true } });
 // 玄関・廊下
 add('shoebox', 'genkan', 2.84, 0, 1.5, H, { w: 1.0, d: 0.35, h: 2.3, opts: { tall: true, float: true } }); // 天井までの下駄箱
 add('downlight', 'genkan', 3.3, CH + 0.12, 1.5, 0); add('switch', 'hall', 3.84, 1.2, 2.2, -H);

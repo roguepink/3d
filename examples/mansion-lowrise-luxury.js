@@ -158,14 +158,14 @@ add('floorLamp', 'master', 3.25, 0, 7.15, 0);
 add('aircon', 'master', 1.9, 2.25, 6.06, 0);   // 風がベッドに直接当たらない北の壁
 add('downlight', 'master', 1.8, BH, 7.0, 0); add('downlight', 'master', 2.6, BH, 8.7, 0); add('downlight', 'master', 1.8, BH, 10.4, 0);
 add('switch', 'master', 3.4, 1.2, 6.06, 0); add('smoke', 'master', 2.2, BH, 8.0, 0);
-add('curtain', 'master', 1.9, 1.255, 11.34, P, { w: 2.5, h: 2.49, color: '#8a8478', fabric: 'linen', opts: { open: 0.35, lace: true } });
+add('curtain', 'master', 1.9, 1.255, 11.34, P, { fit: true, w: 2.5, h: 2.49, color: '#8a8478', fabric: 'linen', opts: { mount: 'ceiling', open: 0.35, lace: true } });
 // 洋室2(内側 x 7.66〜11.34、z 0.06〜2.94)
 add('bed', 'yo2', 8.15, 0, 1.06, 0, { w: 0.97, d: 2.0 });
 add('desk', 'yo2', 9.7, 0, 0.36, 0, { w: 1.0 });
 add('chair', 'yo2', 9.7, 0, 0.9, P);
 add('ceilingLight', 'yo2', 9.4, BH, 1.4, 0, { w: 0.45 }); add('aircon', 'yo2', 9.4, 2.25, 0.06, 0);
 add('switch', 'yo2', 7.66, 1.2, 2.85, H); add('smoke', 'yo2', 9.4, BH, 1.0, 0);
-add('curtain', 'yo2', 11.34, 1.255, 1.45, -H, { w: 1.7, h: 2.49, color: '#b9c9a5', opts: { open: 0.3, lace: true } });
+add('curtain', 'yo2', 11.34, 1.255, 1.45, -H, { fit: true, w: 1.7, h: 2.49, color: '#b9c9a5', opts: { mount: 'ceiling', open: 0.3, lace: true } });
 add('downlight', 'cl2', 10.2, BH, 2.65, 0);
 // 洋室3(内側 x 7.66〜11.34、z 3.76〜5.94)
 add('bed', 'yo3', 8.2, 0, 4.06, 0, { w: 0.97, d: 2.0 });
@@ -173,7 +173,7 @@ add('desk', 'yo3', 10.2, 0, 5.64, P, { w: 1.0 });
 add('chair', 'yo3', 10.2, 0, 5.1, 0);
 add('ceilingLight', 'yo3', 9.4, BH, 4.7, 0, { w: 0.45 }); add('aircon', 'yo3', 7.66, 2.25, 4.0, H);
 add('switch', 'yo3', 7.66, 1.2, 5.75, H); add('smoke', 'yo3', 9.4, BH, 5.4, 0);
-add('curtain', 'yo3', 11.34, 1.255, 4.6, -H, { w: 1.8, h: 2.49, color: '#c9b9a0', opts: { open: 0.3, lace: true } });
+add('curtain', 'yo3', 11.34, 1.255, 4.6, -H, { fit: true, w: 1.8, h: 2.49, color: '#c9b9a0', opts: { mount: 'ceiling', open: 0.3, lace: true } });
 add('downlight', 'cl3', 10.2, BH, 3.4, 0);
 // LDK(内側 x 3.66〜11.34、z 6.06〜11.34)
 // キッチン:北の壁に冷蔵庫と背面収納、前にアイランド(人は北側に立って南のダイニングを向く)
@@ -199,13 +199,13 @@ add('aircon', 'ldk', 7.66, CH - 0.45, 6.06, 0); add('cassette2', 'ldk', 10.3, CH
 add('intercom', 'ldk', 7.6, 1.45, 6.06, 0); add('switch', 'ldk', 7.55, 1.2, 6.06, 0); add('smoke', 'ldk', 8.0, CH, 9.0, 0);
 // カーテン(ハイサッシと FIX:床+10 〜 窓の上+100)
 const CUR = { color: '#e3ddd1', fabric: 'linen', opts: { open: 0.75, lace: true } };
-add('curtain', 'ldk', 4.45, 1.255, 11.34, P, { w: 1.5, h: 2.49, ...CUR });
-add('curtain', 'ldk', 6.35, 1.255, 11.34, P, { w: 2.7, h: 2.49, ...CUR });
-add('curtain', 'ldk', 8.6, 1.255, 11.34, P, { w: 2.0, h: 2.49, ...CUR });
-add('curtain', 'ldk', 10.375, 1.255, 11.34, P, { w: 1.9, h: 2.49, ...CUR });
-add('curtain', 'ldk', 11.34, 1.255, 7.5, -H, { w: 2.1, h: 2.49, ...CUR });
-add('curtain', 'ldk', 11.34, 1.255, 9.35, -H, { w: 1.9, h: 2.49, ...CUR });
-add('curtain', 'ldk', 11.34, 1.255, 10.725, -H, { w: 1.2, h: 2.49, ...CUR });
+add('curtain', 'ldk', 4.45, 1.255, 11.34, P, { fit: true, w: 1.5, h: 2.49, ...CUR , opts: { mount: 'ceiling' } });
+add('curtain', 'ldk', 6.35, 1.255, 11.34, P, { fit: true, w: 2.7, h: 2.49, ...CUR , opts: { mount: 'ceiling' } });
+add('curtain', 'ldk', 8.6, 1.255, 11.34, P, { fit: true, w: 2.0, h: 2.49, ...CUR , opts: { mount: 'ceiling' } });
+add('curtain', 'ldk', 10.375, 1.255, 11.34, P, { fit: true, w: 1.9, h: 2.49, ...CUR , opts: { mount: 'ceiling' } });
+add('curtain', 'ldk', 11.34, 1.255, 7.5, -H, { fit: true, w: 2.1, h: 2.49, ...CUR , opts: { mount: 'ceiling' } });
+add('curtain', 'ldk', 11.34, 1.255, 9.35, -H, { fit: true, w: 1.9, h: 2.49, ...CUR , opts: { mount: 'ceiling' } });
+add('curtain', 'ldk', 11.34, 1.255, 10.725, -H, { fit: true, w: 1.2, h: 2.49, ...CUR , opts: { mount: 'ceiling' } });
 // テラス
 add('table', 'terrace', 8.6, 0, 12.75, 0, { w: 1.4, d: 0.8, color: 'w_gray', opts: { chairs: 4 } });
 add('sofa', 'terrace', 12.7, 0, 9.0, -H, { style: 'two', w: 1.5, d: 0.8, color: '#e0dbd2', parts: { cushion: '#7a8a7a' } });

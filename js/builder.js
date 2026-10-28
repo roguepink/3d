@@ -5,7 +5,7 @@
 // 家の書き方(source)で使えるもの:G, T, H, P, FH, W0, room, link, opening, win, niche, add, beam
 //   最後に return { name, floorH, camera } を返す(rooms は room() で作った順に自動で入る)
 import { newItem, catalogEntry } from './items.js';
-import { normalizeRoom, edgeFrame, groundAt, baseOf, setFloorH, pointInPoly } from './house.js';
+import { fitWindowItem, normalizeRoom, edgeFrame, groundAt, baseOf, setFloorH, pointInPoly } from './house.js';
 
 const SIDE = { N: 0, E: 1, S: 2, W: 3 }, OPP = { N: 'S', S: 'N', E: 'W', W: 'E' };
 
@@ -49,7 +49,10 @@ export async function buildFromSource(src, FH = 2.9) {
   const fn = new Function(...names, '"use strict";\n' + src); const out = (await fn(...names.map(n => h[n]))) || {};
   const floorH = out.floorH || FH; setFloorH(floorH);
   const p = { v: 1, name: out.name || '家', rooms: h.rooms, items: h.items, assets: {}, settings: { night: false, module: 'shaku', floorH, ...(out.storey ? { storey: out.storey } : {}), ...(out.wayo ? { wayo: out.wayo } : {}) }, camera: out.camera || null };
-  for (const r of p.rooms) normalizeRoom(r); return p;
+  for (const r of p.rooms) normalizeRoom(r);
+  // fit:true の窓まわりの物は、窓と付け方(opts.mount)に合わせて幅・高さを自動で決める
+  for (const it of p.items) if (it.fit) { delete it.fit; fitWindowItem(it, p.rooms.find(r => r.id === it.roomId)); }
+  return p;
 }
 
 // 自動チェック:カーテンと窓、出入り口を通れるか、家具のはみ出し、部屋の重なりとすき間
