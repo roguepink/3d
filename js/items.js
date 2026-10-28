@@ -28,6 +28,43 @@ export const PLEATS = {
   wave: { f: 2.0, pitch: 0.12, head: 0, even: true }, hatome: { f: 1.5, pitch: 0.17, head: 0, ring: true, even: true },
   flat: { f: 1.2, pitch: 0.24, head: 0 }, gather: { f: 2.0, pitch: 0.05, head: 0, fine: true },
 };
+// ---- テレビ ----
+// 16:9 の画面。インチ(対角)→ 幅 0.8716×、高さ 0.4903×。今の薄型はふちが細く(約6mm)、厚み 3〜5cm。昔の液晶は ふち2cm・奥がふくらむ。
+// 色は大手メーカーの基本:黒がほとんど。ほかにチタングレー・シルバー、お風呂やキッチンの小型は白、インテリア向けにベージュ
+export const TV_INCHES = [13, 16, 19, 24, 32, 43, 50, 55, 65, 75, 85];
+export const TV_COLORS = { ブラック: '#141416', チタングレー: '#5d5f64', シルバー: '#b8babd', ホワイト: '#f1f1ef', ベージュ: '#d6cbb6' };
+const TV_STYLES = [
+  { id: 'thin', name: '薄型(今のテレビ)', words: ['薄型テレビ', '液晶テレビ', '有機el'] },
+  { id: 'old', name: '少し厚い液晶(昔の型)', words: ['古いテレビ', '昔のテレビ'], opts: { inch: 32 } },
+  { id: 'portable', name: '小型・防水(お風呂・キッチン)', words: ['お風呂のテレビ', 'キッチンのテレビ', 'ポータブルテレビ', '防水テレビ'], opts: { inch: 13 } },
+];
+const TV_PARAMS = [['inch', '大きさ(インチ)', 'choice', TV_INCHES.map(n => [n, n + '型'])], ['mount', '置き方', 'choice', [['wall', '壁掛け'], ['stand', 'テレビ台の上(スタンド)']]], ['on', '映す', 'bool']];
+export function tvSize(inch, mount, design) { const W = inch * 0.0254 * 0.8716, H = inch * 0.0254 * 0.4903, b = design === 'thin' ? 0.006 : design === 'portable' ? 0.022 : 0.018; const w = W + b * 2, h = H + b * 2 + (design === 'thin' ? 0.01 : 0.03); return mount === 'stand' ? [w, h + (design === 'portable' ? 0.02 : 0.08), Math.max(0.12, Math.min(0.32, w * 0.22))] : [w, h, design === 'thin' ? 0.03 : 0.07]; }
+function tvChoice(it, key) { // インチ・形が変わったら大きさを合わせる
+  const st = (styleOf(it) || {}).id || 'thin', [w, h, d] = tvSize(it.opts.inch || 50, it.opts.mount || (it.type === 'tv' ? 'wall' : 'stand'), st); const keepTop = it.type === 'tv' ? it.y + it.h / 2 : null;
+  it.w = w; it.h = h; it.d = d; if (keepTop !== null && key !== 'mount' && key !== 'new') it.y = keepTop - h / 2; }
+function tvBuild(it) {
+  const g = new THREE.Group(), design = (it.style && TV_STYLES.find(s => s.id === it.style) ? it.style : 'thin'), inch = it.opts.inch || 50, stand = it.type === 'tvset';
+  const W = inch * 0.0254 * 0.8716, H = inch * 0.0254 * 0.4903, b = design === 'thin' ? 0.006 : design === 'portable' ? 0.022 : 0.018, chin = design === 'thin' ? 0.01 : 0.03;
+  const fw = W + b * 2, fh = H + b * 2 + chin, col = it.color || '#141416', body = std(col, design === 'portable' ? .5 : .4, 0.05), back = std(col, .6);
+  const screen = it.opts.on ? emissive('#4d6f9a', 0.9) : std('#1d222b', .22, .15); // 消えている画面は、少し青みのある黒(光をうっすら映す)
+  const y0 = stand ? (it.opts.lift || 0) + (design === 'portable' ? 0.02 : 0.08) : -fh / 2, zc = stand ? 0 : 0.0;
+  const thick = design === 'thin' ? 0.012 : design === 'portable' ? 0.03 : 0.025, bulge = design === 'thin' ? 0.035 : design === 'portable' ? 0.0 : 0.07;
+  const z0 = stand ? 0 : thick / 2 + bulge + 0.01; // 壁掛けは金具の分だけ壁から離す
+  const cy = y0 + fh / 2;
+  g.add(box(fw, fh, thick, body, 0, cy, z0));
+  if (bulge) g.add(rbox(fw * 0.62, fh * 0.6, bulge, Math.min(0.01, bulge / 2 - 0.001), back, 0, cy - fh * 0.08, z0 - thick / 2 - bulge / 2)); // 後ろのふくらみ(部品の箱)
+  g.add(box(W, H, 0.002, screen, 0, cy + chin / 2, z0 + thick / 2 + 0.001));
+  if (design !== 'thin') g.add(box(0.012, 0.004, 0.002, emissive('#d33', .5), fw / 2 - b - 0.02, y0 + chin * 0.4 + b * 0.5, z0 + thick / 2 + 0.001)); // 電源の小さい灯り
+  if (design === 'thin') g.add(box(0.03, 0.004, 0.002, std('#888', .4, .6), 0, y0 + 0.006, z0 + thick / 2 + 0.001));
+  if (stand) {
+    const base = std(design === 'thin' ? '#2a2a2c' : col, .4, .4), ly = it.opts.lift || 0;
+    if (design === 'portable') { const leg = box(fw * 0.5, 0.02, 0.12, base, 0, ly + 0.01, -0.03); g.add(leg); const kick = box(fw * 0.4, fh * 0.55, 0.008, back, 0, ly + fh * 0.3, z0 - thick / 2 - 0.04); kick.rotation.x = 0.35; g.add(kick); }
+    else if (inch >= 55) { for (const sx of [-1, 1]) { g.add(box(0.05, 0.08, 0.2, base, sx * fw * 0.36, ly + 0.04, 0)); } } // 大きい画面は左右の脚
+    else { g.add(box(Math.min(0.42, fw * 0.4), 0.012, Math.max(0.12, it.d || 0.2), base, 0, ly + 0.006, 0)); g.add(box(0.07, 0.08, 0.03, base, 0, ly + 0.05, -0.01)); } // 真ん中の台座
+  } else { g.add(box(Math.min(0.4, fw * 0.4), Math.min(0.3, fh * 0.5), 0.01, std('#2b2b2e', .5, .5), 0, cy, 0.005)); } // 壁の金具
+  return g;
+}
 // ---- コンセント・スイッチの見た目 ----
 // wide=コスモワイド(定番。わくの中に大きなハンドル)、advance=アドバンス(最近。薄くて平ら、すき間が細い)、square=角ばった、old=昔の(小さいボタン)
 export const ELEC_SERIES = [['wide', 'コスモワイド(定番)'], ['advance', 'アドバンス(最近・フラット)'], ['square', 'スクエア(角ばった)'], ['old', '昔の(小さいボタン)']];
@@ -255,9 +292,12 @@ Object.assign(CATALOG, {
       for (let i = 0; i < n; i++) { const y = 0.02 + i * (h - 0.04) / (n - 1); g.add(box(w - 0.04, 0.02, d, m, 0, y, 0)); if (i < n - 1 && it.opts.gadgets) gadgetRow(g, -w / 2 + 0.02, w / 2 - 0.02, y + 0.01, 0, it.id + i, Math.min(1.6, Math.max(0.8, (h - 0.04) / (n - 1) / 0.2))); if (i > 0 && it.opts.led) { const col = it.opts.ledColor || '#4fe0e6'; g.add(box(w - 0.06, 0.01, 0.012, emissive(col, 2.6), 0, y - 0.016, d / 2 - 0.012)); if (i % 2) light(g, col, 1.2, 0, y - 0.1, d / 2 + 0.1, { distance: 1.8 }); } if (i < n - 1 && !it.opts.gadgets) for (let k = 0; k < 4; k++) { const c = ['#c5553f', '#4a6fa5', '#e0c060', '#6a9a6a', '#8b6b9a'][(i * 3 + k) % 5]; g.add(box(0.035 + (k % 2) * 0.01, 0.2 + (k % 3) * 0.03, d * .7, std(c, .7), -w / 2 + 0.1 + k * 0.06, y + 0.12, 0)); } } return g; } },
   tvboard: { name: 'テレビ台', emoji: '📺', cat: '家具', kind: 'floor', size: [1.6, 0.45, 0.4], color: DARKWOOD, opts: { tv: true }, words: ['テレビ台', 'テレビボード', 'tvボード'], params: [['tv', 'テレビも', 'bool']],
     build(it) { const g = new THREE.Group(), w = it.w, h = it.h, d = it.d, m = std(it.color, .4); g.add(box(w, h, d, m, 0, h / 2, 0)); g.add(box(w - 0.04, 0.01, 0.005, std(BLACK, .5), 0, h / 2, d / 2 + 0.002));
-      if (it.opts.tv !== false) { g.add(box(w * .7, w * .7 * .56, 0.03, std('#111', .15, .5), 0, h + w * .7 * .28 + 0.05, 0)); g.add(box(0.3, 0.05, 0.2, std(BLACK, .4, .5), 0, h + 0.025, 0)); } return g; } },
-  tv: { name: '壁掛けテレビ', emoji: '📺', cat: '壁かざり', kind: 'wall', size: [1.2, 0.68, 0.05], color: '#111111', opts: {}, words: ['テレビ', 'tv', 'モニター', '壁掛けテレビ'],
-    build(it) { const g = new THREE.Group(); g.add(box(it.w, it.h, 0.03, std('#0b0b0d', .15, .5), 0, 0, 0.02)); g.add(box(it.w - 0.02, it.h - 0.02, 0.005, std('#1a1d26', .1, .6), 0, 0, 0.038)); return g; } },
+      if (it.opts.tv !== false) { const inch = TV_INCHES.filter(n => tvSize(n, 'stand', 'thin')[0] <= w * 0.85).pop() || 32; const t = tvBuild({ opts: { inch, mount: 'stand', lift: 0 }, color: '#141416', style: 'thin', type: 'tvset' }); t.position.y = h; g.add(t); } return g; } }, // テレビ台の上のテレビは、台の幅に合うインチ
+  // テレビ:今はみんな薄型。大きさはインチで選ぶ。壁掛け(tv)とテレビ台の上(tvset)は「置き方」で切りかえる
+  tv: { name: 'テレビ(壁掛け)', emoji: '📺', cat: '壁かざり', kind: 'wall', noSize: true, palette: TV_COLORS, paletteOnly: true, size: tvSize(50, 'wall', 'thin'), color: '#141416', opts: { inch: 50, mount: 'wall', on: false }, words: ['テレビ', 'tv', '壁掛けテレビ', '液晶テレビ', '有機el'],
+    styles: TV_STYLES, params: TV_PARAMS, onChoice: tvChoice, build: tvBuild },
+  tvset: { name: 'テレビ(テレビ台の上)', emoji: '📺', cat: '小物', kind: 'floor', noSize: true, palette: TV_COLORS, paletteOnly: true, size: tvSize(50, 'stand', 'thin'), color: '#141416', opts: { inch: 50, mount: 'stand', lift: 0.45, on: false }, words: ['テレビ', 'お風呂のテレビ', 'キッチンのテレビ', '小さいテレビ', 'ポータブルテレビ', 'モニター'],
+    styles: TV_STYLES, params: [...TV_PARAMS, ['lift', '置く台の高さ', 0, 1.2, 'mm']], onChoice: tvChoice, build: tvBuild },
   picture: { name: '絵・額', emoji: '🖼️', cat: '壁かざり', kind: 'wall', size: [0.6, 0.45, 0.04], color: '#f0ece2', opts: {}, words: ['絵', '額', 'ポスター', '額縁', 'アート'],
     build(it) { const g = new THREE.Group(), fr = std(it.opts.frame || DARKWOOD, .5); g.add(box(it.w, it.h, 0.03, fr, 0, 0, 0.015)); let inner; if (it.opts.photo && it._assets && it._assets[it.opts.photo]) inner = surfaceMaterial('wall', { photo: it.opts.photo }, { w: it.w, h: it.h }, it._assets); else inner = std(it.color, .8); const p = new THREE.Mesh(new THREE.PlaneGeometry(it.w - 0.06, it.h - 0.06), inner); p.position.z = 0.031; g.add(p); if (!it.opts.photo) { const a = new THREE.Mesh(new THREE.CircleGeometry(Math.min(it.w, it.h) * .25, 24), std('#d9a066', .8)); a.position.set(it.w * .1, it.h * .05, 0.032); g.add(a); const b = new THREE.Mesh(new THREE.PlaneGeometry(it.w - 0.1, it.h * .2), std('#6a8a9a', .8)); b.position.set(0, -it.h * .3, 0.032); g.add(b); } return g; } },
   mirror: { name: '鏡', emoji: '🪞', cat: '壁かざり', kind: 'wall', size: [0.5, 1.2, 0.03], color: METAL, opts: {}, words: ['鏡', 'ミラー', 'かがみ'],
@@ -391,7 +431,7 @@ export function newItem(type, over = {}) {
   const it = { id: 'i' + Date.now().toString(36) + (seq++).toString(36), type, roomId: null, x: 0, y: 0, z: 0, rot: 0, w: c.size[0], h: c.size[1], d: c.size[2], color: c.color, fabric: c.fabric || null, opts: { ...(c.opts || {}) } };
   // 形のあるものは、その形の大きさ・設定から始める(over で大きさを決めていれば、そちらが勝つ)
   if (c.styles) { applyStyle(it, over.style || c.styles[0].id); it.parts = {}; const st = c.styles.find(s => s.id === it.style); if (st && st.parts && c.parts && st.parts[c.parts[0].key]) it.color = st.parts[c.parts[0].key]; }
-  return Object.assign(it, over);
+  Object.assign(it, over); if (c.onChoice && !over.w) c.onChoice(it, 'new'); return it; // テレビなど:インチから大きさを決める
 }
 
 // アイテム → 3D(位置・向きは呼び出し側で)

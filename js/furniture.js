@@ -466,8 +466,6 @@ Object.assign(FURNITURE, {
     parts: [{ key: 'bulb', name: '電球', pal: 'color', def: '#ffd38a' }], build: stringLightsBuild },
   pcTower: { name: 'パソコン本体(光る)', emoji: '🖥️', cat: '小物', kind: 'floor', size: [0.22, 0.48, 0.46], range: { w: [0.15, 0.35], h: [0.3, 0.7], d: [0.3, 0.6] }, color: '#1f1b26', opts: { lift: 0 }, words: ['パソコン本体', 'ゲーミングPC', 'PC本体', 'デスクトップ'],
     parts: [{ key: 'case', name: 'ケース', pal: 'color', def: '#1f1b26' }, { key: 'glow', name: '中の光', pal: 'color', def: '#a55bff' }], params: [LIFT], build: pcTowerBuild },
-  crtTV: { name: 'ブラウン管テレビ(小)', emoji: '📺', cat: '小物', kind: 'floor', size: [0.36, 0.32, 0.36], range: { w: [0.2, 0.7], h: [0.2, 0.6], d: [0.2, 0.6] }, color: '#d9d4c8', opts: { lift: 0 }, words: ['ブラウン管', 'レトロテレビ', '古いテレビ', 'ブラウン管テレビ'],
-    parts: [{ key: 'body', name: '本体', pal: 'color', def: '#d9d4c8' }, { key: 'screen', name: '画面', pal: 'color', def: '#3c4a52' }], params: [LIFT], build: crtBuild },
   laptop: { name: 'ノートパソコン', emoji: '💻', cat: '小物', kind: 'floor', size: [0.34, 0.24, 0.24], range: { w: [0.25, 0.45], h: [0.15, 0.35], d: [0.18, 0.32] }, color: '#3a3a40', opts: { lift: 0 }, words: ['ノートパソコン', 'ノートPC', 'ラップトップ'],
     parts: [{ key: 'body', name: '本体', pal: 'color', def: '#3a3a40' }, { key: 'screen', name: '画面', pal: 'color', def: '#5a6f9a' }], params: [LIFT], build: laptopBuild },
 });

@@ -728,13 +728,6 @@ export const WAFU = {
       { id: 'phone', name: '黒電話だけ', size: [0.21, 0.16, 0.23], words: ['黒電話', 'ダイヤル電話'] },
     ],
     params: [LIFT], build: denwaBuild },
-  kaguTV: { name: '家具調テレビ(昭和)', emoji: '📺', cat: '和の家具', kind: 'floor', size: [1.0, 0.95, 0.5], range: { w: [0.6, 1.4], h: [0.6, 1.3], d: [0.35, 0.7] }, color: 'w_walnut', opts: { on: false, doors: false, ant: true }, words: ['家具調テレビ', '昭和のテレビ', '脚つきテレビ', '扉つきテレビ', '大きいブラウン管'],
-    parts: [{ key: 'case', name: '木の箱', pal: 'wood', def: 'w_walnut' }, { key: 'bezel', name: '画面のまわり', pal: 'color', def: '#c9c2b0' }],
-    styles: [
-      { id: 'ashi', name: '脚つき', size: [1.0, 0.95, 0.5], words: ['家具調テレビ', '脚つきテレビ'] },
-      { id: 'tobira', name: '扉つき(閉めた)', size: [1.0, 0.95, 0.5], words: ['扉つきテレビ'], opts: { on: false, doors: true, ant: false } },
-    ],
-    params: [['on', '映す', 'bool'], ['doors', '扉を閉める', 'bool'], ['ant', '上に室内アンテナ', 'bool']], build: kaguTVBuild },
   stove: { name: '石油ストーブ', emoji: '🔥', cat: '和の家具', kind: 'floor', size: [0.48, 0.56, 0.48], range: { w: [0.3, 0.7], h: [0.35, 0.8], d: [0.25, 0.7] }, color: '#b8b3a3', opts: { on: false, kettle: true }, words: ['石油ストーブ', 'ストーブ', '反射式ストーブ', '丸いストーブ', 'だるまストーブ'],
     parts: [{ key: 'body', name: '本体', pal: 'color', def: '#b8b3a3' }],
     styles: [

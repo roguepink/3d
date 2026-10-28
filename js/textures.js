@@ -76,6 +76,29 @@ function drawCarpet(g, w, h, r, { base = '#c8b89a', alpha = 0.35 }) {
   g.fillStyle = base; g.fillRect(0, 0, w, h); noise(g, w, h, r, alpha);
   g.globalAlpha = .12; for (let i = 0; i < 4000; i++) { g.fillStyle = r() > .5 ? '#fff' : '#000'; g.fillRect(r() * w, r() * h, 2, 1); } g.globalAlpha = 1;
 }
+// タイルカーペット(50cm角)。基本は市松貼り:となりのタイルの毛の向きを90°かえるので、見る向きで色が少しちがって見える
+function drawTileCarpet(g, w, h, r, { base = '#8c8f94', base2 = null, pat = 'plain', n = 2 }) {
+  const s = w / n, c0 = new THREE.Color(base);
+  for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) {
+    const odd = (i + j) % 2 === 1, c = (base2 && odd ? new THREE.Color(base2) : c0.clone()).offsetHSL(0, 0, base2 ? 0 : (odd ? -0.012 : 0.01)); const x0 = i * s, y0 = j * s;
+    g.fillStyle = '#' + c.getHexString(); g.fillRect(x0, y0, s, s);
+    g.save(); g.beginPath(); g.rect(x0, y0, s, s); g.clip();
+    // 毛の向き(すじ)
+    g.globalAlpha = .1; for (let k = 0; k < 700; k++) { g.fillStyle = r() > .5 ? '#fff' : '#000'; const px = x0 + r() * s, py = y0 + r() * s; if (odd) g.fillRect(px, py, 1, 4); else g.fillRect(px, py, 4, 1); } g.globalAlpha = 1;
+    if (pat === 'line') { g.strokeStyle = 'rgba(255,255,255,.22)'; g.lineWidth = Math.max(1, s / 90); for (let k = 1; k < 9; k++) { g.beginPath(); if (odd) { g.moveTo(x0 + k * s / 9, y0); g.lineTo(x0 + k * s / 9, y0 + s); } else { g.moveTo(x0, y0 + k * s / 9); g.lineTo(x0 + s, y0 + k * s / 9); } g.stroke(); } }
+    if (pat === 'stone') { for (let k = 0; k < 40; k++) { g.fillStyle = `rgba(${r() > .5 ? '255,255,255' : '0,0,0'},${0.05 + r() * 0.06})`; g.beginPath(); g.ellipse(x0 + r() * s, y0 + r() * s, s * (0.04 + r() * 0.1), s * (0.02 + r() * 0.05), r() * 3, 0, 7); g.fill(); } }
+    if (pat === 'grad') { const gr = g.createLinearGradient(x0, y0, odd ? x0 : x0 + s, odd ? y0 + s : y0); gr.addColorStop(0, 'rgba(255,255,255,.12)'); gr.addColorStop(1, 'rgba(0,0,0,.12)'); g.fillStyle = gr; g.fillRect(x0, y0, s, s); }
+    noise(g, w, h, r, 0); g.restore();
+    g.fillStyle = 'rgba(0,0,0,.18)'; g.fillRect(x0, y0, s, Math.max(1, s / 400)); g.fillRect(x0, y0, Math.max(1, s / 400), s); // タイルのつなぎ目
+  }
+}
+// 絨毯(じゅうたん):カット=毛先を切った、なめらかでしっとり。ループ=輪になった毛が粒のように並ぶ
+function drawCutPile(g, w, h, r, { base }) { g.fillStyle = base; g.fillRect(0, 0, w, h); noise(g, w, h, r, 0.25); g.globalAlpha = .08; for (let i = 0; i < 6000; i++) { g.fillStyle = r() > .5 ? '#fff' : '#000'; g.fillRect(r() * w, r() * h, 1.5, 1.5); } g.globalAlpha = 1; }
+function drawLoopPile(g, w, h, r, { base }) {
+  g.fillStyle = base; g.fillRect(0, 0, w, h); const c = new THREE.Color(base), n = 90, s = w / n;
+  for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) { const cc = c.clone().offsetHSL(0, 0, (r() - .5) * 0.07 + (j % 2 ? -0.02 : 0.02)); g.fillStyle = '#' + cc.getHexString(); g.beginPath(); g.ellipse((i + .5 + (j % 2) * .5) * s, (j + .5) * s, s * .46, s * .36, 0, 0, 7); g.fill(); }
+  g.fillStyle = 'rgba(0,0,0,.15)'; for (let j = 0; j < n; j++) g.fillRect(0, j * s, w, Math.max(1, s * .12));
+}
 // 織り(カーテン生地)
 function drawWeave(g, w, h, r, { base = '#ffffff', contrast = 0.12, pitch = 4 }) {
   g.fillStyle = base; g.fillRect(0, 0, w, h);
@@ -295,6 +318,25 @@ export const SURFACE_LIB = {
     { id: 'jiita_matsu', bump: 0.003, name: '地板(赤松)', size: 1.8, rough: .4, draw: (g, w, h, r) => drawWood(g, w, h, r, { base: '#c88d58', dark: '#8d5a32', plankW: 0.3, tile: 1.8, gloss: true, grainAlpha: .35 }) },
     { id: 'keyaki', bump: 0.002, name: '床板(欅の一枚板)', size: 1.8, rough: .3, draw: (g, w, h, r) => drawWood(g, w, h, r, { base: '#a86a3c', dark: '#6b3f20', plankW: 0.9, tile: 1.8, gloss: true, grainAlpha: .45 }) },
     { id: 'araidashi', bump: 0.01, name: '土間(洗い出し)', size: 1.2, rough: .85, draw: drawAraidashi },
+    // タイルカーペット(50cm角・市松貼りが基本)。はやりの柄:無地・ライン・石目・グラデーション・2色ミックス
+    { id: 'tc_gray', bump: 0.006, name: 'タイルカーペット(グレー・市松)', size: 1, rough: .95, draw: (g, w, h, r) => drawTileCarpet(g, w, h, r, { base: '#8c8f94' }) },
+    { id: 'tc_charcoal', bump: 0.006, name: 'タイルカーペット(チャコール・市松)', size: 1, rough: .95, draw: (g, w, h, r) => drawTileCarpet(g, w, h, r, { base: '#4a4c51' }) },
+    { id: 'tc_beige', bump: 0.006, name: 'タイルカーペット(ベージュ・市松)', size: 1, rough: .95, draw: (g, w, h, r) => drawTileCarpet(g, w, h, r, { base: '#b9ab92' }) },
+    { id: 'tc_line', bump: 0.006, name: 'タイルカーペット(ライン柄・市松)', size: 1, rough: .95, draw: (g, w, h, r) => drawTileCarpet(g, w, h, r, { base: '#6d7076', pat: 'line' }) },
+    { id: 'tc_stone', bump: 0.006, name: 'タイルカーペット(石目・市松)', size: 1, rough: .95, draw: (g, w, h, r) => drawTileCarpet(g, w, h, r, { base: '#9a968e', pat: 'stone' }) },
+    { id: 'tc_grad', bump: 0.006, name: 'タイルカーペット(グラデーション)', size: 1, rough: .95, draw: (g, w, h, r) => drawTileCarpet(g, w, h, r, { base: '#7e8a8c', pat: 'grad' }) },
+    { id: 'tc_mix', bump: 0.006, name: 'タイルカーペット(2色ミックス・市松)', size: 1, rough: .95, draw: (g, w, h, r) => drawTileCarpet(g, w, h, r, { base: '#5c5f65', base2: '#80838a' }) },
+    { id: 'tc_green', bump: 0.006, name: 'タイルカーペット(グリーン・市松)', size: 1, rough: .95, draw: (g, w, h, r) => drawTileCarpet(g, w, h, r, { base: '#6f7d68' }) },
+    // 絨毯:カット(なめらか)とループ(粒が並ぶ)
+    { id: 'cut_beige', bump: 0.004, name: '絨毯・カット(ベージュ)', size: 1, rough: .98, draw: (g, w, h, r) => drawCutPile(g, w, h, r, { base: '#c4b08f' }) },
+    { id: 'cut_gray', bump: 0.004, name: '絨毯・カット(グレー)', size: 1, rough: .98, draw: (g, w, h, r) => drawCutPile(g, w, h, r, { base: '#8e9095' }) },
+    { id: 'cut_brown', bump: 0.004, name: '絨毯・カット(ブラウン)', size: 1, rough: .98, draw: (g, w, h, r) => drawCutPile(g, w, h, r, { base: '#7a5c45' }) },
+    { id: 'cut_ivory', bump: 0.004, name: '絨毯・カット(アイボリー)', size: 1, rough: .98, draw: (g, w, h, r) => drawCutPile(g, w, h, r, { base: '#e6dcc8' }) },
+    { id: 'cut_red', bump: 0.004, name: '絨毯・カット(えんじ)', size: 1, rough: .98, draw: (g, w, h, r) => drawCutPile(g, w, h, r, { base: '#7e2f34' }) },
+    { id: 'loop_beige', bump: 0.008, name: '絨毯・ループ(ベージュ)', size: 0.5, rough: .95, draw: (g, w, h, r) => drawLoopPile(g, w, h, r, { base: '#bfae90' }) },
+    { id: 'loop_gray', bump: 0.008, name: '絨毯・ループ(グレー)', size: 0.5, rough: .95, draw: (g, w, h, r) => drawLoopPile(g, w, h, r, { base: '#8a8c90' }) },
+    { id: 'loop_brown', bump: 0.008, name: '絨毯・ループ(ブラウン)', size: 0.5, rough: .95, draw: (g, w, h, r) => drawLoopPile(g, w, h, r, { base: '#76604c' }) },
+    { id: 'loop_navy', bump: 0.008, name: '絨毯・ループ(ネイビー)', size: 0.5, rough: .95, draw: (g, w, h, r) => drawLoopPile(g, w, h, r, { base: '#3b465c' }) },
     { id: 'carpet_b', bump: 0.006, name: 'カーペット(ベージュ)', size: 1, rough: .95, draw: (g, w, h, r) => drawCarpet(g, w, h, r, { base: '#c8b89a' }) },
     { id: 'carpet_g', bump: 0.006, name: 'カーペット(グレー)', size: 1, rough: .95, draw: (g, w, h, r) => drawCarpet(g, w, h, r, { base: '#8f9196' }) },
     { id: 'concrete', bump: 0.006, name: 'モルタル', size: 1.5, rough: .7, draw: drawConcrete },

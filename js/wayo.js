@@ -13,7 +13,7 @@ export const WAYO = {
     // 家具
     bed: 'yo', sofa: 'yo', chair: 'yo', table: 'yo', counter: 'yo', closet: 'yo', standMirror: 'yo', coatRack: 'yo',
     // 壁かざり
-    tv: 'yo', niche: 'yo', stringLights: 'yo', wallShelf: 'yo',
+    tv: 'yo', tvset: 'yo', niche: 'yo', stringLights: 'yo', wallShelf: 'yo',
     // みどり(昭和の家にもあった ゴムの木・幸福の木・パキラ・サンスベリア・ガジュマル・丸い木は どちらでも)
     monstera: 'yo', umbellata: 'yo', olive: 'yo', strelitzia: 'yo', everfresh: 'yo',
   },

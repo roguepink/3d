@@ -94,7 +94,7 @@ add('tansu', 'waA', 0.26, 0, 7.6, H, { style: 'seiri' }); add('walight', 'waA', 
 // 和室(居間):ちゃぶ台・座布団・家具調テレビ・石油ストーブ・仏壇
 add('chabudai', 'waB', 4.8, 0, 7.1, 0, { style: 'round' });
 add('zabuton', 'waB', 4.8, 0, 6.45, 0, { style: 'kon' }); add('zabuton', 'waB', 4.15, 0, 7.1, 0, { style: 'gara' }); add('zabuton', 'waB', 5.45, 0, 7.1, 0, { style: 'murasaki' });
-add('kaguTV', 'waB', 6.24, 0, 7.2, -H, { style: 'ashi' }); add('stove', 'waB', 5.9, 0, 8.1, 0, { style: 'hansha' });
+add('tvboard', 'waB', 6.3, 0, 7.2, -H, { w: 1.0, d: 0.4, color: '#5a3e2b', opts: { tv: false } }); add('tvset', 'waB', 6.3, 0, 7.2, -H, { style: 'old', opts: { inch: 32, lift: 0.45, mount: 'stand' } }); // 少し厚い液晶(昔の型) add('stove', 'waB', 5.9, 0, 8.1, 0, { style: 'hansha' });
 add('wakomono', 'waB', 4.8, 0.33, 7.1, 0, { style: 'kyusu' });
 add('walight', 'waB', 4.95, 2.3, 7.3, 0, { style: 'keikou' }); add('calendar', 'waB', 3.36, 1.4, 6.0, H);
 // トイレ(和式)・洗面所・浴室(在来:タイルの床に置き型の浴槽)

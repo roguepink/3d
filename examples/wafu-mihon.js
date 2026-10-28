@@ -23,7 +23,7 @@ add('butsudan', 'tsugi', 6.6, 0, 0.4, 0, { style: 'dai' });
 add('hashiradokei', 'tsugi', 4.3, 1.9, 0.06, 0, { style: 'hakkaku' }); add('calendar', 'tsugi', 5.2, 1.4, 0.06, 0);
 add('kotatsu', 'tsugi', 5.45, 0, 2.0, 0, { style: 'hori' });
 add('zabuton', 'tsugi', 5.45, 0, 1.25, 0, { style: 'kon' }); add('zabuton', 'tsugi', 5.45, 0, 2.75, 0, { style: 'gara' });
-add('kaguTV', 'tsugi', 4.2, 0, 3.1, H, { style: 'ashi' }); add('senpuki', 'tsugi', 7.0, 0, 3.2, -H, { style: 'floor' });
+add('tvboard', 'tsugi', 4.1, 0, 3.1, H, { w: 1.0, d: 0.4, color: '#5a3e2b', opts: { tv: false } }); add('tvset', 'tsugi', 4.1, 0, 3.1, H, { style: 'old', opts: { inch: 32, lift: 0.45, mount: 'stand' } }); // 少し厚い液晶(昔の型) add('senpuki', 'tsugi', 7.0, 0, 3.2, -H, { style: 'floor' });
 add('denwa', 'tsugi', 7.0, 0, 0.6, -H, { style: 'dai' });
 add('hakimono', 'engawa', 1.5, 0, 4.3, 0, { style: 'nagagutsu' }); add('hakimono', 'engawa', 5.0, 0, 4.25, 0, { style: 'sandal' });
 add('getabako', 'genkan', 8.85, 0, 3.0, -H, { style: 'hiraki' }); add('kasatate', 'genkan', 8.85, 0, 4.2, -H);
