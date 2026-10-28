@@ -156,10 +156,17 @@ function wallGeometry(L, H, holes) {
   uv.needsUpdate = true; g.computeVertexNormals(); return g;
 }
 // 床・天井(多角形)。UV は外接する長方形で 0..1
-function slabGeometry(poly, flipZ) {
+// 出入り口の床の帯:部屋の床と同じ模様の位置・大きさになるように、世界の位置から模様の座標を決める
+function doorStrip(og, w, z0, z1, mat, R) {
+  const d = Math.abs(z1 - z0), zc = (z0 + z1) / 2, g = new THREE.PlaneGeometry(w, d), pos = g.attributes.position, uv = g.attributes.uv, r = og.rotation.y, c = Math.cos(r), sn = Math.sin(r), W = R.w || 1, D = R.d || 1;
+  for (let i = 0; i < pos.count; i++) { const lx = pos.getX(i), lz = zc - pos.getY(i); const wx = og.position.x + lx * c + lz * sn, wz = og.position.z - lx * sn + lz * c; uv.setXY(i, wx / W, -wz / D); }
+  const m = new THREE.Mesh(g, mat); m.rotation.x = -Math.PI / 2; m.position.set(0, 0.001, zc); m.receiveShadow = true; return m;
+}
+function slabGeometry(poly, flipZ, MW, MD) { // MW・MD=材質の繰り返しに使った幅・奥行き
   const b = polyBounds(poly); const shape = new THREE.Shape(); poly.forEach(([x, z], i) => { const px = x, py = flipZ ? -z : z; if (i === 0) shape.moveTo(px, py); else shape.lineTo(px, py); }); shape.closePath();
   const g = new THREE.ShapeGeometry(shape, 1); const pos = g.attributes.position, uv = g.attributes.uv;
-  for (let i = 0; i < uv.count; i++) { const x = pos.getX(i), y = pos.getY(i); const z = flipZ ? -y : y; uv.setXY(i, (x - b.minX) / ((b.maxX - b.minX) || 1), flipZ ? 1 - (z - b.minZ) / ((b.maxZ - b.minZ) || 1) : (z - b.minZ) / ((b.maxZ - b.minZ) || 1)); }
+  // 模様は家全体で同じ位置から貼る(となりの部屋とタイル・板の目地がそろう)。材質の繰り返しは部屋の幅÷模様の大きさなので、x/幅 で世界の位置に合う
+  for (let i = 0; i < uv.count; i++) { const x = pos.getX(i), y = pos.getY(i); const z = flipZ ? -y : y; const W = MW || (b.maxX - b.minX) || 1, D = MD || (b.maxZ - b.minZ) || 1; uv.setXY(i, x / W, flipZ ? -z / D : z / D); }
   uv.needsUpdate = true; g.computeVertexNormals(); return g;
 }
 
@@ -459,11 +466,11 @@ export function buildRoom(room, project, group) {
   const trim = (room.wa && !room.trim) ? waTrim(room.wa) : roomTrim(room); const waWood = room.wa ? trimMaterial(room.wa.wood || 'wood_medium') : null; const matCrown = trimMaterial(trim.crown.finish), matBase = trimMaterial(trim.base.finish), matCase = trimMaterial(trim.casing.finish), matDoorFrame = trimMaterial(trim.door.finish);
   const crownH = Math.max(0.01, (trim.crown.h || 35) / 1000), baseH = Math.max(0.01, (trim.base.h || 60) / 1000), caseW = Math.max(0.02, (trim.casing.w || 55) / 1000);
   // 床
-  const floor = new THREE.Mesh(slabGeometry(room.poly, true), surfaceMaterial('floor', room.floor, { w: room.w, h: room.d }, assets));
+  const floor = new THREE.Mesh(slabGeometry(room.poly, true, room.w, room.d), surfaceMaterial('floor', room.floor, { w: room.w, h: room.d }, assets));
   floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true;
   floor.userData = { kind: 'floor', roomId: room.id, keep: true }; roomGroup.add(floor); pick.push(floor);
   // 天井
-  const ceil = new THREE.Mesh(slabGeometry(room.poly, false), surfaceMaterial('wall', room.ceiling || { color: '#f7f7f4' }, { w: room.w, h: room.d }, assets));
+  const ceil = new THREE.Mesh(slabGeometry(room.poly, false, room.w, room.d), surfaceMaterial('wall', room.ceiling || { color: '#f7f7f4' }, { w: room.w, h: room.d }, assets));
   ceil.rotation.x = Math.PI / 2; ceil.position.y = H; ceil.receiveShadow = true;
   ceil.userData = { kind: 'ceiling', roomId: room.id, keep: true }; roomGroup.add(ceil); pick.push(ceil);
   if (room.outdoor && room.outdoor.sky) ceil.visible = false;
@@ -512,10 +519,14 @@ export function buildRoom(room, project, group) {
         if (h.sill > 0.02 && h.sill < 0.45) { const km = trimMaterial(o.kamachi || 'wood_medium'); const fr = box(h.w, h.sill, 0.03, km); fr.position.set(0, h.sill / 2, 0.015); og.add(fr); const tp = box(h.w, 0.03, WALL_T + 0.05, km); tp.position.set(0, h.sill - 0.015, -WALL_T / 2 + 0.025); og.add(tp); }
         // 段差なし:壁の厚みの所も床でつなぐ。となりと床が違うときは、フローリングに合わせた見切りを入れる
         else if (h.sill <= 0.02 && !o.twin) { const nb = neighborAcross(room, e, o.u, o.w, project.rooms || [], { y: baseOf(room) }); const myF = room.floor || {}, nbF = nb ? (nb.room.floor || {}) : myF;
-          if (nb && myF.lib === nbF.lib && myF.color === nbF.color) { const st = new THREE.Mesh(new THREE.PlaneGeometry(h.w, WALL_T), floor.material); st.rotation.x = -Math.PI / 2; st.position.set(0, 0.001, -WALL_T / 2); og.add(st); }
-          else { // 段差は作らない(いつもフラット)。片方がフローリングでもう片方がクッションフロアなどのときだけ、フローリング色の見切り(床と同じ高さ)
-            const isWood = f => /oak|walnut|ash|herring|grayoak/.test(f.lib || ''); const wood = isWood(myF) ? myF : isWood(nbF) ? nbF : null; const mm = wood ? surfaceMaterial('floor', wood, { w: 1, h: 1 }, assets) : floor.material;
-            const st = new THREE.Mesh(new THREE.PlaneGeometry(h.w, WALL_T), mm); st.rotation.x = -Math.PI / 2; st.receiveShadow = true; st.position.set(0, 0.001, -WALL_T / 2); og.add(st); } }
+          if (nb && myF.lib === nbF.lib && myF.color === nbF.color) og.add(doorStrip(og, h.w, 0, -WALL_T, floor.material, room)); // 同じ床:模様をそのままつなぐ
+          else { // 段差は作らない(いつもフラット)。床がちがうときは、フローリングでない側の床を戸の所まで貼り、フローリング側の面にフローリング色の見切り(幅25mm・床と同じ高さ)
+            const isWood = f => /oak|walnut|ash|herring|grayoak|wood|enkou|sugi|hinoki|keyaki|matsu|plywood/.test(f.lib || ''); const wood = isWood(myF) ? myF : isWood(nbF) ? nbF : null;
+            const nbMat = nb ? surfaceMaterial('floor', nb.room.floor, { w: nb.room.w, h: nb.room.d }, assets) : floor.material, MK = 0.025;
+            if (wood === myF && nb) { og.add(doorStrip(og, h.w, -MK, -WALL_T, nbMat, nb.room)); const mk = new THREE.Mesh(new THREE.PlaneGeometry(h.w, MK), surfaceMaterial('floor', wood, { w: 1, h: 1 }, assets)); mk.rotation.x = -Math.PI / 2; mk.position.set(0, 0.0015, -MK / 2); og.add(mk); }
+            else if (wood === nbF && nb) { og.add(doorStrip(og, h.w, 0, -WALL_T + MK, floor.material, room)); const mk = new THREE.Mesh(new THREE.PlaneGeometry(h.w, MK), surfaceMaterial('floor', wood, { w: 1, h: 1 }, assets)); mk.rotation.x = -Math.PI / 2; mk.position.set(0, 0.0015, -WALL_T + MK / 2); og.add(mk); }
+            else og.add(doorStrip(og, h.w, 0, -WALL_T, floor.material, room)); }
+        }
       }
       // 箱型の出窓は、枠なし(三方クロス巻き込み)
       if (!o.twin) buildRanma(og, o, h, H, waWood || trimMaterial('wood_medium'));
