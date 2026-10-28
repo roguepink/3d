@@ -11,6 +11,8 @@ export class WalkControls {
     this.drag = { active: false, id: null };
     this.gyro = { on: false, q: new THREE.Quaternion(), screen: 0, base: null };
     this.ground = opts.ground; this.floorY = 0; this.joyEl = opts.joyEl; this.knobEl = opts.knobEl;
+    // iPhone の Safari が、指の動きを「画面のスクロール・拡大」に取らないようにする
+    dom.addEventListener('touchstart', e => { if (e.cancelable) e.preventDefault(); }, { passive: false }); dom.addEventListener('touchmove', e => { if (e.cancelable) e.preventDefault(); }, { passive: false });
     dom.addEventListener('pointerdown', e => this.down(e)); dom.addEventListener('pointermove', e => this.moveEv(e)); dom.addEventListener('pointerup', e => this.up(e)); dom.addEventListener('pointercancel', e => this.up(e));
     window.addEventListener('keydown', e => { if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return; this.keys[e.code] = true; }); window.addEventListener('keyup', e => { this.keys[e.code] = false; });
     dom.addEventListener('contextmenu', e => e.preventDefault());
@@ -21,7 +23,8 @@ export class WalkControls {
     if (!this.enabled) { this.tapOnly = { x: e.clientX, y: e.clientY, t0: performance.now(), moved: 0, id: e.pointerId }; return; } const w = this.dom.clientWidth;
     try { this.dom.setPointerCapture && this.dom.setPointerCapture(e.pointerId); } catch {}
     // 左下は歩くボタンの場所。物が映っていても、歩くほうを先にする
-    if (e.pointerType === 'touch' && e.clientX < w * 0.45 && e.clientY > this.dom.clientHeight * 0.45 && !this.joy.active) { this.joy = { active: true, id: e.pointerId, cx: e.clientX, cy: e.clientY, t0: performance.now() }; this.placeJoy(e.clientX, e.clientY, true); return; }
+    // パソコン(マウス)でも、左下を押して動かせば歩ける(Mac の Safari など)
+    if (e.clientX < w * 0.45 && e.clientY > this.dom.clientHeight * 0.45 && !this.joy.active) { this.joy = { active: true, id: e.pointerId, cx: e.clientX, cy: e.clientY, t0: performance.now() }; this.placeJoy(e.clientX, e.clientY, true); return; }
     // 選んだアイテムの上なら引っぱって動かす
     // 物の上を押したとき:選んである物ならすぐ引っぱれる。選んでいない物は、長押し(0.4秒)でつかむ
     if (this.onDragItem && !this.joy.active && !this.look.active) { const h = this.hitTest(e.clientX / this.dom.clientWidth, e.clientY / this.dom.clientHeight);
