@@ -451,6 +451,35 @@ function walightBuild(it) {
   return g;
 }
 
+// ---- 和風のシーリングライト(天井にぴったり付く) ----
+// 部分:わく(木)。和紙の面が光る。組子は面の下に細い木の格子
+function waceilBuild(it) {
+  const g = new THREE.Group(), s = styleOf(it).id, fr = pm(it, 'frame', .5), on = it.opts.on !== false, pw = it.opts.power ?? 1, w = it.w;
+  const warm = it.opts.warm !== false, paper = on ? emissive(warm ? '#ffe6bd' : '#fbf6ea', 1.0) : std('#eee6d4', .9);
+  if (s === 'maru') {
+    // 丸形:木のふち+和紙
+    const r = w / 2, hh = 0.11; g.add(cyl(r * 0.35, r * 0.35, 0.02, std('#e8e2d4', .6), 0, -0.01, 0, 24));
+    g.add(cyl(r - 0.01, r - 0.01, hh - 0.02, paper, 0, -hh / 2 - 0.01, 0, 48));
+    for (const yy of [-0.02, -hh]) { const t = new THREE.Mesh(new THREE.TorusGeometry(r, 0.012, 8, 48), fr); t.rotation.x = Math.PI / 2; t.position.y = yy; g.add(t); }
+    for (let k = 0; k < 8; k++) { const a = k / 8 * Math.PI * 2; g.add(box(0.008, hh - 0.02, 0.008, fr, Math.cos(a) * r, -hh / 2 - 0.01, Math.sin(a) * r)); }
+    g.add(box(r * 1.9, 0.006, 0.008, fr, 0, -hh - 0.004, 0)); g.add(box(0.008, 0.006, r * 1.9, fr, 0, -hh - 0.004, 0));
+  } else {
+    // 角形:木のわく+和紙の箱。kumiko は面に組子、usu は薄型
+    const hh = s === 'usu' ? 0.07 : 0.13, y = -hh / 2 - 0.01; g.add(box(w * 0.4, 0.02, w * 0.4, std('#e8e2d4', .6), 0, -0.01, 0));
+    g.add(box(w - 0.012, hh - 0.012, w - 0.012, paper, 0, y, 0));
+    for (const [x, z] of C4) g.add(box(0.022, hh + 0.004, 0.022, fr, x * w / 2, y, z * w / 2));
+    for (const yy of [y - hh / 2, y + hh / 2]) for (const sz of [-1, 1]) { g.add(box(w + 0.022, 0.018, 0.02, fr, 0, yy, sz * w / 2)); g.add(box(0.02, 0.018, w + 0.022, fr, sz * w / 2, yy, 0)); }
+    if (s !== 'usu') for (const sz of [-1, 1]) for (const k of [-1, 0, 1]) { g.add(box(0.006, hh, 0.006, fr, k * w / 4, y, sz * w / 2)); g.add(box(0.006, hh, 0.006, fr, sz * w / 2, y, k * w / 4)); }
+    const by = y - hh / 2 - 0.004, n = s === 'kumiko' ? 6 : 3;
+    for (let k = 1; k < n; k++) { const p = -w / 2 + k * w / n; g.add(box(w, 0.006, 0.007, fr, 0, by, p)); g.add(box(0.007, 0.006, w, fr, p, by, 0)); }
+    if (s === 'kumiko') { // 麻の葉ふうに、ます目ごとに斜めの組子
+      const c = w / n, len = c * Math.SQRT2 * 0.98; for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) { const cx = -w / 2 + (i + .5) * c, cz = -w / 2 + (j + .5) * c; for (const a of [Math.PI / 4, -Math.PI / 4]) { const b2 = box(len, 0.005, 0.005, fr, cx, by - 0.001, cz); b2.rotation.y = a; g.add(b2); } }
+    }
+  }
+  if (on) { const l = light(g, warm ? WARM : '#fff4e2', 8 * pw, 0, -0.5, 0); l.castShadow = true; }
+  return g;
+}
+
 // ---- 布団 ----
 // 部分:掛け布団(布) / 敷布団 / 枕(そばがら)
 function futonBuild(it) {
@@ -728,6 +757,15 @@ export const WAFU = {
       { id: 'hadaka', name: '裸電球', size: [0.1, 0.75, 0.1], words: ['裸電球'], opts: { on: true, drop: 0.6, power: 1 } },
     ],
     params: [['drop', '下げる長さ(天井から)', 0.1, 1.1, 'mm'], ['power', '明るさ', 0.2, 2], ['on', '点ける', 'bool']], build: walightBuild },
+  waceil: { name: '和風シーリングライト', emoji: '🏮', cat: '照明', kind: 'ceiling', size: [0.55, 0.13, 0.55], range: { w: [0.35, 0.9] }, color: 'w_natural', opts: { on: true, power: 1, warm: true }, words: ['和風シーリング', '和風シーリングライト', '和室のシーリング', '和室の天井の照明', '組子の照明', '和紙のシーリング'],
+    parts: [{ key: 'frame', name: 'わく', pal: 'wood', def: 'w_natural' }],
+    styles: [
+      { id: 'kaku', name: '角形・木わく+和紙', words: ['和風シーリング', '和紙のシーリング'] },
+      { id: 'kumiko', name: '組子(麻の葉ふう)', words: ['組子の照明', '組子'] },
+      { id: 'usu', name: '薄型・木のふち', words: ['薄型の和風シーリング'] },
+      { id: 'maru', name: '丸形・木のふち+和紙', words: ['丸い和風シーリング'] },
+    ],
+    params: [['power', '明るさ', 0.2, 2], ['warm', '電球色(オレンジ)', 'bool'], ['on', '点ける', 'bool']], build: waceilBuild },
   wafuton: { name: '布団(和室に敷く)', emoji: '🛏️', cat: '和の家具', kind: 'floor', size: [1.0, 0.2, 2.1], range: { w: [0.7, 1.6], h: [0.1, 0.9], d: [0.6, 2.3] }, color: '#6a4a58', fabric: 'plain', opts: {}, words: ['和室の布団', '敷いた布団', 'たたんだ布団', '布団を敷く', '布団を積む', 'せんべい布団'],
     parts: [{ key: 'kake', name: '掛け布団', pal: 'fabric', def: '#6a4a58' }, { key: 'shiki', name: '敷布団', pal: 'color', def: '#e3dac6' }, { key: 'makura', name: '枕', pal: 'color', def: '#ece6d6' }],
     styles: [

@@ -224,3 +224,6 @@ body.show-back #btnHome { visibility:hidden; }
 .ceil-opts { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 6px; margin: 2px 0 8px; }
 .ceil-opts .row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .ceil-opts .lbl { width: 100%; font-size: 13px; opacity: .8; }
+
+/* 種類をえらぶ(レースの種類など) */
+.pchoice { width:100%; font-size:14px; } .choices { display:flex; flex-wrap:wrap; gap:6px; margin-top:6px; } .choices .chip.text { min-height:34px; padding:4px 10px; font-size:13px; height:auto; }

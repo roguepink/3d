@@ -106,6 +106,18 @@ function drawLace(g, w, h, r) {
   g.strokeStyle = 'rgba(0,0,0,.35)'; g.lineWidth = 1.2;
   const s = w / 8; for (let i = 0; i < 8; i++) for (let j = 0; j < 8; j++) { g.beginPath(); g.arc(i * s + s / 2, j * s + s / 2, s * .42, 0, 7); g.stroke(); g.beginPath(); g.arc(i * s + s / 2, j * s + s / 2, s * .2, 0, 7); g.stroke(); }
 }
+// 透ける布(レース):灰色の濃さ=透けにくさ(アルファとして使う)。白い線=柄(そこは透けにくい)
+function drawSheer(g, w, h, r, { v = 140, pat = 'plain' }) {
+  g.fillStyle = `rgb(${v},${v},${v})`; g.fillRect(0, 0, w, h);
+  // 細かい織り目
+  g.fillStyle = 'rgba(255,255,255,.18)'; const p = Math.max(2, w / 128); for (let x = 0; x < w; x += p * 2) g.fillRect(x, 0, p * .6, h); for (let y = 0; y < h; y += p * 2) g.fillRect(0, y, w, p * .5);
+  g.strokeStyle = 'rgba(255,255,255,.95)'; g.fillStyle = 'rgba(255,255,255,.95)'; g.lineWidth = Math.max(1.5, w / 200);
+  if (pat === 'stripe') { for (let i = 0; i < 6; i++) { const x = i * w / 6; g.fillRect(x, 0, w / 40, h); g.fillRect(x + w / 22, 0, w / 120, h); } }
+  else if (pat === 'leaf') { for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) { const x = (i + (j % 2) * .5) * w / 4, y = j * h / 4; g.beginPath(); g.moveTo(x, y + h / 5); g.quadraticCurveTo(x + w / 40, y + h / 10, x, y); g.stroke(); for (let k = 0; k < 4; k++) { const yy = y + h / 5 - k * h / 22, sd = k % 2 ? 1 : -1; g.beginPath(); g.ellipse(x + sd * w / 30, yy - h / 40, w / 28, w / 70, sd * -0.7, 0, 7); g.stroke(); } } }
+  else if (pat === 'geo') { const s = w / 6; for (let i = 0; i <= 6; i++) for (let j = 0; j <= 6; j++) { const cx = i * s, cy = j * s; g.beginPath(); g.moveTo(cx, cy - s * .45); g.lineTo(cx + s * .45, cy); g.lineTo(cx, cy + s * .45); g.lineTo(cx - s * .45, cy); g.closePath(); g.stroke(); g.fillRect(cx - s * .06, cy - s * .06, s * .12, s * .12); } }
+  else if (pat === 'dot') { const s = w / 8; for (let i = 0; i < 8; i++) for (let j = 0; j < 8; j++) { const cx = (i + .5 + (j % 2) * .5) * s, cy = (j + .5) * s; for (let k = 0; k < 5; k++) { const a = k / 5 * 7; g.beginPath(); g.arc(cx + Math.cos(a) * s * .1, cy + Math.sin(a) * s * .1, s * .07, 0, 7); g.fill(); } } }
+  else if (pat === 'mirror') { g.fillStyle = 'rgba(255,255,255,.25)'; for (let y = 0; y < h; y += p * 3) g.fillRect(0, y, w, p); }
+}
 // 六角タイル柄
 function drawHex(g, w, h, r, { base, line }) { g.fillStyle = base; g.fillRect(0, 0, w, h); noise(g, w, h, r, .02); g.strokeStyle = line; g.lineWidth = Math.max(1, w / 400); const R = w / 12, dx = R * 1.5, dy = R * Math.sqrt(3); for (let i = -1; i < 10; i++) for (let j = -1; j < 8; j++) { const cx = i * dx, cy = j * dy + (i % 2 ? dy / 2 : 0); g.beginPath(); for (let k = 0; k < 6; k++) { const a = k * Math.PI / 3; const x = cx + R * Math.cos(a), y = cy + R * Math.sin(a); k ? g.lineTo(x, y) : g.moveTo(x, y); } g.closePath(); g.stroke(); } }
 // テラゾー(小石を混ぜた柄)
@@ -347,7 +359,16 @@ export const SURFACE_LIB = {
     { id: 'stripe', name: 'ストライプ', size: .5, rough: .85, tint: false, draw: (g, w, h, r) => drawStripe(g, w, h, r, {}) },
     { id: 'check', name: 'チェック', size: .4, rough: .85, tint: false, draw: (g, w, h, r) => drawCheck(g, w, h, r, {}) },
     { id: 'floral', name: '花柄', size: .6, rough: .85, tint: false, draw: (g, w, h, r) => drawFloral(g, w, h, r, {}) },
-    { id: 'lace', name: 'レース', size: .2, rough: .9, tint: false, lace: true, draw: drawLace },
+    { id: 'lace', name: 'レース(輪の柄)', size: .2, rough: .9, tint: false, lace: true, draw: drawLace },
+    // レースの種類(透け方の順):ボイル < 無地 < ミラー < 遮像。柄が詰まるほど見えにくい
+    { id: 'lace_voile', name: 'ボイル(よく透ける・やわらか)', size: .15, rough: .9, lace: true, aonly: true, sheen: '#ffffff', draw: (g, w, h, r) => drawSheer(g, w, h, r, { v: 70 }) },
+    { id: 'lace_plain', name: '無地のレース(ふつう)', size: .15, rough: .9, lace: true, aonly: true, sheen: '#fbfaf6', draw: (g, w, h, r) => drawSheer(g, w, h, r, { v: 125 }) },
+    { id: 'lace_mirror', name: 'ミラーレース(昼は外から見えにくい)', size: .15, rough: .55, lace: true, aonly: true, sheen: '#f3f5f8', draw: (g, w, h, r) => drawSheer(g, w, h, r, { v: 185, pat: 'mirror' }) },
+    { id: 'lace_shaz', name: '遮像レース(いちばん見えにくい)', size: .15, rough: .7, lace: true, aonly: true, sheen: '#f6f4ef', draw: (g, w, h, r) => drawSheer(g, w, h, r, { v: 225 }) },
+    { id: 'lace_stripe', name: 'ストライプのレース', size: .6, rough: .9, lace: true, aonly: true, sheen: '#fbfaf6', draw: (g, w, h, r) => drawSheer(g, w, h, r, { v: 110, pat: 'stripe' }) },
+    { id: 'lace_leaf', name: 'リーフ柄のレース(葉っぱ)', size: .6, rough: .9, lace: true, aonly: true, sheen: '#fbfaf6', draw: (g, w, h, r) => drawSheer(g, w, h, r, { v: 110, pat: 'leaf' }) },
+    { id: 'lace_geo', name: '幾何柄のレース', size: .45, rough: .9, lace: true, aonly: true, sheen: '#fbfaf6', draw: (g, w, h, r) => drawSheer(g, w, h, r, { v: 110, pat: 'geo' }) },
+    { id: 'lace_dot', name: '小花柄のレース', size: .35, rough: .9, lace: true, aonly: true, sheen: '#fbfaf6', draw: (g, w, h, r) => drawSheer(g, w, h, r, { v: 115, pat: 'dot' }) },
   ],
 };
 export function libEntry(kind, id) { if (id === 'sao_light') id = 'sao'; return (SURFACE_LIB[kind] || []).find(e => e.id === id) || null; }
@@ -399,7 +420,7 @@ export function surfaceMaterial(kind, spec, dims = {}, assets = {}) {
       mat = new THREE.MeshStandardMaterial({ map: t, color: e.tint ? (spec.color || '#ffffff') : color, roughness: e.rough, metalness: 0 });
       if (e.bump) { mat.bumpMap = t; mat.bumpScale = e.bump; }
       if (e.ceil) { mat.emissive = new THREE.Color('#ffffff'); mat.emissiveMap = t; mat.emissiveIntensity = .15; } // 天井は光が当たりにくいので、木の色が沈まないように少しだけ明るく
-      if (e.lace) { mat.transparent = true; mat.opacity = .55; mat.alphaMap = t; mat.side = THREE.DoubleSide; }
+      if (e.lace) { mat.transparent = true; mat.opacity = e.aonly ? 1 : .55; mat.alphaMap = t; mat.side = THREE.DoubleSide; mat.depthWrite = false; if (e.aonly) { mat.map = null; mat.color.set(spec.color || e.sheen || '#ffffff'); } }
     } else {
       mat = new THREE.MeshStandardMaterial({ color: spec.color || '#f4f4f0', roughness: .9, metalness: 0 });
     }

@@ -50,7 +50,7 @@ class App {
     for (const b of $$('#modes .mode')) b.onclick = () => this.setMode(b.dataset.mode);
     $('#btnHome').onclick = () => { $('#start').classList.remove('hidden'); this.refreshContinue(); };
     $('#btnMenu').onclick = () => this.openSheet('menu'); $('#btnUndo').onclick = () => this.undo(); $('#btnRedo').onclick = () => this.redo(); $('#plUndo').onclick = () => this.undo(); $('#plRedo').onclick = () => this.redo();
-    $('#btnAdd').onclick = () => this.openCatalog(false); $('#btnEquip').onclick = () => this.openCatalog(true);
+    $('#btnAdd').onclick = () => { this._swapId = null; this.openCatalog(false); }; $('#btnEquip').onclick = () => { this._swapId = null; this.openCatalog(true); };
     $('#btnPhoto').onclick = () => { this.closeSheets(); openPhotoWizard(this); };
     $('#btnMaterial').onclick = () => this.openSurfaces();
     $('#btnDayNight').onclick = () => this.setDaytime({ day: 'evening', evening: 'night', night: 'day' }[this.project.settings.daytime || (this.project.settings.night ? 'night' : 'day')]);
@@ -307,18 +307,23 @@ class App {
     // 和室なら「和の家具」を先頭に、洋室なら最後の「ほかも見る」へ(wayo.js)
     const t0 = this.target(), wroom = (t0 && t0.roomId && this.room(t0.roomId)) || this.currentRoom(), isWa = roomIsWa(wroom, this.project);
     let cats = equip ? EQUIP_CATEGORIES : CATEGORIES; if (!equip && cats.includes('和の家具')) { const rest = cats.filter(c => c !== '和の家具'); cats = isWa ? ['和の家具', ...rest] : [...rest, '和の家具']; }
+    // 「ほかの物に変える」のときは、同じ付け方(床・壁・天井)の物だけ出す
+    const swap = this._swapId && this.item(this._swapId), swapC = swap && catalogEntry(swap.type);
+    const fits = e => !swapC || (e.kind === swapC.kind && !e.opening);
+    if (swapC) cats = cats.filter(cc => Object.values(CATALOG).some(e => e.cat === cc && !!e.equip === equip && fits(e)));
     this[key] = cats.includes(this[key]) ? this[key] : cats[0];
     $('#catTitle').textContent = equip ? '設備を付ける' : '置くもの'; $('#catHint').textContent = equip ? '見ている壁や床に付けます。コンセントやスイッチは一般的な高さに自動で付きます(あとで上下に動かせます)。' : `選ぶと、見ている場所(画面の中央の○)に置きます。${wroom ? `${wroom.name}は${isWa ? '和室' : '洋室'}なので、${isWa ? '和' : '洋'}の物を先に出しています。` : ''}`;
     for (const c of cats) { const b = document.createElement('button'); const other = !equip && !isWa && c === '和の家具'; b.textContent = other ? 'ほかも見る:和の家具' : c; if (other) b.className = 'tab-more'; b.classList.toggle('on', c === this[key]); b.onclick = () => { this[key] = c; this._catType = null; this.openCatalog(equip); }; tabs.appendChild(b); }
     if (equip) { const hb = document.createElement('button'); hb.textContent = this.hideEquip ? '👁 設備を見せる' : '🙈 設備を隠す'; hb.onclick = () => { this.hideEquip = !this.hideEquip; this.applyEquipVisibility(); this.openCatalog(true); }; tabs.appendChild(hb); }
+    if (swapC) { $('#catTitle').textContent = 'ほかの物に変える'; $('#catHint').textContent = `「${swapC.name}」を、選んだ物に取りかえます。場所はそのままです。`; }
     cards.innerHTML = '';
-    const put = (type, style) => { const e = CATALOG[type]; const it = this.place(type, this.target(), style ? { style } : {}); if (it) { this.closeSheets(); this.select(it.id); this.toast((style ? styleOf(it).name + 'の' : '') + e.name + 'を置きました。指で引っぱると動かせます'); } };
+    const put = (type, style) => { if (swapC) { this.swapItem(swap.id, type, style); return; } const e = CATALOG[type]; const it = this.place(type, this.target(), style ? { style } : {}); if (it) { this.closeSheets(); this.select(it.id); this.toast((style ? styleOf(it).name + 'の' : '') + e.name + 'を置きました。指で引っぱると動かせます'); } };
     const card = (type, e, style, label, many) => { const b = document.createElement('button'); b.className = 'card sw'; const th = thumbnail(type, style); if (th) { const img = document.createElement('img'); img.src = th; img.alt = label; b.appendChild(img); } else b.textContent = e.emoji; const bb = document.createElement('b'); bb.textContent = label; b.appendChild(bb); if (many) { const m = document.createElement('span'); m.className = 'many'; m.textContent = many + '種類'; b.appendChild(m); } cards.appendChild(b); return b; };
     // 形がいくつもあるもの(ベッドなど)は、押すと形の一覧を出す
     if (this._catType && CATALOG[this._catType] && CATALOG[this._catType].cat === this[key]) { const type = this._catType, e = CATALOG[type]; const back = document.createElement('button'); back.className = 'card'; back.innerHTML = '←<b>もどる</b>'; back.onclick = () => { this._catType = null; this.openCatalog(equip); }; cards.appendChild(back); for (const st of e.styles) card(type, e, st.id, st.name).onclick = () => { this._catType = null; put(type, st.id); }; return; }
     this._catType = null;
     const one = ([type, e]) => { const many = e.styles && e.styles.length > 1 ? e.styles.length : 0; card(type, e, null, e.name, many).onclick = () => { if (many) { this._catType = type; this.openCatalog(equip); } else put(type); }; };
-    const list = Object.entries(CATALOG).filter(([, e]) => e.cat === this[key] && !!e.equip === equip);
+    const list = Object.entries(CATALOG).filter(([, e]) => e.cat === this[key] && !!e.equip === equip && fits(e));
     const { main, more } = sortByWayo(list, isWa, 'items', x => x[0]); main.forEach(one);
     // 部屋に合わない物は「ほかも見る」にまとめる(隠しきらない。合う物が1つもないタブはそのまま出す)
     if (more.length && !main.length) more.forEach(one);
@@ -393,11 +398,11 @@ class App {
       const list = pal && !full ? pal : COLORS; for (const [n, hex] of Object.entries(pal && !full ? pal : (pal ? { ...pal, ...COLORS } : COLORS))) { const b = document.createElement('button'); b.className = 'chip' + (it.color === hex ? ' on' : ''); b.style.background = hex; b.title = n; b.onclick = () => { it.color = hex; this.rebuildItem(it); this.select(id); }; colors.appendChild(b); }
       if (pal && !full) { const more = document.createElement('button'); more.className = 'chip text'; more.textContent = 'その他'; more.onclick = () => { this._palOpen = id; this.select(id); }; colors.appendChild(more); } void list; }
     const mats = $('#editMats'); mats.innerHTML = '';
-    if (c.fabric !== undefined && c.fabric !== null && it.type !== 'lace' && (!c.parts || this._part === c.parts[0].key)) { for (const f of SURFACE_LIB.fabric) { const b = document.createElement('button'); b.className = 'card sw' + (it.fabric === f.id ? ' on' : ''); b.appendChild(swatchCanvas('fabric', f.id, f.tint ? it.color : null)); const bb = document.createElement('b'); bb.textContent = f.name; b.appendChild(bb); b.onclick = () => { it.fabric = f.id; it.userTex = null; this.rebuildItem(it); this.select(id); }; mats.appendChild(b); }
+    if (c.fabric !== undefined && c.fabric !== null && it.type !== 'lace' && (!c.parts || this._part === c.parts[0].key)) { for (const f of SURFACE_LIB.fabric.filter(f => !f.lace)) { const b = document.createElement('button'); b.className = 'card sw' + (it.fabric === f.id ? ' on' : ''); b.appendChild(swatchCanvas('fabric', f.id, f.tint ? it.color : null)); const bb = document.createElement('b'); bb.textContent = f.name; b.appendChild(bb); b.onclick = () => { it.fabric = f.id; it.userTex = null; this.rebuildItem(it); this.select(id); }; mats.appendChild(b); }
       for (const [aid, a] of Object.entries(this.project.assets)) { if (a.kind !== 'tile') continue; const b = document.createElement('button'); b.className = 'card sw' + (it.userTex === aid ? ' on' : ''); const img = document.createElement('img'); img.src = a.dataUrl; b.appendChild(img); const bb = document.createElement('b'); bb.textContent = a.name || '写真'; b.appendChild(bb); b.onclick = () => { it.userTex = aid; it.texSize = a.size || .5; it.fabric = null; this.rebuildItem(it); this.select(id); }; mats.appendChild(b); }
       const lab = document.createElement('label'); lab.className = 'filebtn'; lab.textContent = '📷 生地の写真'; const inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'image/*'; inp.onchange = e => this.userTextureFor(e.target.files[0], 'fabric', it); lab.appendChild(inp); mats.appendChild(lab); }
     const params = $('#editParams'); params.innerHTML = '';
-    for (const [key, name, a, b, unit] of (c.params || [])) { const lab = document.createElement('label'); lab.textContent = name; if (a === 'bool') { const i = document.createElement('input'); i.type = 'checkbox'; i.checked = !!it.opts[key]; i.onchange = () => { it.opts[key] = i.checked; this.rebuildItem(it); }; lab.appendChild(i); } else { const i = document.createElement('input'); i.type = 'range'; i.min = a; i.max = b; i.step = unit === 'mm' ? 0.005 : (b - a) > 5 ? 1 : 0.01; i.value = it.opts[key] ?? a; let armed = false; i.addEventListener('pointerdown', () => { if (!armed) { armed = true; this.snapshot(); } }); i.addEventListener('change', () => { armed = false; }); i.oninput = () => { it.opts[key] = parseFloat(i.value); if (num) num.value = Math.round(it.opts[key] * 1000); clearTimeout(this._pt); this._pt = setTimeout(() => this.rebuildItem(it, true), 60); };
+    for (const [key, name, a, b, unit] of (c.params || [])) { const lab = document.createElement('label'); lab.textContent = name; if (a === 'choice') { const box2 = document.createElement('div'); box2.className = 'pchoice'; box2.textContent = name; const row = document.createElement('div'); row.className = 'choices'; const cur = it.opts[key] ?? b[0][0]; for (const [cid, cname] of b) { const bt = document.createElement('button'); bt.className = 'chip text' + (cid === cur ? ' on' : ''); bt.textContent = cname; bt.onclick = () => { it.opts[key] = cid; this.rebuildItem(it); this.select(id); }; row.appendChild(bt); } box2.appendChild(row); params.appendChild(box2); continue; } if (a === 'bool') { const i = document.createElement('input'); i.type = 'checkbox'; i.checked = !!it.opts[key]; i.onchange = () => { it.opts[key] = i.checked; this.rebuildItem(it); }; lab.appendChild(i); } else { const i = document.createElement('input'); i.type = 'range'; i.min = a; i.max = b; i.step = unit === 'mm' ? 0.005 : (b - a) > 5 ? 1 : 0.01; i.value = it.opts[key] ?? a; let armed = false; i.addEventListener('pointerdown', () => { if (!armed) { armed = true; this.snapshot(); } }); i.addEventListener('change', () => { armed = false; }); i.oninput = () => { it.opts[key] = parseFloat(i.value); if (num) num.value = Math.round(it.opts[key] * 1000); clearTimeout(this._pt); this._pt = setTimeout(() => this.rebuildItem(it, true), 60); };
       // 長さの項目は、mm の数字でも入れられる(スライドは5mmずつ)
       let num = null; if (unit === 'mm') { lab.className = 'sizef'; num = document.createElement('input'); num.type = 'number'; num.step = 5; num.min = Math.round(a * 1000); num.max = Math.round(b * 1000); num.value = Math.round((it.opts[key] ?? a) * 1000); num.className = 'mmin'; num.onfocus = () => this.snapshot(); num.onchange = () => { const v = Math.min(b, Math.max(a, (parseFloat(num.value) || 0) / 1000)); it.opts[key] = v; i.value = v; num.value = Math.round(v * 1000); this.rebuildItem(it, true); }; lab.appendChild(num); }
       lab.appendChild(i); } params.appendChild(lab); }
@@ -464,6 +469,7 @@ class App {
   editMove(op) {
     const it = this.item(this.selectedId); if (!it) return; const c = catalogEntry(it.type), room = this.room(it.roomId) || this.currentRoom(), step = (this.moveStep || (c.equip ? 10 : 100)) / 1000;
     if (op === 'del') { this.removeItem(it.id); return; }
+    if (op === 'swap') { this._swapId = it.id; this[c.equip ? '_ecat' : '_cat'] = c.cat; this._catType = null; this.openCatalog(!!c.equip); return; }
     if (op === 'dup') { this.snapshot(); const n = newItem(it.type, { ...JSON.parse(JSON.stringify(it)), id: undefined }); n.id = newItem(it.type).id; if (c.kind === 'wall') { const f = frameFromRot(it.rot || 0); n.x += f.along.x * (it.w + 0.1); n.z += f.along.z * (it.w + 0.1); } else { n.x += 0.4; n.z += 0.4; } this.project.items.push(n); this.addItemMesh(n); this.select(n.id); this.touched(); return; }
     if (op === 'bigger' || op === 'smaller') { const k = op === 'bigger' ? 1.1 : 1 / 1.1; const rng = c.range || {}; const cl = (key, v) => rng[key] ? Math.min(rng[key][1], Math.max(rng[key][0], v)) : v; it.w = cl('w', it.w * k); if (c.kind === 'floor' || c.kind === 'ceiling') { it.d = cl('d', it.d * k); if (c.kind === 'floor') it.h = cl('h', it.h * k); } else it.h = cl('h', it.h * k); this.rebuildItem(it); this.select(it.id); return; }
     if (op === 'rotl' || op === 'rotr') { if (c.kind === 'wall') return; this.snapshot(); it.rot += (op === 'rotl' ? 1 : -1) * Math.PI / 12; this.updateItemPose(it); this.refreshPosNums(); return; }
@@ -508,6 +514,18 @@ class App {
     if (wall) { L('mvU', '▲', '上へ'); L('mvD', '▼', '下へ'); L('mvL', '◀', '左へ'); L('mvR', '▶', '右へ'); $('#mvMode').textContent = '壁にそって'; $('#posHint').textContent = '壁に向かって見たときの上下・左右に動きます。指で引っぱっても動かせます。'; }
     else { L('mvU', '▲', '奥へ'); L('mvD', '▼', '手前へ'); L('mvL', '◀', '左へ'); L('mvR', '▶', '右へ'); $('#mvMode').textContent = c.kind === 'ceiling' ? '天井で' : '床の上で'; $('#posHint').textContent = 'いま見ている向きで、奥・手前・左右に動きます。指で引っぱっても動かせます。'; }
     $('#rotCol').classList.toggle('hidden', wall);
+  }
+  // 置いた物を、別の物に取りかえる(場所・向きはそのまま。窓まわりの物は幅と丈も引きつぐ)
+  swapItem(id, type, style) {
+    const old = this.item(id); if (!old) return; const i = this.project.items.indexOf(old); this.snapshot();
+    const win = t => ['curtain', 'lace', 'roller', 'blind', 'vblind', 'shade', 'pleats', 'shoji'].includes(t);
+    const n = newItem(type, style ? { style } : {}); const keep = ['id', 'type', 'style', 'w', 'h', 'd', 'color', 'fabric', 'opts', 'parts', 'userTex', 'texSize'];
+    for (const k of Object.keys(old)) if (!keep.includes(k)) n[k] = JSON.parse(JSON.stringify(old[k]));
+    const c = catalogEntry(type);
+    if (c.kind === 'wall') { if (win(type) && win(old.type)) { n.w = old.w; n.h = old.h; } n.y = old.y + old.h / 2 - n.h / 2; }
+    const g = this.itemGroups.get(id); if (g) this.s3.itemGroup.remove(g); this.itemGroups.delete(id);
+    this.project.items[i] = n; this.addItemMesh(n); this.updateShadowLights(); this._swapId = null; this.closeSheets(); this.select(n.id);
+    this.toast((style ? styleOf(n).name + 'の' : '') + c.name + 'に変えました'); this.touched();
   }
   removeItem(id) { const i = this.project.items.findIndex(x => x.id === id); if (i < 0) return; this.snapshot(); const g = this.itemGroups.get(id); if (g) this.s3.itemGroup.remove(g); this.itemGroups.delete(id); this.project.items.splice(i, 1); if (this.selectedId === id) this.select(null); this.touched(); }
   // 指で引っぱって動かす
