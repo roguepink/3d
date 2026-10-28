@@ -1,7 +1,7 @@
 // 置けるもの(カーテン・照明・家具など)のカタログと3Dの作り方
 import * as THREE from 'three';
 import { surfaceMaterial } from './textures.js';
-import { CATALOG, std, WOOD, DARKWOOD, METAL, BLACK, GOLD, WHITE, box, cyl, sph, emissive, fabric, light, WARM, DAYLIGHT, chairGroup, applyStyle, styleOf } from './kit.js';
+import { CATALOG, std, WOOD, DARKWOOD, METAL, BLACK, GOLD, WHITE, box, cyl, sph, emissive, fabric, light, WARM, DAYLIGHT, chairGroup, applyStyle, styleOf, rbox } from './kit.js';
 export { CATALOG };
 import { mergeGroup } from './merge.js';
 import { PLANTS } from './plants.js';
@@ -28,6 +28,45 @@ export const PLEATS = {
   wave: { f: 2.0, pitch: 0.12, head: 0, even: true }, hatome: { f: 1.5, pitch: 0.17, head: 0, ring: true, even: true },
   flat: { f: 1.2, pitch: 0.24, head: 0 }, gather: { f: 2.0, pitch: 0.05, head: 0, fine: true },
 };
+// ---- コンセント・スイッチの見た目 ----
+// wide=コスモワイド(定番。わくの中に大きなハンドル)、advance=アドバンス(最近。薄くて平ら、すき間が細い)、square=角ばった、old=昔の(小さいボタン)
+export const ELEC_SERIES = [['wide', 'コスモワイド(定番)'], ['advance', 'アドバンス(最近・フラット)'], ['square', 'スクエア(角ばった)'], ['old', '昔の(小さいボタン)']];
+function elecPlate(g, it) {
+  const ser = it.opts.series || 'wide', w = it.w, h = it.h, col = it.color || '#f4f4f2', c = new THREE.Color(col), dark = c.getHSL({}).l < 0.4;
+  const plate = std(col, ser === 'advance' ? .7 : .45), t = ser === 'advance' ? 0.005 : 0.008;
+  if (ser === 'square') g.add(box(w, h, t, plate, 0, 0, t / 2)); else g.add(rbox(w, h, t, 0.0035, plate, 0, 0, t / 2));
+  const mh = ser === 'old' ? 0.07 : 0.088, mw = w - (ser === 'advance' ? 0.012 : 0.02);
+  const line = std(dark ? '#111' : '#9a9a96', .6);
+  if (ser === 'wide') { // 化粧わくのふち(細い線)
+    for (const sy of [-1, 1]) g.add(box(mw + 0.004, 0.0012, 0.0008, line, 0, sy * (mh / 2 + 0.002), t + 0.0004));
+    for (const sx of [-1, 1]) g.add(box(0.0012, mh + 0.004, 0.0008, line, sx * (mw / 2 + 0.002), 0, t + 0.0004));
+  }
+  const handle = std('#' + c.clone().offsetHSL(0, 0, dark ? 0.03 : 0.02).getHexString(), ser === 'advance' ? .65 : .35);
+  return { ser, t, mh, mw, top: mh / 2, plate, handle, line, hole: std('#2e2e30', .6), dark, two: w > 0.1 };
+}
+// スイッチのハンドル1つ
+function elecHandle(g, P, cx, cy, hh, hw) {
+  const { ser, t } = P;
+  if (ser === 'old') { const r = box(0.018, Math.min(0.026, hh * 0.7), 0.008, P.handle, cx, cy, t + 0.004); r.rotation.x = 0.12; g.add(r); g.add(box(0.024, Math.min(0.032, hh * 0.8), 0.002, P.line, cx, cy, t + 0.0008)); return; }
+  if (ser === 'advance') { // 平らな大きいボタン。すき間は細い線、右下に小さな位置表示の灯り
+    const aw = hw + (P.two ? 0.002 : 0.004); g.add(box(aw, hh - 0.0015, 0.0025, P.handle, cx, cy, t + 0.00125)); g.add(box(aw, 0.0008, 0.0026, P.line, cx, cy - hh / 2, t + 0.0013)); if (P.two) g.add(box(0.0008, hh, 0.0026, P.line, cx + Math.sign(cx) * (-aw / 2), cy, t + 0.0013));
+    g.add(box(0.004, 0.0015, 0.0006, emissive('#9be3a8', .6), cx + hw / 2 - 0.005, cy - hh / 2 + 0.004, t + 0.0028)); return;
+  }
+  const hd = ser === 'square' ? 0.007 : 0.006, m = box(hw, hh - 0.003, hd, P.handle, cx, cy, t + hd / 2); m.rotation.x = 0.05; g.add(m);
+  if (ser === 'square') g.add(box(hw, 0.0008, 0.0006, P.line, cx, cy, t + hd + 0.0004));
+  g.add(box(0.006, 0.0022, 0.001, emissive('#ff9a3c', .7), cx + hw / 2 - 0.007, cy - hh / 2 + 0.0055, t + hd + 0.0006)); // ほたる(暗いと光る目印)
+}
+// コンセントの部品1つ:o=差し込み口、oe=アース穴つき、gt=アース端子、usb、tv
+function elecModule(g, P, kind, cx, cy, mh) {
+  const { ser, t } = P, fh = Math.min(0.03, mh - 0.004), fw = P.two ? 0.038 : 0.04, z = t + 0.0015;
+  const face = ser === 'old' ? cyl(0.016, 0.016, 0.003, P.handle, cx, cy, z, 20).rotateX(Math.PI / 2) : (ser === 'square' ? box(fw, fh, 0.003, P.handle, cx, cy, z) : rbox(fw, fh, 0.003, 0.0014, P.handle, cx, cy, z));
+  if (kind === 'gt') { g.add(box(fw * 0.7, fh * 0.6, 0.004, P.handle, cx, cy, z)); g.add(box(0.008, 0.002, 0.001, P.line, cx, cy, z + 0.0022)); return; }
+  g.add(face); const hz = z + 0.0016;
+  if (kind === 'usb') { g.add(box(0.012, 0.0045, 0.001, P.hole, cx - 0.008, cy, hz)); g.add(rbox(0.0085, 0.003, 0.001, 0.0012, P.hole, cx + 0.009, cy, hz)); return; }
+  if (kind === 'tv') { g.add(cyl(0.006, 0.006, 0.006, std('#c9c9c4', .3, .7), cx, cy, z + 0.003, 14).rotateX(Math.PI / 2)); g.add(cyl(0.0012, 0.0012, 0.007, P.hole, cx, cy, z + 0.0035, 6).rotateX(Math.PI / 2)); return; }
+  g.add(box(0.0022, 0.0075, 0.001, P.hole, cx - 0.0063, cy + 0.001, hz)); g.add(box(0.0022, 0.009, 0.001, P.hole, cx + 0.0063, cy + 0.001, hz));
+  if (kind === 'oe') g.add(box(0.004, 0.004, 0.001, P.hole, cx, cy - 0.009, hz));
+}
 // レールの色:[id, 名前, 色, 金属か]
 export const RAIL_COLORS = [['silver', 'シルバー', '#c9ccd0', 1], ['white', 'ホワイト', '#f2f2ef', 0], ['black', 'ブラック', '#2a2a2c', 1], ['bronze', 'ブロンズ', '#6b5a48', 1], ['gold', 'ゴールド', '#c8a85a', 1], ['wood_n', '木目(ナチュラル)', '#b88a5a', 0], ['wood_d', '木目(ダーク)', '#5a3e2b', 0]];
 export const LACE_TYPES = [['lace_voile', 'ボイル(よく透ける)'], ['lace_plain', '無地(ふつう)'], ['lace_mirror', 'ミラー(昼は見えにくい)'], ['lace_shaz', '遮像(いちばん見えにくい)'], ['lace_stripe', 'ストライプ'], ['lace_leaf', 'リーフ柄'], ['lace_geo', '幾何柄'], ['lace_dot', '小花柄'], ['lace', '輪の柄']];
@@ -218,10 +257,32 @@ Object.assign(CATALOG, {
   clock: { name: '時計', emoji: '🕰️', cat: '壁かざり', kind: 'wall', size: [0.3, 0.3, 0.04], range: { w: [0.2, 0.5], h: [0.2, 0.5] }, color: '#f4f4f2', opts: {}, words: ['時計', 'とけい'],
     build(it) { const g = new THREE.Group(), r = it.w / 2; g.add(cyl(r, r, 0.03, std(DARKWOOD, .5), 0, 0, 0.015).rotateX(Math.PI / 2)); g.add(cyl(r - 0.02, r - 0.02, 0.005, std(it.color, .6), 0, 0, 0.032).rotateX(Math.PI / 2)); g.add(box(0.012, r * .6, 0.004, std(BLACK, .5), 0, r * .3, 0.036)); const m = box(0.012, r * .8, 0.004, std(BLACK, .5), 0, 0, 0.037); m.rotation.z = -Math.PI / 3; m.position.set(r * .35, r * .2, 0.037); g.add(m); return g; } },
   // ---- 設備(別画面「設備」から置く) ----
-  outlet: { name: 'コンセント(2口)', emoji: '🔌', cat: '電気', equip: true, kind: 'wall', size: [0.07, 0.12, 0.012], range: { w: [0.05, 0.15], h: [0.07, 0.25] }, attachY: 0.25, color: '#f4f4f2', opts: {}, words: ['コンセント', 'こんせんと'],
-    build(it) { const g = new THREE.Group(); g.add(box(it.w, it.h, 0.008, std(it.color, .5), 0, 0, 0.004)); const dark = std('#3a3a3e', .4); for (const dy of [0.018, -0.018]) { g.add(box(0.004, 0.012, 0.004, dark, -0.007, dy, 0.009)); g.add(box(0.004, 0.012, 0.004, dark, 0.007, dy, 0.009)); } return g; } },
-  switch: { name: 'スイッチ', emoji: '🔘', cat: '電気', equip: true, kind: 'wall', size: [0.07, 0.12, 0.015], range: { w: [0.05, 0.15], h: [0.07, 0.25] }, attachY: 1.2, color: '#f4f4f2', opts: {}, words: ['スイッチ', 'すいっち', '電気のスイッチ'],
-    build(it) { const g = new THREE.Group(); g.add(box(it.w, it.h, 0.008, std(it.color, .5), 0, 0, 0.004)); g.add(box(it.w * 0.6, it.h * 0.55, 0.008, std('#ffffff', .4), 0, 0, 0.012)); g.add(box(it.w * 0.6, 0.004, 0.006, std('#cfd3d8', .4), 0, 0, 0.016)); return g; } },
+  // コンセント・スイッチ:大きさは決まっている(1連プレート 70×120mm、2連 116×120mm)。形(口の数・スイッチの数)とシリーズ(見た目)を選ぶ
+  outlet: { name: 'コンセント', emoji: '🔌', cat: '電気', equip: true, kind: 'wall', noSize: true, palette: true, size: [0.07, 0.12, 0.012], attachY: 0.25, color: '#f4f4f2', opts: { series: 'wide' }, words: ['コンセント', 'こんせんと', '4口コンセント', 'アース付きコンセント', 'USBコンセント', 'テレビ端子'],
+    styles: [
+      { id: 'w2', name: '2口(定番)', size: [0.07, 0.12, 0.012], words: ['コンセント', '2口コンセント'] },
+      { id: 'earth', name: '2口・アース付き', size: [0.07, 0.12, 0.012], words: ['アース付きコンセント', 'アース'] },
+      { id: 'w3', name: '3口', size: [0.07, 0.12, 0.012], words: ['3口コンセント'] },
+      { id: 'w4', name: '4口(2連)', size: [0.116, 0.12, 0.012], words: ['4口コンセント', '4口'] },
+      { id: 'usb', name: 'USB付き', size: [0.07, 0.12, 0.012], words: ['USBコンセント', 'USB'] },
+      { id: 'tv', name: 'テレビ端子付き', size: [0.07, 0.12, 0.012], words: ['テレビ端子', 'テレビのコンセント', 'アンテナ'] },
+    ],
+    params: [['series', 'シリーズ(見た目)', 'choice', ELEC_SERIES]],
+    build(it) { const g = new THREE.Group(), st = styleOf(it).id, P = elecPlate(g, it), two = st === 'w4';
+      const mods = { w2: ['o', 'o'], earth: ['oe', 'gt'], w3: ['o', 'o', 'o'], w4: ['o', 'o'], usb: ['o', 'usb'], tv: ['tv', 'o', 'o'] }[st] || ['o', 'o'];
+      for (const cx of two ? [-0.023, 0.023] : [0]) mods.forEach((m, k) => elecModule(g, P, m, cx, P.top - (k + 0.5) * P.mh / mods.length, P.mh / mods.length));
+      return g; } },
+  switch: { name: 'スイッチ', emoji: '🔘', cat: '電気', equip: true, kind: 'wall', noSize: true, palette: true, size: [0.07, 0.12, 0.015], attachY: 1.2, color: '#f4f4f2', opts: { series: 'wide' }, words: ['スイッチ', 'すいっち', '電気のスイッチ', '4つのスイッチ'],
+    styles: [
+      { id: 's1', name: '1つ', size: [0.07, 0.12, 0.015], words: ['スイッチ'] },
+      { id: 's2', name: '2つ', size: [0.07, 0.12, 0.015], words: ['2つのスイッチ'] },
+      { id: 's3', name: '3つ', size: [0.07, 0.12, 0.015], words: ['3つのスイッチ'] },
+      { id: 's4', name: '4つ(2連)', size: [0.116, 0.12, 0.015], words: ['4つのスイッチ'] },
+    ],
+    params: [['series', 'シリーズ(見た目)', 'choice', ELEC_SERIES]],
+    build(it) { const g = new THREE.Group(), st = styleOf(it).id, P = elecPlate(g, it), n = st === 's4' ? 2 : +(st[1] || 1);
+      for (const cx of st === 's4' ? [-0.023, 0.023] : [0]) for (let k = 0; k < n; k++) elecHandle(g, P, cx, P.top - (k + 0.5) * P.mh / n, P.mh / n, st === 's4' ? 0.042 : 0.046);
+      return g; } },
   intercom: { name: 'インターホン', emoji: '📟', cat: '電気', equip: true, kind: 'wall', size: [0.10, 0.17, 0.03], range: { w: [0.08, 0.2], h: [0.12, 0.3] }, attachY: 1.4, color: '#f4f4f2', opts: {}, words: ['インターホン', 'ドアホン', 'いんたーほん'],
     build(it) { const g = new THREE.Group(); g.add(box(it.w, it.h, 0.025, std(it.color, .5), 0, 0, 0.0125)); g.add(box(it.w * 0.76, it.h * 0.42, 0.004, std('#1d2733', .2, .3), 0, it.h * 0.18, 0.027)); g.add(box(it.w * 0.3, 0.012, 0.004, std('#8fb4d8', .5), 0, -it.h * 0.25, 0.027)); return g; } },
   smoke: { name: '火災警報器', emoji: '🚨', cat: '電気', equip: true, kind: 'ceiling', size: [0.10, 0.035, 0.10], range: { w: [0.08, 0.15] }, color: '#f4f4f2', opts: {}, words: ['火災警報器', '火災報知器', '警報器', '煙感知器'],

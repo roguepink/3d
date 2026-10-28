@@ -379,23 +379,31 @@ class App {
   select(id, opts = {}) {
     const prev = this.selectedId; this.selectedId = id; this.updateSelHelper(); if (!id) { $('#edit').classList.add('hidden'); this.updateInset(); this.restoreView(); return; }
     const it = this.item(id), c = catalogEntry(it.type); const wasOpen = !$('#edit').classList.contains('hidden'); this.openSheet('edit'); $('#editName').textContent = c.name; if (!wasOpen) this.editTab(this._etab || 'color', true);
+    { const sb = document.querySelector('[data-etab="size"]'); sb.style.display = c.noSize ? 'none' : ''; if (c.noSize && this._etab === 'size') this.editTab('color', true); }
     const colors = $('#editColors'); colors.innerHTML = '';
     // 形をえらぶ(ベッドの「シングル・二段」、キッチンの「I型・L型」など)
     const stBox = $('#editStyles'), ptBox = $('#editParts'); stBox.innerHTML = ''; ptBox.innerHTML = '';
     if (c.styles && c.styles.length > 1) { const cur = styleOf(it); for (const st of c.styles) { const b = document.createElement('button'); b.className = 'card sw' + (st === cur ? ' on' : ''); const th = thumbnail(it.type, st.id); if (th) { const img = document.createElement('img'); img.src = th; b.appendChild(img); } const bb = document.createElement('b'); bb.textContent = st.name; b.appendChild(bb); b.onclick = () => { if (st === styleOf(it)) return; this.snapshot(); applyStyle(it, st.id); this.rebuildItem(it, true); this.select(id); this.toast(st.name + 'にしました'); }; stBox.appendChild(b); }
       setTimeout(() => { const on = stBox.querySelector('.on'); if (on) stBox.scrollLeft = on.offsetLeft - 40; }, 0); }
+    // 色を変える範囲:この1つ/この部屋の同じ物/家じゅうの同じ物(コンセントとスイッチは同じ仲間)
+    { const fam = t => (['outlet', 'switch'].includes(t) ? 'elec' : t), mates = this.project.items.filter(o => o !== it && fam(o.type) === fam(it.type));
+      if (mates.length) { const sc = this.colorScope || 'one', row = document.createElement('div'); row.className = 'choices scope'; const lab = document.createElement('span'); lab.className = 'hint'; lab.textContent = '色を変える範囲:'; row.appendChild(lab);
+        for (const [k, n] of [['one', 'この1つだけ'], ['room', 'この部屋ぜんぶ'], ['all', '家じゅうぜんぶ']]) { const b = document.createElement('button'); b.className = 'chip text' + (sc === k ? ' on' : ''); b.textContent = n; b.onclick = () => { this.colorScope = k; this.select(id, { noFrame: true }); }; row.appendChild(b); }
+        colors.appendChild(row); } }
+    const targets = () => { const sc = this.colorScope || 'one'; if (sc === 'one') return [it]; const fam = t => (['outlet', 'switch'].includes(t) ? 'elec' : t); return this.project.items.filter(o => o === it || (fam(o.type) === fam(it.type) && (sc === 'all' || o.roomId === it.roomId))); };
+    const recolor = fn => { this.snapshot(); const ts = targets(); for (const t of ts) { fn(t); this.rebuildItem(t, true); } if (ts.length > 1) this.toast(ts.length + 'こ まとめて変えました'); this.touched(); this.select(id, { noFrame: true }); };
     // 部分ごとの色(わく・扉・天板など)。色見本は名前つきで出す
     if (c.parts) {
       if (!c.parts.find(p => p.key === this._part)) this._part = c.parts[0].key; const part = c.parts.find(p => p.key === this._part);
       if (c.parts.length > 1) for (const p of c.parts) { const b = document.createElement('button'); b.className = 'chip text' + (p === part ? ' on' : ''); b.textContent = p.name; b.onclick = () => { this._part = p.key; this.select(id, { noFrame: true }); }; ptBox.appendChild(b); }
-      const val = partVal(it, part.key), choose = v => { setPart(it, part.key, v); this.rebuildItem(it); this.select(id, { noFrame: true }); };
+      const val = partVal(it, part.key), choose = v => recolor(t => { if (t.type === it.type) setPart(t, part.key, v); });
       const pal = PALETTES[part.pal];
       if (pal && this._palOpen !== id + part.key) { const grid = document.createElement('div'); grid.className = 'fins'; for (const fid of pal) { const b = document.createElement('button'); b.className = 'fin' + (val === fid ? ' on' : ''); b.appendChild(finishSwatch(fid)); const sp = document.createElement('span'); sp.textContent = finishName(fid); b.appendChild(sp); b.onclick = () => choose(fid); grid.appendChild(b); } colors.appendChild(grid); const more = document.createElement('button'); more.className = 'chip text'; more.textContent = 'ほかの色'; more.onclick = () => { this._palOpen = id + part.key; this.select(id, { noFrame: true }); }; colors.appendChild(more); }
       else { for (const [n, hex] of Object.entries(COLORS)) { const b = document.createElement('button'); b.className = 'chip' + (val === hex ? ' on' : ''); b.style.background = hex; b.title = n; b.onclick = () => choose(hex); colors.appendChild(b); } if (pal) { const back = document.createElement('button'); back.className = 'chip text'; back.textContent = '色見本にもどる'; back.onclick = () => { this._palOpen = null; this.select(id, { noFrame: true }); }; colors.appendChild(back); } }
     } else
     // エアコンなどは「白・グレー・黒」だけ先に出す。ほかの色は「その他」で開く
     { const pal = c.palette ? { 白: '#f4f4f2', グレー: '#9a9da3', 黒: '#2b2b2e' } : null; const full = !pal || this._palOpen === id || !Object.values(pal).includes(it.color);
-      const list = pal && !full ? pal : COLORS; for (const [n, hex] of Object.entries(pal && !full ? pal : (pal ? { ...pal, ...COLORS } : COLORS))) { const b = document.createElement('button'); b.className = 'chip' + (it.color === hex ? ' on' : ''); b.style.background = hex; b.title = n; b.onclick = () => { it.color = hex; this.rebuildItem(it); this.select(id); }; colors.appendChild(b); }
+      const list = pal && !full ? pal : COLORS; for (const [n, hex] of Object.entries(pal && !full ? pal : (pal ? { ...pal, ...COLORS } : COLORS))) { const b = document.createElement('button'); b.className = 'chip' + (it.color === hex ? ' on' : ''); b.style.background = hex; b.title = n; b.onclick = () => recolor(t => { t.color = hex; }); colors.appendChild(b); }
       if (pal && !full) { const more = document.createElement('button'); more.className = 'chip text'; more.textContent = 'その他'; more.onclick = () => { this._palOpen = id; this.select(id); }; colors.appendChild(more); } void list; }
     const mats = $('#editMats'); mats.innerHTML = '';
     if (c.fabric !== undefined && c.fabric !== null && it.type !== 'lace' && (!c.parts || this._part === c.parts[0].key)) { for (const f of SURFACE_LIB.fabric.filter(f => !f.lace)) { const b = document.createElement('button'); b.className = 'card sw' + (it.fabric === f.id ? ' on' : ''); b.appendChild(swatchCanvas('fabric', f.id, f.tint ? it.color : null)); const bb = document.createElement('b'); bb.textContent = f.name; b.appendChild(bb); b.onclick = () => { it.fabric = f.id; it.userTex = null; this.rebuildItem(it); this.select(id); }; mats.appendChild(b); }
