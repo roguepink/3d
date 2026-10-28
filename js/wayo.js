@@ -18,7 +18,7 @@ export const WAYO = {
     monstera: 'yo', umbellata: 'yo', olive: 'yo', strelitzia: 'yo', everfresh: 'yo',
   },
   floor: {
-    tatami: 'wa', tatami_old: 'wa', tokoita: 'wa', engawa: 'wa', araidashi: 'wa',
+    tatami: 'wa', tatami_old: 'wa', tokoita: 'wa', engawa: 'wa', araidashi: 'wa', enkou_hinoki: 'wa', enkou_sugi: 'wa', uzukuri_sugi: 'wa', jiita_matsu: 'wa', keyaki: 'wa',
     oak: 'yo', walnut: 'yo', whiteash: 'yo', herring: 'yo', grayoak: 'yo', marble: 'yo', concrete: 'yo',
     tile_w: 'yo', tile_g: 'yo', tile_t: 'yo', tile_k: 'yo', carpet_b: 'yo', carpet_g: 'yo', carpet_w: 'yo',
     ub_floor_g: 'yo', ub_floor_b: 'yo', ub_floor_w: 'yo', // 浴室(ユニットバス)は洋室あつかい

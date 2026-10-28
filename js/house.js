@@ -303,11 +303,20 @@ function buildClosetInside(room, group) {
     // 掛けてある服:Tシャツ・ワイシャツ・ジャケット・ワンピースの形を、ハンガーごと
     let k = 0; for (let u = u0 + 0.12; u < u1 - 0.1; u += 0.075 + ((k * 37) % 4) * 0.015, k++) { if (k % 5 === 4) continue; const kind = GARMENTS[(k * 7 + 3) % GARMENTS.length]; const col = kind === 'shirt' ? ['#f4f4f2', '#cfe0f0', '#f4f4f2'][k % 3] : kind === 'jacket' ? ['#2f3542', '#5a4a3f', '#3c4a3a'][k % 3] : CLOTHES[k % CLOTHES.length];
       const gg = garment(kind, col); gg.position.copy(wallPoint(room, de, u, y - 0.02, s)); gg.rotation.y = f.rotY + Math.PI / 2 + (((k * 53) % 7) - 3) * 0.02; group.add(gg); } };
+  // 入り口(ドア・開口)の前には棚もパイプも付けない。人が通る所をふさがないため(ノブさん 2026-10-28)
+  const gaps = []; for (const o of room.openings || []) { if (o.type === 'window' || o.type === 'niche') continue; const ff = edgeFrame(room, o.edge); const p0 = ff.origin.clone().addScaledVector(ff.along, o.u), p1 = ff.origin.clone().addScaledVector(ff.along, o.u + o.w);
+    const loc = p => [(p.x - f.A[0]) * f.along.x + (p.z - f.A[1]) * f.along.z, (p.x - f.A[0]) * f.normal.x + (p.z - f.A[1]) * f.normal.z]; const a = loc(p0), b = loc(p1);
+    if (o.edge === de) continue; const side = Math.abs(a[0] - b[0]) < 0.05; // 横の壁の入り口は、その奥行きの所を端から端まで通路として空ける
+    gaps.push({ u0: side ? -1 : Math.min(a[0], b[0]) - 0.1, u1: side ? L + 1 : Math.max(a[0], b[0]) + 0.1, s0: Math.min(a[1], b[1]) - 0.1, s1: Math.max(a[1], b[1]) + 0.1, side, su: a[0] }); }
+  // u の範囲 [u0,u1] のうち、奥行き s の所にある入り口をよけた区間
+  const freeU = (u0, u1, s0, s1) => { let segs = [[u0, u1]]; for (const g of gaps) { if (g.s1 < s0 || g.s0 > s1) continue; segs = segs.flatMap(([a, b]) => (g.u1 <= a || g.u0 >= b) ? [[a, b]] : [[a, Math.max(a, g.u0)], [Math.min(b, g.u1), b]]); } return segs.filter(([a, b]) => b - a > 0.3); };
+  const blockedSide = (u, s0, s1) => gaps.some(g => g.side && Math.abs(g.su - u) < 0.1 && !(g.s1 < s0 || g.s0 > s1));
+  const freeS = (u, s0, s1) => { let segs = [[s0, s1]]; for (const g of gaps) { if (!g.side) continue; segs = segs.flatMap(([a, b]) => (g.s1 <= a || g.s0 >= b) ? [[a, b]] : [[a, Math.max(a, g.s0)], [Math.min(b, g.s1), b]]); } return segs.filter(([a, b]) => b - a > 0.3); };
   const pipeSide = (s0, s1, u, y) => { const len = s1 - s0; const c = new THREE.Mesh(new THREE.CylinderGeometry(0.0125, 0.0125, len, 10), matPull); c.rotation.x = Math.PI / 2; const g = new THREE.Group(); g.add(c); g.position.copy(wallPoint(room, de, u, y, (s0 + s1) / 2)); g.rotation.y = f.rotY; group.add(g); };
   if (kind === 'cl' || kind === 'wic') {
-    const sd = Math.min(0.4, depth * 0.5); put(L, 0.022, sd, L / 2, 1.8, depth - sd / 2, matShelf);
-    const ps = depth - Math.min(0.33, depth / 2); pipe(0.03, L - 0.03, ps, 1.7);
-    if (kind === 'wic' && depth > 1.2) { put(sd, 0.022, depth - sd - 0.75, sd / 2, 1.8, (depth - sd - 0.75) / 2 + 0.75, matShelf); pipeSide(0.75, depth - sd, 0.33, 1.7); }
+    const sd = Math.min(0.4, depth * 0.5), ps = depth - Math.min(0.33, depth / 2);
+    for (const [a, b] of freeU(0, L, depth - sd - 0.1, depth)) { put(b - a, 0.022, sd, (a + b) / 2, 1.8, depth - sd / 2, matShelf); pipe(a + 0.03, b - 0.03, ps, 1.7); }
+    if (kind === 'wic' && depth > 1.2 && !blockedSide(0, 0.75, depth - sd)) { put(sd, 0.022, depth - sd - 0.75, sd / 2, 1.8, (depth - sd - 0.75) / 2 + 0.75, matShelf); pipeSide(0.75, depth - sd, 0.33, 1.7); }
   } else if (kind === 'oshiire') {
     put(L, 0.03, depth - 0.02, L / 2, 0.765, depth / 2 + 0.01, matPly); put(L, 0.06, 0.04, L / 2, 0.75, 0.04, matPly); put(L, 0.02, 0.45, L / 2, 1.8, depth - 0.225, matPly); // 枕棚は奥行450
     // 布団(中段の上)
@@ -316,7 +325,11 @@ function buildClosetInside(room, group) {
     const ys = kind === 'sic' ? [0.12, 0.42, 0.72, 1.02, 1.32, 1.62, 1.92] : [0.4, 0.9, 1.4, 1.9];
     // 通路を450以上残す:奥行きが浅ければ棚も浅く。入口の幅がせまいシューズクロークは、長い側の壁に棚を付ける
     const narrow = kind === 'sic' && L < 1.2 && depth > 1.0; const sd = narrow ? Math.min(0.32, L - 0.45) : Math.max(0.25, Math.min(kind === 'sic' ? 0.35 : 0.45, depth - 0.5));
-    if (narrow) for (const y of ys) put(sd, 0.02, depth - 0.1, L - sd / 2, y, depth / 2 + 0.05, matShelf); else for (const y of ys) put(L, 0.02, sd, L / 2, y, depth - sd / 2, matShelf);
+    const segs = freeU(0, L, depth - sd - 0.1, depth);
+    if (narrow) { if (!blockedSide(L, 0, depth)) for (const y of ys) put(sd, 0.02, depth - 0.1, L - sd / 2, y, depth / 2 + 0.05, matShelf); } else if (segs.length) { for (const y of ys) for (const [a, b] of segs) put(b - a, 0.02, sd, (a + b) / 2, y, depth - sd / 2, matShelf); }
+    else if (L - 0.45 >= 0.25) { // 奥に入り口があって奥の棚が付けられない(通り抜けの納戸など):入り口のない横の壁に、通路450を残して棚
+      const sw = Math.min(0.35, L - 0.45), useU0 = !gaps.some(g => g.side && g.su < 0.1); const uc = useU0 ? sw / 2 : L - sw / 2;
+      for (const [a, b] of freeS(uc, 0.1, depth - 0.05)) for (const y of ys) put(sw, 0.02, b - a, uc, y, (a + b) / 2, matShelf); }
     // 靴(シューズインクローゼットの棚に少しだけ)
     if (kind === 'sic') { let k = 0; const shoe = (u, s, y, rot) => put(rot ? 0.26 : 0.2, 0.08 + (k % 3) * 0.04, rot ? 0.2 : 0.26, u, y + 0.05 + (k % 3) * 0.02, s, mat(['#2f2f33', '#7a5b45', '#e9e6df', '#4b5a73'][k % 4]));
       for (const y of ys.slice(0, 5)) { if (narrow) for (let s2 = 0.25; s2 < depth - 0.15; s2 += 0.26, k++) { if ((k * 7) % 5 === 0) continue; shoe(L - sd / 2, s2, y, true); } else for (let u = 0.12; u < L - 0.15; u += 0.26, k++) { if ((k * 7) % 5 === 0) continue; shoe(u + 0.1, depth - 0.18, y, false); } } }
@@ -450,7 +463,7 @@ export function buildRoom(room, project, group) {
     wall.userData = { kind: 'wall', roomId: room.id, edge: e, keep: true }; roomGroup.add(wall); pick.push(wall);
     // 壁の上端(全体を上から見たとき用)
     const cap = box(L + WALL_T * 2, 0.02, WALL_T - 0.006, matCap); cap.castShadow = false;
-    cap.position.copy(wallPoint(room, e, L / 2, (rail ? WH : outerH) + 0.01, -WALL_T / 2)); cap.rotation.y = f.rotY; roomGroup.add(cap);
+    cap.position.copy(wallPoint(room, e, L / 2, (rail ? WH : outerH) + 0.01, -WALL_T / 2)); cap.rotation.y = f.rotY; if (!rail && outerH >= FLOOR_H - 0.001) cap.position.y -= 0.022; roomGroup.add(cap); // 上に2階があるときは、ふたを2階の床の下へ(床から飛び出して白い線に見えていた)
     if (rail) { const rg = new THREE.Group(); rg.position.copy(f.origin); rg.rotation.y = f.rotY; roomGroup.add(rg); buildRail(rg, L, hp, rail, room.id); }
     // 外側の面(外から見たときだけ見える)
     const outer = new THREE.Mesh(wallGeometry(L, rail ? WH : outerH, rail ? [] : wallHoles.filter(h => h.op.type !== 'niche')), matOuter);
@@ -466,7 +479,10 @@ export function buildRoom(room, project, group) {
     if (trim.base.on) { const doors = holes.filter(h => h.op.type !== 'window' && h.sill < 0.1).sort((a, b) => a.u - b.u);
       let u0 = 0; const segs = [];
       for (const d of doors) { if (d.u > u0) segs.push([u0, d.u]); u0 = d.u + d.w; } if (u0 < L) segs.push([u0, L]);
-      for (const [a, b] of segs) { const bb = box(b - a, baseH, 0.012); bb.material = matBase; bb.userData = { kind: 'trim', part: 'base', roomId: room.id, mergeKey: 'base' }; bb.position.copy(wallPoint(room, e, (a + b) / 2, baseH / 2, 0.006)); bb.rotation.y = f.rotY; roomGroup.add(bb); } }
+      // 和室の畳の部屋は、立った巾木ではなく「畳寄せ」:壁ぎわの床に細い木(見える幅35mm・畳と同じ高さ)
+      const yose = /tatami/.test((room.floor || {}).lib || ''), yoseMat = room.wa ? matBase : trimMaterial(room.yose || 'wood_natural');
+      if (yose) { for (const [a, b] of segs) { const bb = box(b - a, 0.006, 0.035); bb.material = yoseMat; bb.userData = { kind: 'trim', part: 'base', roomId: room.id, mergeKey: 'base' }; bb.position.copy(wallPoint(room, e, (a + b) / 2, 0.0025, 0.0175)); bb.rotation.y = f.rotY; roomGroup.add(bb); } }
+      else for (const [a, b] of segs) { const bb = box(b - a, baseH, 0.012); bb.material = matBase; bb.userData = { kind: 'trim', part: 'base', roomId: room.id, mergeKey: 'base' }; bb.position.copy(wallPoint(room, e, (a + b) / 2, baseH / 2, 0.006)); bb.rotation.y = f.rotY; roomGroup.add(bb); } }
     // 開口の枠・窓・ドア
     for (const h of holes) {
       const o = h.op, cu = h.u + h.w / 2, isWin = o.type === 'window';

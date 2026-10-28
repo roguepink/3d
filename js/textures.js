@@ -288,6 +288,12 @@ export const SURFACE_LIB = {
     { id: 'tatami_old', bump: 0.004, name: '畳(日に焼けた)', size: 1.8, rough: .85, draw: drawTatamiOld },
     { id: 'tokoita', bump: 0.002, name: '床の間の板', size: 1.8, rough: .35, draw: (g, w, h, r) => drawWood(g, w, h, r, { base: '#8a5f3a', dark: '#5a3b22', plankW: 0.9, tile: 1.8, gloss: true, grainAlpha: .35 }) },
     { id: 'engawa', bump: 0.005, name: '縁側の板(あめ色)', size: 1.8, rough: .45, draw: (g, w, h, r) => drawWood(g, w, h, r, { base: '#9a6c40', dark: '#62421f', plankW: 0.105, tile: 1.8, gloss: true, grainAlpha: .3 }) },
+    // 和室の板の部分(調べた:床の間の板はケヤキ・赤松/黒松が多い。板の間・縁側は細い縁甲板(檜・杉)。杉は浮造り(木目を浮かせる仕上げ)も)
+    { id: 'enkou_hinoki', bump: 0.003, name: '縁甲板(檜・白っぽい)', size: 1.8, rough: .5, draw: (g, w, h, r) => drawWood(g, w, h, r, { base: '#e8d3aa', dark: '#cdb084', plankW: 0.09, tile: 1.8, grainAlpha: .22 }) },
+    { id: 'enkou_sugi', bump: 0.004, name: '縁甲板(杉・赤みと白)', size: 1.8, rough: .55, draw: (g, w, h, r) => drawWood(g, w, h, r, { base: '#d7a676', dark: '#9e6a40', plankW: 0.105, tile: 1.8, grainAlpha: .4 }) },
+    { id: 'uzukuri_sugi', bump: 0.012, name: '杉の浮造り(木目が浮く)', size: 1.8, rough: .75, draw: (g, w, h, r) => drawWood(g, w, h, r, { base: '#c99b6a', dark: '#7a5233', plankW: 0.15, tile: 1.8, grainAlpha: .6 }) },
+    { id: 'jiita_matsu', bump: 0.003, name: '地板(赤松)', size: 1.8, rough: .4, draw: (g, w, h, r) => drawWood(g, w, h, r, { base: '#c88d58', dark: '#8d5a32', plankW: 0.3, tile: 1.8, gloss: true, grainAlpha: .35 }) },
+    { id: 'keyaki', bump: 0.002, name: '床板(欅の一枚板)', size: 1.8, rough: .3, draw: (g, w, h, r) => drawWood(g, w, h, r, { base: '#a86a3c', dark: '#6b3f20', plankW: 0.9, tile: 1.8, gloss: true, grainAlpha: .45 }) },
     { id: 'araidashi', bump: 0.01, name: '土間(洗い出し)', size: 1.2, rough: .85, draw: drawAraidashi },
     { id: 'carpet_b', bump: 0.006, name: 'カーペット(ベージュ)', size: 1, rough: .95, draw: (g, w, h, r) => drawCarpet(g, w, h, r, { base: '#c8b89a' }) },
     { id: 'carpet_g', bump: 0.006, name: 'カーペット(グレー)', size: 1, rough: .95, draw: (g, w, h, r) => drawCarpet(g, w, h, r, { base: '#8f9196' }) },

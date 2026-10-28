@@ -143,7 +143,7 @@ export function demoProject() {
   add('curtain', 'ldk', 8.13, 1.425, 3.99, -H, { w: 1.08, h: 1.35, color: '#cbb89a', opts: { open: 0.3 } });
   add('aircon', 'ldk', 2.79, 2.17, 3.0, H); add('switch', 'ldk', 3.95, 1.2, 1.88, 0);
   // 和室(内側 x 0.06〜2.67、z 4.61〜7.22)
-  add('lowtable', 'wa', 1.365, 0, 5.915, 0, { color: '#6b4a33' }); add('ceilingLight', 'wa', 1.365, 2.4, 5.915, 0, { w: 0.45, opts: { on: true, warm: true, power: 1 } });
+  add('lowtable', 'wa', 1.365, 0, 5.915, 0, { color: '#6b4a33' }); add('waceil', 'wa', 1.365, 2.4, 5.915, 0, { style: 'kaku', w: 0.5, d: 0.5, color: 'w_natural' }); // 和室は和風のシーリングライト
   add('shoji', 'wa', 1.345, 1.45, 7.22, P, { w: 1.69, h: 1.1 }); add('shoji', 'wa', 0.06, 1.45, 5.69, H, { w: 0.78, h: 1.1 }); add('switch', 'wa', 2.67, 1.2, 6.55, -H);
   add('downlight', 'osh', 1.365, 2.4, 4.095, 0);
   // 玄関(土間。高さは土間の床から)・シューズインクローゼット
