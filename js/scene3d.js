@@ -65,8 +65,19 @@ export class Scene3D {
     else { u.top.value.set('#6fa8e0'); u.bottom.value.set('#dfeaf4'); this.sun.intensity = 2.6; this.hemi.intensity = 0.9; this.ambient.intensity = 0.15; this.scene.environmentIntensity = 0.55; this.ground.material.color.set('#8fae6e'); this.renderer.toneMappingExposure = 1.0; this.scene.fog.color.set('#dfeaf4'); }
   }
   // 家のまわりに、生け垣と木を置く(窓から外を見たときの景色)
+  // マンションの高い階:storey 階なら、地面を (storey-1)×3m 下げ、建物の下の部分と、まわりの街(四角い建物)を置く
+  setStorey(n) { this.storey = Math.max(1, Math.min(60, Math.round(n || 1))); }
+  placeCity(g, cx, cz, radius, high) {
+    const body = new THREE.MeshStandardMaterial({ color: '#d9d6cf', roughness: .9 }), mats = ['#c9c6c0', '#b3b8bd', '#d8d2c6', '#9ea6ad', '#c2b8a8'].map(c => new THREE.MeshStandardMaterial({ color: c, roughness: .85 }));
+    const below = new THREE.Mesh(new THREE.BoxGeometry(Math.max(4, radius * 2 - 3.6), high, Math.max(4, radius * 2 - 3.6)), body); below.position.set(cx, -0.45 - high / 2, cz); below.receiveShadow = true; g.add(below);
+    let seed = 11; const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+    for (let i = 0; i < 110; i++) { const a = rnd() * Math.PI * 2, r = radius + 25 + rnd() * 90, w = 10 + rnd() * 26, d = 10 + rnd() * 26, near = Math.min(1, (r - radius - 25) / 60), h = 6 + Math.pow(rnd(), 2.4) * (high * (.35 + .9 * near) + 10); // 近くは低い建物、遠くに高いビル
+      const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mats[i % mats.length]); b.position.set(cx + Math.cos(a) * r, -high - 0.45 + h / 2, cz + Math.sin(a) * r); b.rotation.y = rnd() * .4; g.add(b); }
+  }
   placeGarden(cx, cz, radius) {
     const g = this.garden; while (g.children.length) g.remove(g.children[0]);
+    const high = ((this.storey || 1) - 1) * 3; this.ground.position.y = -0.45 - high; this.ground.scale.setScalar(high ? 3 : 1);
+    if (high > 0) { this.placeCity(g, cx, cz, radius, high); return; }
     const hedge = new THREE.MeshStandardMaterial({ color: '#4f7f3f', roughness: 1 }), trunk = new THREE.MeshStandardMaterial({ color: '#6b4a2a', roughness: 1 }), leaf = new THREE.MeshStandardMaterial({ color: '#5f9a4a', roughness: .95 }), fence = new THREE.MeshStandardMaterial({ color: '#cfc3b0', roughness: .9 });
     const R = radius + 6; let seed = 7; const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
     for (let i = 0; i < 24; i++) { const a = i / 24 * Math.PI * 2, a2 = (i + 1) / 24 * Math.PI * 2; const x = cx + Math.cos(a) * R, z = cz + Math.sin(a) * R, x2 = cx + Math.cos(a2) * R, z2 = cz + Math.sin(a2) * R; const len = Math.hypot(x2 - x, z2 - z);

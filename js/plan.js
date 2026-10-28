@@ -90,7 +90,7 @@ export class PlanEditor {
     const chip = (act, val, label, on) => `<button class="chip text${on ? ' on' : ''}" data-act="${act}" data-v="${val}">${label}</button>`;
     const st = owner.style || 'swing', slide = isSlideStyle(st), rm = owner.ranma ? (owner.ranmaStyle || 'koshi') : '';
     // 和室なら 襖・障子・格子戸 などの和の戸を先に(wayo.js)
-    let kl = [['swing', '開き戸'], ['slide', '引き戸'], ['fusuma', '襖'], ['shoji', '障子'], ['glassdoor', 'ガラス戸(木)'], ['koshi', '格子戸']];
+    let kl = [['swing', '開き戸'], ['slide', '引き戸'], ['fusuma', '襖'], ['shoji', '障子'], ['glassdoor', 'ガラス戸(木)'], ['koshi', '格子戸'], ['sash', 'アルミのガラス戸(掃き出し)'], ['steel', '鉄の玄関ドア']];
     if (roomIsWa(room, this.app.project)) kl = [...kl.filter(k => wayoOf('door', k[0]) === 'wa'), ...kl.filter(k => wayoOf('door', k[0]) !== 'wa')];
     const kinds = kl.map(([v, l]) => chip('dkind', v, l, st === v)).join('');
     return `<div class="door-set"><div><span>戸の種類</span>${kinds}</div>

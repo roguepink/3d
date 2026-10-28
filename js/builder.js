@@ -37,15 +37,18 @@ export function makeHelpers(FH = 2.9) {
   const add = (type, roomId, x, y, z, rot = 0, over = {}) => { const it = newItem(type, { roomId, x, y, z, rot, ...over }); if (it) items.push(it); return it; };
   // 梁(部屋の中を通す)。core=木の幅、クロス巻き込みは見付 core+0.05
   const beam = (r, x, z, w, d, o = {}) => { r.parts.push({ id: 'b' + (++seq), type: 'beam', x, z, w, d, core: 0.15, drop: 0.1, finish: 'cross', ...o }); };
-  return { G, T, H, P, FH, W0, room, link, opening, win, niche, add, beam, rooms, items };
+  // マンションの柱型(壁から出っぱる柱。x,z は左上の角)と、下がり天井(部屋の一部の天井を下げる。drop は下がる高さ)
+  const col = (r, x, z, w, d) => { r.parts.push({ id: 'c' + (++seq), type: 'column', x, z, w, d }); };
+  const soffit = (r, x, z, w, d, drop = .2) => { r.parts.push({ id: 'b' + (++seq), type: 'beam', x, z, w, d, core: Math.min(w, d), drop, finish: 'cross' }); };
+  return { G, T, H, P, FH, W0, room, link, opening, win, niche, add, beam, col, soffit, rooms, items };
 }
 
 // 家の書き方(文字)から、アプリの家のデータを作る
 export async function buildFromSource(src, FH = 2.9) {
-  const h = makeHelpers(FH); const names = ['G', 'T', 'H', 'P', 'FH', 'W0', 'room', 'link', 'opening', 'win', 'niche', 'add', 'beam'];
+  const h = makeHelpers(FH); const names = ['G', 'T', 'H', 'P', 'FH', 'W0', 'room', 'link', 'opening', 'win', 'niche', 'add', 'beam', 'col', 'soffit'];
   const fn = new Function(...names, '"use strict";\n' + src); const out = (await fn(...names.map(n => h[n]))) || {};
   const floorH = out.floorH || FH; setFloorH(floorH);
-  const p = { v: 1, name: out.name || '家', rooms: h.rooms, items: h.items, assets: {}, settings: { night: false, module: 'shaku', floorH }, camera: out.camera || null };
+  const p = { v: 1, name: out.name || '家', rooms: h.rooms, items: h.items, assets: {}, settings: { night: false, module: 'shaku', floorH, ...(out.storey ? { storey: out.storey } : {}), ...(out.wayo ? { wayo: out.wayo } : {}) }, camera: out.camera || null };
   for (const r of p.rooms) normalizeRoom(r); return p;
 }
 

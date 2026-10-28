@@ -109,6 +109,9 @@ export function pointInPart(px, pz, part, margin = 0) { const b = partBox(part);
 const matWood = new THREE.MeshStandardMaterial({ color: '#efece6', roughness: .6 });
 const matFrame = new THREE.MeshStandardMaterial({ color: '#f4f4f2', roughness: .5 });
 const matDoor = new THREE.MeshStandardMaterial({ color: '#b78b5e', roughness: .55 });
+const matSteelDoor = new THREE.MeshStandardMaterial({ color: '#4a4f55', roughness: .45, metalness: .35 }); // マンションの玄関(鉄の扉)
+const matRail = new THREE.MeshStandardMaterial({ color: '#8d9296', roughness: .35, metalness: .7 });       // 手すり・面格子(アルミ)
+const matRailGlass = new THREE.MeshStandardMaterial({ color: '#cfe0e8', roughness: .1, metalness: .1, transparent: true, opacity: .35, side: THREE.DoubleSide, depthWrite: false });
 const matFound = new THREE.MeshStandardMaterial({ color: '#9c9a95', roughness: .95 });
 const matBathDoor = new THREE.MeshStandardMaterial({ color: '#f2f2f0', roughness: .35 });
 const matFrost = new THREE.MeshStandardMaterial({ color: '#dfe6ea', roughness: .25, metalness: .05 });
@@ -203,13 +206,14 @@ function buildClosetDoor(og, o, h, ctx) {
 }
 // ---------- 和の引き戸(障子・木製のガラス戸・玄関の格子戸) ----------
 // style: shoji(障子)/ glassdoor(木の枠のガラス戸。縁側など)/ koshi(格子戸。玄関)。枚数 panels(既定:幅1m未満は1枚、2.4m以上は4枚、ほかは2枚)
-export const WA_SLIDE = ['shoji', 'glassdoor', 'koshi'];
+export const WA_SLIDE = ['shoji', 'glassdoor', 'koshi', 'sash']; // sash=アルミの掃き出し窓(マンションのバルコニーへ)
 export function isSlideStyle(st) { return st === 'slide' || st === 'fusuma' || WA_SLIDE.includes(st); }
 const matShoji = new THREE.MeshStandardMaterial({ color: '#f5efe0', roughness: .9, emissive: '#4a4232', emissiveIntensity: .22, side: THREE.DoubleSide });
 function waPanel(style, pw, H, t, wood) {
   const g = new THREE.Group(), fr = 0.03, add = (w, hh, d, m, x, y, z = 0) => { const b = box(w, hh, d, m); b.position.set(x, y, z); g.add(b); return b; };
   add(pw, fr, t, wood, 0, H - fr / 2); add(pw, fr * 1.6, t, wood, 0, fr * 0.8); add(fr, H, t, wood, -pw / 2 + fr / 2, H / 2); add(fr, H, t, wood, pw / 2 - fr / 2, H / 2);
   const iw = pw - fr * 2, yb = fr * 1.6, y1 = H - fr;
+  if (style === 'sash') { g.clear(); const f = .045; add(pw, f, t, matSash, 0, H - f / 2); add(pw, f, t, matSash, 0, f / 2); add(f, H, t, matSash, -pw / 2 + f / 2, H / 2); add(f, H, t, matSash, pw / 2 - f / 2, H / 2); const gl = add(pw - f * 2, H - f * 2, .004, matGlass, 0, H / 2); gl.castShadow = false; add(.012, .14, .02, matSash, pw / 2 - .07, 1.0, t / 2 + .01); return g; }
   if (style === 'fusuma') { g.clear(); add(pw, H, t, matFusuma, 0, H / 2); for (const [bw, bh, x, y] of [[pw, 0.03, 0, H - 0.015], [pw, 0.03, 0, 0.015], [0.022, H, -pw / 2 + 0.011, H / 2], [0.022, H, pw / 2 - 0.011, H / 2]]) add(bw, bh, t + 0.006, matFusumaFrame, x, y);
     for (const zz of [t / 2 + 0.004, -t / 2 - 0.004]) { const q = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.008, 16), matFusumaFrame); q.rotation.x = Math.PI / 2; q.position.set(pw / 2 - 0.08, 0.95, zz); g.add(q); } return g; }
   if (style === 'shoji') { const ko = 0.24, y0 = yb + ko; add(iw, ko, t * 0.6, wood, 0, yb + ko / 2); add(iw, y1 - y0, 0.004, matShoji, 0, (y0 + y1) / 2); const ny = Math.max(4, Math.round((y1 - y0) / 0.3));
@@ -220,7 +224,7 @@ function waPanel(style, pw, H, t, wood) {
 }
 function buildWaSlideParts(og, o, h, ctx) {
   const style = o.style, open = Math.max(0, Math.min(1, o.open || 0)), w = h.w, H = h.h - 0.01, t = 0.03, zf = -WALL_T + 0.022;
-  const wood = style === 'fusuma' ? trimMaterial(o.finish || 'wood_medium') : trimMaterial(o.finish || (style === 'koshi' ? 'wood_walnut' : 'wood_medium')); const n = o.panels || (w < 1.0 ? 1 : w >= 2.4 ? 4 : 2);
+  const wood = style === 'sash' ? matSash : style === 'fusuma' ? trimMaterial(o.finish || 'wood_medium') : trimMaterial(o.finish || (style === 'koshi' ? 'wood_walnut' : 'wood_medium')); const n = o.panels || (w < 1.0 ? 1 : w >= 2.4 ? 4 : 2);
   if (n === 1) { const p = waPanel(style, w + 0.03, H, t, wood); p.position.set(-open * (w - 0.08), 0, zf - 0.02); og.add(p); const rail = box(w * 2, 0.012, 0.05, wood); rail.position.set(-w / 2, 0.006, zf - 0.02); og.add(rail); return; }
   const pw = w / n + 0.02, back = zf, front = zf - 0.035;
   for (let i = 0; i < n; i++) { const cx = -w / 2 + w / n * (i + 0.5); let z = back, dx = 0;
@@ -403,6 +407,16 @@ function buildCeil3D(room, H, group) {
   }
 }
 
+// ---------- バルコニー(room.outdoor = { rail:'concrete'|'glass'|'steel', h:1.1, sky:false }) ----------
+// ほかの部屋に面していない辺は「手すり壁」になり、その上は外(空)。sky:true なら天井(上の階のバルコニーの裏)もなし
+function edgeIsOpen(room, e, project) { const f = edgeFrame(room, e); for (const t of [.2, .5, .8]) { const p = wallPoint(room, e, f.L * t, 0, -(WALL_T + .08)); if ((project.rooms || []).some(r => r !== room && levelOf(r) === levelOf(room) && pointInPoly(p.x, p.z, r.poly))) return false; } return true; }
+function buildRail(og, L, hp, kind, roomId) {
+  const add = (w, h, d, m, x, y, z) => { const b = box(w, h, d, m); b.position.set(x, y, z); og.add(b); return b; };
+  if (kind === 'glass') { add(L, .012, .05, matRail, L / 2, hp - .006, -WALL_T / 2); const g = new THREE.Mesh(new THREE.PlaneGeometry(L, hp - .2), matRailGlass); g.position.set(L / 2, .1 + (hp - .2) / 2, -WALL_T / 2); og.add(g); for (let x = 0; x <= L + 1e-6; x += Math.max(.6, L / Math.round(L / 1.2))) add(.03, hp - .1, .03, matRail, Math.min(L - .015, Math.max(.015, x)), .05 + (hp - .1) / 2, -WALL_T / 2); }
+  else if (kind === 'steel') { add(L, .035, .05, matRail, L / 2, hp - .02, -WALL_T / 2); add(L, .02, .03, matRail, L / 2, .12, -WALL_T / 2); for (let x = .05; x < L; x += .11) add(.015, hp - .15, .015, matRail, x, .12 + (hp - .15) / 2, -WALL_T / 2); }
+  else add(L, .04, .06, matRail, L / 2, hp + .05, -WALL_T / 2 + .03); // コンクリートの手すり壁の上に、アルミの笠木と手すり
+}
+
 export function buildRoom(room, project, group) {
   normalizeRoom(room);
   const assets = project.assets || {};
@@ -420,6 +434,7 @@ export function buildRoom(room, project, group) {
   const ceil = new THREE.Mesh(slabGeometry(room.poly, false), surfaceMaterial('wall', room.ceiling || { color: '#f7f7f4' }, { w: room.w, h: room.d }, assets));
   ceil.rotation.x = Math.PI / 2; ceil.position.y = H; ceil.receiveShadow = true;
   ceil.userData = { kind: 'ceiling', roomId: room.id, keep: true }; roomGroup.add(ceil); pick.push(ceil);
+  if (room.outdoor && room.outdoor.sky) ceil.visible = false;
   buildCeil3D(room, H, roomGroup);
   // 壁(辺ごと)
   const n = room.poly.length;
@@ -429,18 +444,21 @@ export function buildRoom(room, project, group) {
     const holes = ops.map(o => ({ u: o.u, w: o.w, sill: (o.type === 'window' || o.type === 'niche') ? (o.sill ?? (o.type === 'niche' ? 1.0 : 0.9)) : (o.sill || 0), h: o.h, op: o }));
     // 欄間(戸の上の飾りの窓)。となりの部屋の側(twin)も、持ち主の設定で穴をあける
     const wallHoles = holes.slice(); for (const x of holes) { const rh = ranmaHole(x, H, project); if (rh) wallHoles.push(rh); }
-    const wall = new THREE.Mesh(wallGeometry(L, H, wallHoles), surfaceMaterial('wall', wallSpec(room, e), { w: L, h: H }, assets));
+    const rail = room.outdoor && edgeIsOpen(room, e, project) ? (room.outdoor.rail || 'concrete') : null, hp = room.outdoor ? (room.outdoor.h || 1.1) : H, WH = rail ? (rail === 'concrete' ? hp : rail === 'glass' ? .1 : .12) : H;
+    const wall = new THREE.Mesh(wallGeometry(L, WH, rail ? [] : wallHoles), surfaceMaterial('wall', wallSpec(room, e), { w: L, h: H }, assets));
     wall.position.copy(f.origin); wall.rotation.y = f.rotY; wall.receiveShadow = true;
     wall.userData = { kind: 'wall', roomId: room.id, edge: e, keep: true }; roomGroup.add(wall); pick.push(wall);
     // 壁の上端(全体を上から見たとき用)
     const cap = box(L + WALL_T * 2, 0.02, WALL_T - 0.006, matCap); cap.castShadow = false;
-    cap.position.copy(wallPoint(room, e, L / 2, outerH + 0.01, -WALL_T / 2)); cap.rotation.y = f.rotY; roomGroup.add(cap);
+    cap.position.copy(wallPoint(room, e, L / 2, (rail ? WH : outerH) + 0.01, -WALL_T / 2)); cap.rotation.y = f.rotY; roomGroup.add(cap);
+    if (rail) { const rg = new THREE.Group(); rg.position.copy(f.origin); rg.rotation.y = f.rotY; roomGroup.add(rg); buildRail(rg, L, hp, rail, room.id); }
     // 外側の面(外から見たときだけ見える)
-    const outer = new THREE.Mesh(wallGeometry(L, outerH, wallHoles.filter(h => h.op.type !== 'niche')), matOuter);
+    const outer = new THREE.Mesh(wallGeometry(L, rail ? WH : outerH, rail ? [] : wallHoles.filter(h => h.op.type !== 'niche')), matOuter);
     outer.position.copy(wallPoint(room, e, 0, 0, -WALL_T)); outer.rotation.y = f.rotY; outer.receiveShadow = true; outer.userData.keep = true; roomGroup.add(outer);
     // 基礎(1階の外まわり:地面から床まで 約450mm)
     if (levelOf(room) === 0) { const fd = new THREE.Mesh(new THREE.PlaneGeometry(L + WALL_T * 2, 0.45), matFound); fd.position.copy(wallPoint(room, e, L / 2, -0.225, -WALL_T)); fd.rotation.y = f.rotY + Math.PI; fd.userData.keep = true; roomGroup.add(fd); }
     // 廻り縁(あり/なし・高さ・仕上げ)
+    if (rail) continue;
     if (trim.crown.on) { const crown = box(L, crownH, Math.min(0.03, crownH * 0.6)); crown.material = matCrown; crown.castShadow = false; crown.userData = { kind: 'trim', part: 'crown', roomId: room.id, mergeKey: 'crown' }; crown.position.copy(wallPoint(room, e, L / 2, H - crownH / 2, Math.min(0.03, crownH * 0.6) / 2)); crown.rotation.y = f.rotY; roomGroup.add(crown); }
     // 巾木(ドアのところは切る)
     if (trim.base.on) { const doors = holes.filter(h => h.op.type !== 'window' && h.sill < 0.1).sort((a, b) => a.u - b.u);
@@ -487,7 +505,8 @@ export function buildRoom(room, project, group) {
         const glass = new THREE.Mesh(new THREE.PlaneGeometry(h.w, h.h), matGlass); glass.position.set(0, h.sill + h.h / 2, -WALL_T / 2); og.add(glass);
         glass.userData = { kind: 'window', roomId: room.id, edge: e, openingId: o.id, keep: true }; pick.push(glass);
         const fw = 0.04;
-        const s1 = box(fw, h.h, 0.05, matSash); s1.position.set(0, h.sill + h.h / 2, -WALL_T / 2); og.add(s1);
+        if (!o.fix) { const s1 = box(fw, h.h, 0.05, matSash); s1.position.set(0, h.sill + h.h / 2, -WALL_T / 2); og.add(s1); }
+        if (o.grille) { for (let x = -h.w / 2 + .06; x < h.w / 2 - .03; x += .1) { const gb = box(.02, h.h + .04, .02, matRail); gb.position.set(x, h.sill + h.h / 2, -WALL_T - .05); og.add(gb); } for (const yy of [h.sill - .01, h.sill + h.h + .01]) { const gb = box(h.w + .06, .03, .03, matRail); gb.position.set(0, yy, -WALL_T - .05); og.add(gb); } } // 面格子(共用廊下側の窓)
         const s2 = box(h.w, fw, 0.05, matSash); s2.position.set(0, h.sill + fw / 2, -WALL_T / 2); og.add(s2);
         const s3 = s2.clone(); s3.position.y = h.sill + h.h - fw / 2; og.add(s3);
         const s4 = box(fw, h.h, 0.05, matSash); s4.position.set(-h.w / 2 + fw / 2, h.sill + h.h / 2, -WALL_T / 2); og.add(s4);
@@ -500,7 +519,7 @@ export function buildRoom(room, project, group) {
         // 丁番:部屋の内側から見て左(left)/右(right)。開く向き:内開き(in=この部屋側)/外開き(out)
         const sx = o.hinge === 'right' ? -1 : 1, sz = o.swing === 'out' ? -1 : 1;
         const leaf = new THREE.Group(); leaf.position.set(-sx * h.w / 2, 0, sz > 0 ? -0.022 : -WALL_T + 0.022); og.add(leaf);
-        const door = box(h.w - 0.01, h.h - 0.01, 0.04, o.style === 'bath' ? matBathDoor : matDoor); door.position.set(sx * (h.w - 0.01) / 2, (h.h - 0.01) / 2, 0); leaf.add(door);
+        const door = box(h.w - 0.01, h.h - 0.01, o.style === 'steel' ? 0.05 : 0.04, o.style === 'bath' ? matBathDoor : o.style === 'steel' ? matSteelDoor : matDoor); door.position.set(sx * (h.w - 0.01) / 2, (h.h - 0.01) / 2, 0); leaf.add(door);
         // 浴室のドア:白い枠に、くもりガラスの面
         if (o.style === 'bath') { for (const zz of [0.021, -0.021]) { const gl = new THREE.Mesh(new THREE.PlaneGeometry(h.w - 0.16, h.h * 0.62), matFrost); gl.position.set(sx * (h.w - 0.01) / 2, h.h * 0.55, zz); if (zz < 0) gl.rotation.y = Math.PI; leaf.add(gl); } }
         const knob = new THREE.Mesh(new THREE.SphereGeometry(0.025, 12, 8), matKnob); knob.position.set(sx * (h.w - 0.08), 1.0, 0.04); leaf.add(knob);

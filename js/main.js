@@ -82,6 +82,7 @@ class App {
     window.addEventListener('hashchange', () => { if (/[#&]p=/.test(location.hash)) this.openFromLink(location.hash); });
     $('#mAI').onclick = () => this.aiSettings();
     $('#mModule').onclick = () => { this.setModule(this.module() === 'shaku' ? 'meter' : 'shaku'); };
+    $('#mStorey').onclick = () => { if (!this.project) return; const cur = this.project.settings.storey || 1; const v = prompt('何階に住んでいますか?(1 = 一戸建て・1階。マンションなら 2〜60)', String(cur)); if (v === null) return; const n = Math.max(1, Math.min(60, parseInt(v, 10) || 1)); this.snapshot(); this.project.settings.storey = n; this.s3.setStorey(n); const b = houseBounds(this.project.rooms); this.s3.setSunTarget((b.minX + b.maxX) / 2, (b.minZ + b.maxZ) / 2, Math.max(b.maxX - b.minX, b.maxZ - b.minZ) / 2 + 2); this.touched(); this.updateStoreyLabel(); this.toast(n > 1 ? `${n}階にしました。窓の外が高くなります` : '1階(地面の高さ)にしました'); };
     $('#mWayo').onclick = () => { if (!this.project) return; const order = HOUSE_MOODS.map(x => x[0]); const m = order[(order.indexOf(houseMood(this.project)) + 1) % order.length]; this.project.settings.wayo = m; this.touched(); this.updateWayoLabel(); this.toast(`家の雰囲気を「${houseMoodName(this.project)}」にしました。` + (m === 'wa' ? '和室・洋室を決めていない部屋は和室として、和の物を先に出します。' : '和室の作り「あり」の部屋は和の物、ほかの部屋は洋の物を先に出します。') + '(間取りの部屋の欄で 和室/洋室 を切りかえられます)', 4500); };
     $('#mHelp').onclick = () => this.help();
     $('#mSpin').onclick = () => { this.closeSheets(); this.setMode('walk'); this.spin = 14; this.toast('ゆっくり一周します(14秒)。画面を録画すると紹介動画になります', 3500); };
@@ -153,9 +154,9 @@ class App {
   reload() { const cam = { x: this.s3.camera.position.x, z: this.s3.camera.position.z, yaw: this.walk.yaw, pitch: this.walk.pitch, gy: this.walk.floorY, lv: this.levelView }; const mode = this.mode; this.load(this.project); this.walk.floorY = cam.gy; this.levelView = cam.lv; this.s3.camera.position.set(cam.x, cam.gy + 1.5, cam.z); this.walk.yaw = cam.yaw; this.walk.pitch = cam.pitch; this.setMode(mode); }
   load(p) {
     if (p && p.items) p.items = p.items.filter(Boolean); // 作り直し中などで種類が見つからない物は飛ばす
-    this.project = p; p.assets = p.assets || {}; p.items = p.items || []; p.settings = p.settings || {}; this.updateWayoLabel(); setFloorH(p.settings.floorH || 2.9); for (const r of (p.rooms || [])) normalizeRoom(r); this.selectedId = null; this.setPin(null);
+    this.project = p; p.assets = p.assets || {}; p.items = p.items || []; p.settings = p.settings || {}; this.updateWayoLabel(); this.updateStoreyLabel(); setFloorH(p.settings.floorH || 2.9); for (const r of (p.rooms || [])) normalizeRoom(r); this.selectedId = null; this.setPin(null);
     clearMaterialCache(); this.rebuildHouse(); this.rebuildItems(); this.setDaytime(p.settings.daytime || (p.settings.night ? 'night' : 'day'), true);
-    const b = houseBounds(p.rooms); this.s3.setSunTarget((b.minX + b.maxX) / 2, (b.minZ + b.maxZ) / 2, Math.max(b.maxX - b.minX, b.maxZ - b.minZ) / 2 + 2);
+    const b = houseBounds(p.rooms); this.s3.setStorey((p.settings && p.settings.storey) || 1); this.s3.setSunTarget((b.minX + b.maxX) / 2, (b.minZ + b.maxZ) / 2, Math.max(b.maxX - b.minX, b.maxZ - b.minZ) / 2 + 2);
     if (p.camera) { this.walk.floorY = p.camera.gy || 0; this.s3.camera.position.set(p.camera.x, this.walk.floorY + 1.5, p.camera.z); this.walk.yaw = p.camera.yaw || 0; this.walk.pitch = 0; }
     else if (p.rooms[0]) { const r = p.rooms.find(x => !levelOf(x) && !x.stair) || p.rooms[0]; this.walk.floorY = baseOf(r); this.s3.camera.position.set(r.x + r.w / 2, this.walk.floorY + 1.5, r.z + r.d * 0.8); this.walk.yaw = 0; this.walk.pitch = 0; }
     this.levelView = null; this.applyLevels();
@@ -762,6 +763,7 @@ class App {
   // ---------- 部屋 ----------
   fillPresets() { const m = this.module(); for (const x of $$('#roomModules .chip')) x.classList.toggle('on', x.dataset.module === m); $('#moduleNote').textContent = MODULES[m].desc; const box = $('#roomPresets'); box.innerHTML = ''; for (const [n, w, d] of ROOM_PRESETS[m]) { const b = document.createElement('button'); b.className = 'chip text'; const jo = joOf(w * d / 1e6); b.innerHTML = m === 'shaku' ? `${n}<small> ${w.toLocaleString()}×${d.toLocaleString()}</small>` : `${n}<small> 約${jo}帖</small>`; b.onclick = () => { $('#nrW').value = w; $('#nrD').value = d; this.updateRoomNote(); }; box.appendChild(b); } this.updateRoomNote(); }
   updateRoomNote() { const w = parseFloat($('#nrW').value) || 0, d = parseFloat($('#nrD').value) || 0; const iw = w - 120, idd = d - 120; $('#nrNote').textContent = w > 200 && d > 200 ? `内法(うちのり) 約 ${iw.toLocaleString()}×${idd.toLocaleString()}mm・約${joOf(w * d / 1e6)}帖(壁芯 ${(w * d / 1e6).toFixed(2)}㎡、1帖=1.62㎡)` : ''; }
+  updateStoreyLabel() { const b = $('#mStorey'), n = (this.project && this.project.settings.storey) || 1; if (b) b.textContent = `🏢 住んでいる階:${n}階${n > 1 ? '' : '(一戸建て)'}`; }
   updateWayoLabel() { const b = $('#mWayo'); if (b) b.textContent = `🏯 家の雰囲気:${houseMoodName(this.project)}`; }
   // 新しい部屋の欄:家の雰囲気(和風/洋風/まざり)と、この部屋(和室/洋室)
   fillWayoChips() {
