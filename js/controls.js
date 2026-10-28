@@ -82,7 +82,9 @@ export class WalkControls {
       const dir = new THREE.Vector3(-Math.sin(this.yaw), 0, -Math.cos(this.yaw)); const right = new THREE.Vector3(Math.cos(this.yaw), 0, -Math.sin(this.yaw));
       const step = dir.multiplyScalar(f * sp * dt).add(right.multiplyScalar(s * sp * dt));
       // 歩ける所だけ進む(階段では足もとの高さが変わる)
-      const tryAt = q => { const g = this.ground ? this.ground(q) : (this.canWalk(q) ? this.floorY : null); if (g === null || g === undefined) return false; this.camera.position.x = q.x; this.camera.position.z = q.z; this.floorY = g; return true; };
+      // 今いる所が壁ぎわすぎて「歩けない場所」になっているときは、動けなくならないように、そこから出る動きは許す
+      const here = this.ground ? this.ground(this.camera.position) : this.floorY; const stuck = here === null || here === undefined;
+      const tryAt = q => { let g = this.ground ? this.ground(q) : (this.canWalk(q) ? this.floorY : null); if ((g === null || g === undefined) && stuck && this.ground) g = this.ground(q, 0.05); if (g === null || g === undefined) return false; this.camera.position.x = q.x; this.camera.position.z = q.z; this.floorY = g; return true; };
       const p = this.camera.position.clone().add(step);
       if (!tryAt(p)) { const px = this.camera.position.clone(); px.x += step.x; if (!tryAt(px)) { const pz = this.camera.position.clone(); pz.z += step.z; tryAt(pz); } }
     }

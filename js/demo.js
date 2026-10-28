@@ -178,7 +178,7 @@ export function demoProject() {
   add('switch', 'hall2a', 2.75, 1.2, 0.97, 0);
   add('downlight', 'hall2a', 2.3, 2.4, 1.365, 0); add('downlight', 'hall2b', 4.095, 2.4, 1.4, 0); add('downlight', 'hall2b', 4.095, 2.4, 2.7, 0); add('downlight', 'hall2c', 4.55, 2.4, 4.095, 0);
   add('downlight', 'stoA', 1.365, 2.4, 0.455, 0); add('downlight', 'stoB', 0.455, 2.4, 2.275, 0); add('downlight', 'stoC', 3.185, 2.4, 2.73, 0);
-  return { v: 1, name: '見本の家(4LDK・2階建て)', rooms, items, assets: {}, settings: { night: false, module: 'shaku', floorH: FH }, camera: { x: 7.5, z: 7.0, yaw: Math.PI / 3.2, gy: 0 } };
+  return { v: 1, name: '見本の家(4LDK・2階建て)', rooms, items, assets: {}, settings: { night: false, module: 'shaku', floorH: FH }, camera: { x: 7.4, z: 6.5, yaw: Math.PI / 3.2, gy: 0 } };
 }
 
 // ---------- すき間がないことの確認(マスの数。1マス = 0.91×0.91 = 0.8281㎡) ----------

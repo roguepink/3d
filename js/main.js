@@ -25,7 +25,7 @@ class App {
   constructor() {
     this.canvas = $('#gl'); this.s3 = new Scene3D(this.canvas);
     this.project = null; this.selectedId = null; this.pin = null; this.mode = 'walk'; this.dirty = false; this.itemGroups = new Map(); this.currentRoomId = null;
-    this.walk = new WalkControls(this.s3.camera, this.canvas, { canWalk: p => this.project ? walkable(p, this.project.rooms, 0.25, this.walk.floorY) : true, ground: p => this.project ? groundAt(p, this.project.rooms, this.walk.floorY) : 0, onTap: (x, y, e) => this.onTap(x, y, e), joyEl: $('#joy'), knobEl: $('#joyKnob'),
+    this.walk = new WalkControls(this.s3.camera, this.canvas, { canWalk: p => this.project ? walkable(p, this.project.rooms, 0.25, this.walk.floorY) : true, ground: (p, margin) => this.project ? groundAt(p, this.project.rooms, this.walk.floorY, margin ?? 0.25) : 0, onTap: (x, y, e) => this.onTap(x, y, e), joyEl: $('#joy'), knobEl: $('#joyKnob'),
       hitTest: (x, y) => { const h = this.hitAt(x, y); return h && h.itemId ? { itemId: h.itemId, selected: h.itemId === this.selectedId, point: h.point } : null; }, onDragItem: (ph, e, h) => this.dragItem(ph, e, h),
       onDoubleTap: (x, y, e) => this.onDoubleTap(x, y, e), onZoom: (k, step, pinch) => { if (step) { this.setZoom(this.s3.zoom * k); return; } if (pinch) { if (!pinch.z0) pinch.z0 = this.s3.zoom; this.setZoom(pinch.z0 * k, true); } else this.zoomLabel(true); } });
     this.plan = new PlanEditor(this, $('#planCanvas'));
