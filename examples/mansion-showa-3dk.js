@@ -21,7 +21,7 @@ const OLDCEIL = { color: '#eee8da' }; // 昭和の化粧石膏ボード(少し�
 // ---------- 北(共用廊下側) ----------
 const you = R('you', '洋室(4.5畳)', 0, 0, 2.8, 2.9, { h: 2.35, floor: { lib: 'carpet_b' }, walls: A4('wp_beige'), ceiling: OLDCEIL });
 const genkan = R('genkan', '玄関', 2.8, 0, 4.0, 1.4, { drop: 0.15, h: 2.5, floor: { lib: 'tile_g' }, walls: A4('wp_beige'), ceiling: OLDCEIL });
-const mb = R('mb', 'MB・PS(メーターと配管)', 4.0, 0, 4.9, 1.2, { closet: 'storage', h: 2.35, floor: { lib: 'concrete' }, walls: A4('concrete_w') }); // 共用廊下から開ける
+const mb = R('mb', 'MB', 4.0, 0, 4.9, 1.2, { closet: 'storage', h: 2.35, floor: { lib: 'concrete' }, walls: A4('concrete_w') }); // 共用廊下から開ける
 const hall = R('hall', '廊下', 2.8, 1.4, 4.0, 2.9, { h: 2.35, floor: { lib: 'cf_wood' }, walls: A4('wp_beige'), ceiling: OLDCEIL });
 // 水まわり:床を 150 上げる(下に配管を通すため。昭和のマンションによくある段差)
 const wc = R('wc', 'トイレ', 4.0, 1.2, 4.9, 2.9, { drop: -0.15, h: 2.1, floor: { lib: 'cf_tile' }, walls: A4('wp_white'), ceiling: OLDCEIL });
