@@ -458,7 +458,9 @@ export function buildRoom(room, project, group) {
     // 基礎(1階の外まわり:地面から床まで 約450mm)
     if (levelOf(room) === 0) { const fd = new THREE.Mesh(new THREE.PlaneGeometry(L + WALL_T * 2, 0.45), matFound); fd.position.copy(wallPoint(room, e, L / 2, -0.225, -WALL_T)); fd.rotation.y = f.rotY + Math.PI; fd.userData.keep = true; roomGroup.add(fd); }
     // 廻り縁(あり/なし・高さ・仕上げ)
-    if (rail) continue;
+    // バルコニーが家に面している辺は、家の外壁(窓のある壁)がそこにあるので、バルコニー側の壁は出さない(窓をふさがないように)
+    if (room.outdoor && !rail) { wall.visible = false; outer.visible = false; cap.visible = false; }
+    if (rail || room.outdoor) continue;
     if (trim.crown.on) { const crown = box(L, crownH, Math.min(0.03, crownH * 0.6)); crown.material = matCrown; crown.castShadow = false; crown.userData = { kind: 'trim', part: 'crown', roomId: room.id, mergeKey: 'crown' }; crown.position.copy(wallPoint(room, e, L / 2, H - crownH / 2, Math.min(0.03, crownH * 0.6) / 2)); crown.rotation.y = f.rotY; roomGroup.add(crown); }
     // 巾木(ドアのところは切る)
     if (trim.base.on) { const doors = holes.filter(h => h.op.type !== 'window' && h.sill < 0.1).sort((a, b) => a.u - b.u);
