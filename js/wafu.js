@@ -622,7 +622,7 @@ function kasatateBuild(it) {
   return fitStyle(g, it);
 }
 
-// ---- 昭和の小物(急須と湯のみ・蚊取り線香・うちわ・新聞の束) ----
+// ---- 昭和の小物(急須と湯のみ・蚊取り線香・うちわ・新聞の束・電気ポット・やかん・炊飯器・ぬか床・米びつ・ざる・絵はがき・家計簿・物差し・虫眼鏡・風呂桶・風呂のふた) ----
 // 部分:色。lift でちゃぶ台(330)などの上へ
 function wakomonoBuild(it) {
   const g = new THREE.Group(), s = styleOf(it).id, m = pm(it, 'color', .4);
@@ -640,6 +640,61 @@ function wakomonoBuild(it) {
   } else if (s === 'uchiwa') {
     const face = paint('uchiwa', 64, 64, (c, W, H) => { c.fillStyle = '#efe8d8'; c.fillRect(0, 0, W, H); c.fillStyle = '#4a6a9a'; c.beginPath(); c.arc(40, 26, 12, 0, Math.PI * 2); c.fill(); c.strokeStyle = 'rgba(80,60,40,.4)'; for (let i = 0; i < 9; i++) { c.beginPath(); c.moveTo(32, 64); c.lineTo(i * 8, 0); c.stroke(); } }, .9, { side: THREE.DoubleSide });
     const disc = mesh(new THREE.CircleGeometry(0.12, 24), face, 0, 0.006, -0.04); disc.rotation.x = -Math.PI / 2; g.add(disc); g.add(box(0.016, 0.008, 0.14, std('#a88a5a', .6), 0, 0.006, 0.13));
+  } else if (s === 'pot') {
+    // 電気ポット:丸い胴・ふた・注ぎ口・押すところ
+    g.add(cyl(0.1, 0.105, 0.26, m, 0, 0.13, 0, 24)); g.add(cyl(0.09, 0.1, 0.05, m, 0, 0.285, 0, 24)); g.add(box(0.07, 0.02, 0.05, std('#b8b0a0', .5), 0, 0.315, 0.01));
+    g.add(box(0.05, 0.04, 0.07, m, 0, 0.27, 0.11)); g.add(box(0.03, 0.012, 0.02, std('#7a2a24', .4), 0, 0.305, 0.04)); g.add(cyl(0.004, 0.004, 0.2, std('#6a6a6a', .3, .6), 0.085, 0.13, 0.05, 6));
+    g.add(cyl(0.112, 0.112, 0.012, std('#9a9488', .5), 0, 0.006, 0, 24)); g.add(box(0.04, 0.025, 0.006, std('#3a4a5a', .3), 0, 0.2, 0.104));
+  } else if (s === 'yakan') {
+    // やかん:平たい胴・取っ手・注ぎ口
+    const mt = std('#c9c6bd', .25, .85); g.add(ell(0.1, mt, 0, 0.08, 0, 1.15, 0.75, 1)); g.add(cyl(0.035, 0.05, 0.03, mt, 0, 0.15, 0, 16)); g.add(sph(0.015, std('#2a2420', .5), 0, 0.17, 0));
+    rod(g, mt, [0.08, 0.07, 0], [0.14, 0.14, 0], 0.02, true); const h = new THREE.Mesh(new THREE.TorusGeometry(0.075, 0.007, 6, 16, Math.PI), std('#2a2420', .5)); h.position.set(0, 0.155, 0); g.add(h);
+  } else if (s === 'suihanki') {
+    // 炊飯器(昭和の花柄):丸みのある胴・ふた・取っ手
+    g.add(rbox(0.27, 0.17, 0.3, 0.06, m, 0, 0.085, 0)); g.add(rbox(0.26, 0.05, 0.29, 0.05, std('#d8cfba', .4), 0, 0.19, 0)); g.add(box(0.12, 0.018, 0.03, std('#8a7a5a', .4), 0, 0.225, 0));
+    g.add(box(0.08, 0.04, 0.01, std('#4a5a3a', .4), 0, 0.09, 0.152)); for (const x of [-0.08, 0.08]) g.add(sph(0.018, std('#c86a5a', .6), x, 0.12, 0.15));
+  } else if (s === 'nuka') {
+    // ぬか床のかめ:焼き物のかめに木のふた・重し
+    g.add(cyl(0.12, 0.1, 0.28, m, 0, 0.14, 0, 24)); g.add(cyl(0.125, 0.125, 0.02, m, 0, 0.27, 0, 24)); g.add(cyl(0.13, 0.13, 0.02, std('#a07a4e', .7), 0, 0.29, 0, 24));
+    g.add(ell(0.05, std('#7a7a76', .9), 0, 0.31, 0, 1.2, 0.6, 1)); g.add(cyl(0.122, 0.122, 0.006, std('#e6dcc6', .8), 0, 0.22, 0, 24));
+  } else if (s === 'komebitsu') {
+    // 米びつ(木の箱・上にふた・下に引き出し口)
+    g.add(box(0.32, 0.46, 0.42, m, 0, 0.23, 0)); g.add(box(0.33, 0.03, 0.43, std('#8a6440', .6), 0, 0.475, 0)); g.add(box(0.2, 0.08, 0.01, std('#6a4a2c', .6), 0, 0.12, 0.212)); g.add(box(0.08, 0.015, 0.02, std('#2a2420', .5), 0, 0.12, 0.222));
+  } else if (s === 'zaru') {
+    // 竹のざるに野菜(なす・きゅうり・トマト)
+    const zm = paint('zaru', 64, 64, (c, W, H) => { c.fillStyle = '#c8a868'; c.fillRect(0, 0, W, H); c.strokeStyle = 'rgba(90,60,20,.45)'; for (let i = 0; i < 16; i++) { c.beginPath(); c.moveTo(i * 4, 0); c.lineTo(i * 4, H); c.stroke(); c.beginPath(); c.moveTo(0, i * 4); c.lineTo(W, i * 4); c.stroke(); } }, .9);
+    g.add(cyl(0.18, 0.12, 0.06, zm, 0, 0.03, 0, 24)); const rim = new THREE.Mesh(new THREE.TorusGeometry(0.18, 0.008, 5, 28), std('#a88a4a', .8)); rim.rotation.x = Math.PI / 2; rim.position.y = 0.06; g.add(rim);
+    const nasu = std('#3a1e3e', .35), kyuri = std('#3e6a2e', .5), tomato = std('#c83a26', .35);
+    [[-0.06, 0.02], [0.02, -0.06]].forEach(([x, z]) => { const n = ell(0.03, nasu, x, 0.075, z, 1, 1, 2.2); n.rotation.y = 0.6; g.add(n); });
+    const k = cyl(0.016, 0.016, 0.2, kyuri, 0.03, 0.08, 0.05, 10); k.rotation.z = Math.PI / 2; k.rotation.y = 0.4; g.add(k);
+    [[0.08, -0.02], [-0.02, 0.08]].forEach(([x, z]) => g.add(ell(0.032, tomato, x, 0.085, z, 1, 0.8, 1)));
+  } else if (s === 'hagaki') {
+    // 絵はがき(青い空の風景)
+    const pm2 = paint('hagaki', 96, 64, (c, W, H) => { c.fillStyle = '#f2ece0'; c.fillRect(0, 0, W, H); c.fillStyle = '#6a9ac8'; c.fillRect(4, 4, W - 8, 34); c.fillStyle = '#3a6a3a'; c.beginPath(); c.moveTo(4, 38); c.lineTo(30, 20); c.lineTo(56, 38); c.fill(); c.fillStyle = '#e8c06a'; c.beginPath(); c.arc(74, 14, 6, 0, Math.PI * 2); c.fill(); c.fillStyle = 'rgba(60,50,40,.5)'; for (let i = 0; i < 3; i++) c.fillRect(8, 46 + i * 6, 60 - i * 12, 2); }, .8);
+    const pl = mesh(new THREE.PlaneGeometry(0.148, 0.1), pm2, 0, 0.003, 0); pl.rotation.x = -Math.PI / 2; g.add(pl); g.add(box(0.148, 0.002, 0.1, std('#f2ece0', .8), 0, 0.001, 0));
+  } else if (s === 'kakeibo') {
+    // 家計簿(ひらいたノート)・鉛筆・小刀
+    const pg = paint('kakeibo', 64, 48, (c, W, H) => { c.fillStyle = '#f4efe2'; c.fillRect(0, 0, W, H); c.strokeStyle = 'rgba(80,110,150,.45)'; for (let y = 6; y < H; y += 5) { c.beginPath(); c.moveTo(2, y); c.lineTo(W - 2, y); c.stroke(); } c.strokeStyle = 'rgba(160,60,50,.5)'; c.beginPath(); c.moveTo(14, 0); c.lineTo(14, H); c.moveTo(46, 0); c.lineTo(46, H); c.stroke(); c.fillStyle = 'rgba(40,40,40,.55)'; for (let y = 8; y < 36; y += 5) c.fillRect(17, y, 10 + (y * 7) % 18, 1.4); }, .9);
+    g.add(box(0.26, 0.012, 0.19, m, -0.03, 0.006, 0)); const pp = mesh(new THREE.PlaneGeometry(0.25, 0.18), pg, -0.03, 0.0125, 0); pp.rotation.x = -Math.PI / 2; g.add(pp);
+    const pen = cyl(0.0035, 0.0035, 0.15, std('#2e5a3a', .5), 0.13, 0.006, 0.02, 6); pen.rotation.x = Math.PI / 2; pen.rotation.z = 0.2; g.add(pen);
+    const kn = box(0.012, 0.008, 0.11, std('#5a3a24', .5), 0.15, 0.004, -0.06); kn.rotation.y = -0.4; g.add(kn); const bl = box(0.01, 0.003, 0.05, std('#b8b8b4', .25, .9), 0.135, 0.004, -0.13); bl.rotation.y = -0.4; g.add(bl);
+  } else if (s === 'monosashi') {
+    // 竹の物差し(目盛り)
+    const mm = paint('monosashi', 128, 8, (c, W, H) => { c.fillStyle = '#d8c08a'; c.fillRect(0, 0, W, H); c.fillStyle = 'rgba(40,30,20,.7)'; for (let i = 0; i < 50; i++) c.fillRect(i * W / 50, 0, 1, i % 10 === 0 ? 6 : i % 5 === 0 ? 4 : 2); }, .7);
+    g.add(box(0.5, 0.006, 0.03, m, 0, 0.003, 0)); const tp = mesh(new THREE.PlaneGeometry(0.5, 0.03), mm, 0, 0.0062, 0); tp.rotation.x = -Math.PI / 2; g.add(tp);
+  } else if (s === 'mushimegane') {
+    // 虫眼鏡(柄が少し欠けている)
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.036, 0.005, 6, 24), std('#b8a060', .3, .7)); ring.rotation.x = Math.PI / 2; ring.position.set(0, 0.006, -0.06); g.add(ring);
+    const lens = cyl(0.034, 0.034, 0.004, new THREE.MeshStandardMaterial({ color: '#dfe8ec', roughness: 0.05, transparent: true, opacity: 0.45 }), 0, 0.006, -0.06, 24); g.add(lens);
+    g.add(box(0.014, 0.012, 0.1, m, 0, 0.006, 0.04)); g.add(box(0.012, 0.012, 0.012, std('#d8c8a8', .8), 0.003, 0.006, 0.093));
+  } else if (s === 'oke') {
+    // 風呂桶(木の手桶)と風呂椅子
+    const wood = std('#c9b48a', .6), band = std('#6a6a64', .4, .6);
+    g.add(cyl(0.11, 0.1, 0.12, wood, -0.14, 0.06, 0, 20)); for (const y of [0.025, 0.1]) { const r = new THREE.Mesh(new THREE.TorusGeometry(0.106, 0.004, 4, 20), band); r.rotation.x = Math.PI / 2; r.position.set(-0.14, y, 0); g.add(r); } g.add(cyl(0.098, 0.098, 0.004, std('#a8c8d8', .1), -0.14, 0.1, 0, 20));
+    g.add(box(0.28, 0.025, 0.22, wood, 0.12, 0.235, 0)); for (const sx of [-1, 1]) g.add(box(0.025, 0.225, 0.2, wood, 0.12 + sx * 0.11, 0.112, 0));
+  } else if (s === 'futa') {
+    // 風呂のふた(木の板を並べた)
+    const wood = std('#c9b48a', .6); for (let i = 0; i < 4; i++) g.add(box(0.79, 0.025, 0.17, wood, 0, 0.0125, -0.27 + i * 0.18)); for (let i = 0; i < 4; i++) g.add(box(0.12, 0.01, 0.03, std('#8a6a40', .6), 0, 0.03, -0.27 + i * 0.18));
   } else {
     // 新聞の束(ひもでしばる)
     const pp = std('#ddd6c4', .95), ln = std('#cfc6b0', .95);
@@ -647,6 +702,26 @@ function wakomonoBuild(it) {
     const tie = std('#d8cfa8', .9); g.add(box(0.425, 0.006, 0.006, tie, 0, 0.18, 0)); g.add(box(0.006, 0.006, 0.285, tie, 0, 0.18, 0));
     for (const sz of [-1, 1]) { g.add(box(0.006, 0.18, 0.006, tie, 0, 0.09, sz * 0.142)); g.add(box(0.006, 0.18, 0.006, tie, sz * 0.212, 0.09, 0)); }
   }
+  return fitStyle(g, it);
+}
+
+// ---- 昭和の流し台とガス台 ----
+// 部分:戸 / 天板(ステンレス)。左に流し、右にガス台(2口)を天板の上に置く。正面 +z、幅 w の中で左から流し→調理台→ガス台
+function nagashiBuild(it) {
+  const g = new THREE.Group(), W = 2.4, H = 0.85, D = 0.6;
+  const door = pm(it, 'door', .5), top = pm(it, 'top', .25), steel = std('#b9bcbe', .22, .85), dark = std('#2a2826', .6), knobM = std('#d8d2c2', .4);
+  g.add(box(W, H - 0.1, D - 0.04, std('#e8e2d2', .6), 0, 0.05 + (H - 0.1) / 2, -0.02));        // 胴
+  g.add(box(W, 0.1, D - 0.1, dark, 0, 0.05, -0.05));                                           // 台輪(下の黒い所)
+  const n = 4, dw = (W - 0.02) / n;
+  for (let i = 0; i < n; i++) { const x = -W / 2 + 0.01 + dw * (i + 0.5); g.add(box(dw - 0.012, H - 0.16, 0.018, door, x, 0.1 + (H - 0.16) / 2, D / 2 - 0.03)); g.add(box(0.012, 0.09, 0.018, knobM, x + (i % 2 ? -1 : 1) * (dw / 2 - 0.05), 0.5, D / 2 - 0.012)); }
+  g.add(box(W + 0.01, 0.03, D, top, 0, H - 0.015, 0));                                       // ステンレスの天板
+  const sx = -W / 2 + 0.45; g.add(box(0.62, 0.012, 0.4, std('#8e9294', .2, .9), sx, H + 0.001, -0.02)); // 流し(へこみ)
+  g.add(box(0.6, 0.004, 0.38, std('#6e7274', .3, .8), sx, H + 0.006, -0.02));
+  g.add(cyl(0.012, 0.012, 0.22, steel, sx, H + 0.11, -0.26, 10)); const sp = box(0.025, 0.02, 0.16, steel, sx, H + 0.22, -0.19); g.add(sp);
+  g.add(box(0.06, 0.02, 0.02, steel, sx + 0.06, H + 0.12, -0.26));                            // 蛇口のハンドル
+  // ガス台(2口・天板の上)
+  const gx = W / 2 - 0.36; g.add(box(0.56, 0.12, 0.42, std('#e9e4d8', .5), gx, H + 0.06, -0.03)); g.add(box(0.56, 0.006, 0.42, std('#3a3634', .5, .3), gx, H + 0.123, -0.03));
+  for (const dx of [-0.13, 0.13]) { const r = new THREE.Mesh(new THREE.TorusGeometry(0.075, 0.008, 5, 18), std('#1c1a18', .5, .6)); r.rotation.x = Math.PI / 2; r.position.set(gx + dx, H + 0.13, -0.05); g.add(r); g.add(cyl(0.035, 0.035, 0.012, std('#2a2826', .4, .6), gx + dx, H + 0.13, -0.05, 14)); g.add(cyl(0.018, 0.018, 0.02, knobM, gx + dx, H + 0.05, 0.19, 10).rotateX(Math.PI / 2)); }
   return fitStyle(g, it);
 }
 
@@ -812,13 +887,29 @@ export const WAFU = {
       { id: 'take', name: '竹', size: [0.25, 0.5, 0.25], words: ['竹の傘立て'], parts: { stand: '#b8a070' } },
     ],
     params: [['umb', '傘をさしておく', 'bool']], build: kasatateBuild },
-  wakomono: { name: '昭和の小物', emoji: '🍵', cat: '和の家具', kind: 'floor', size: [0.32, 0.13, 0.32], range: { w: [0.05, 0.8], h: [0.01, 0.5], d: [0.05, 0.6] }, color: '#5a4a3e', opts: { lift: 0 }, words: ['急須', 'きゅうす', '湯のみ', '湯呑み', '蚊取り線香', '蚊やり', 'うちわ', '新聞の束', '古新聞'],
+  nagashi: { name: '昭和の流し台とガス台', emoji: '🚰', cat: '和の家具', equip: true, kind: 'floor', size: [2.4, 0.85, 0.6], range: { w: [1.2, 3.0], h: [0.8, 0.9], d: [0.5, 0.65] }, color: '#d9cfb4', opts: {}, words: ['流し台', '昭和の台所', 'ガス台', 'ガスコンロ', 'ステンレスの流し'],
+    parts: [{ key: 'door', name: '戸', pal: 'color', def: '#d9cfb4' }, { key: 'top', name: '天板', pal: 'metal', def: 'm_steel' }],
+    styles: [{ id: 'gas', name: '流し+ガス台(2口)', size: [2.4, 0.85, 0.6], words: ['流し台'] }],
+    build: nagashiBuild },
+  wakomono: { name: '昭和の小物', emoji: '🍵', cat: '和の家具', kind: 'floor', size: [0.32, 0.13, 0.32], range: { w: [0.05, 0.8], h: [0.01, 0.5], d: [0.05, 0.6] }, color: '#5a4a3e', opts: { lift: 0 }, words: ['急須', 'きゅうす', '湯のみ', '湯呑み', '蚊取り線香', '蚊やり', 'うちわ', '新聞の束', '古新聞', '電気ポット', 'やかん', '炊飯器', 'ぬか床', '米びつ', 'ざる', '絵はがき', '家計簿', '物差し', '虫眼鏡', '風呂桶', '風呂のふた'],
     parts: [{ key: 'color', name: '色', pal: 'color', def: '#5a4a3e' }],
     styles: [
       { id: 'kyusu', name: '急須と湯のみ(お盆)', size: [0.32, 0.13, 0.32], words: ['急須', 'きゅうす', '湯のみ', '湯呑み'] },
       { id: 'katori', name: '蚊取り線香(豚の蚊やり)', size: [0.2, 0.18, 0.22], words: ['蚊取り線香', '蚊やり'], parts: { color: '#7a6a5a' } },
       { id: 'uchiwa', name: 'うちわ(置いた)', size: [0.24, 0.012, 0.36], words: ['うちわ'] },
       { id: 'shinbun', name: '新聞の束', size: [0.43, 0.19, 0.29], words: ['新聞の束', '古新聞'] },
+      { id: 'pot', name: '電気ポット', size: [0.22, 0.32, 0.27], words: ['電気ポット', 'ポット', '魔法びん'], parts: { color: '#efe9dc' } },
+      { id: 'yakan', name: 'やかん', size: [0.26, 0.24, 0.22], words: ['やかん', '薬缶'], parts: { color: '#c9c6bd' } },
+      { id: 'suihanki', name: '炊飯器(昭和)', size: [0.28, 0.24, 0.34], words: ['炊飯器', 'すいはんき', '炊飯ジャー'], parts: { color: '#ede6d4' } },
+      { id: 'nuka', name: 'ぬか床のかめ', size: [0.3, 0.32, 0.3], words: ['ぬか床', 'ぬかどこ', '漬物のかめ', 'かめ'], parts: { color: '#7a5434' } },
+      { id: 'komebitsu', name: '米びつ', size: [0.32, 0.5, 0.42], words: ['米びつ', 'こめびつ'], parts: { color: '#a07a4e' } },
+      { id: 'zaru', name: 'ざる(野菜)', size: [0.38, 0.12, 0.38], words: ['ざる', '竹ざる', '野菜のざる'], parts: { color: '#c8a868' } },
+      { id: 'hagaki', name: '絵はがき', size: [0.148, 0.004, 0.1], words: ['絵はがき', 'はがき', 'ポストカード'], parts: { color: '#4a7aa0' } },
+      { id: 'kakeibo', name: '家計簿と鉛筆・小刀', size: [0.34, 0.03, 0.24], words: ['家計簿', 'ノートと鉛筆', '鉛筆と小刀'], parts: { color: '#5a6a4a' } },
+      { id: 'monosashi', name: '竹の物差し', size: [0.5, 0.008, 0.03], words: ['物差し', 'ものさし', '竹の物差し', '定規'], parts: { color: '#d8c08a' } },
+      { id: 'mushimegane', name: '虫眼鏡', size: [0.08, 0.014, 0.2], words: ['虫眼鏡', 'ルーペ', 'むしめがね'], parts: { color: '#5a3a24' } },
+      { id: 'oke', name: '風呂桶と風呂椅子', size: [0.55, 0.25, 0.36], words: ['風呂桶', '洗面器', '風呂椅子', '手桶'], parts: { color: '#c9b48a' } },
+      { id: 'futa', name: '風呂のふた(木の板)', size: [0.8, 0.03, 0.72], words: ['風呂のふた', '風呂ふた'], parts: { color: '#c9b48a' } },
     ],
     params: [LIFT], build: wakomonoBuild },
 };
