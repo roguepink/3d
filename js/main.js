@@ -79,7 +79,7 @@ class App {
     $('#mAIHouse').onclick = () => this.openAIHouse();
     $('#ahFiles').onchange = async e => { const fs = [...e.target.files].slice(0, 6); this._ahFiles = []; for (const f of fs) { if (f.type === 'application/pdf') { const d = await new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result); fr.readAsDataURL(f); }); this._ahFiles.push({ dataUrl: d, type: f.type }); } else this._ahFiles.push({ dataUrl: await fileToDataUrl(f, 1568, 0.85), type: 'image/jpeg' }); } $('#ahFileNote').textContent = this._ahFiles.length ? `${this._ahFiles.length}まい付けました` : ''; };
     $('#ahGo').onclick = () => this.runAIHouse();
-    window.addEventListener('hashchange', () => { if (/[#&]p=/.test(location.hash)) this.openFromLink(location.hash); });
+    window.addEventListener('hashchange', () => { if (/[#&][ph]=/.test(location.hash)) this.openFromLink(location.hash); });
     $('#mAI').onclick = () => this.aiSettings();
     $('#mModule').onclick = () => { this.setModule(this.module() === 'shaku' ? 'meter' : 'shaku'); };
     $('#mStorey').onclick = () => { if (!this.project) return; const cur = this.project.settings.storey || 1; const v = prompt('何階に住んでいますか?(1 = 一戸建て・1階。マンションなら 2〜60)', String(cur)); if (v === null) return; const n = Math.max(1, Math.min(60, parseInt(v, 10) || 1)); this.snapshot(); this.project.settings.storey = n; this.s3.setStorey(n); const b = houseBounds(this.project.rooms); this.s3.setSunTarget((b.minX + b.maxX) / 2, (b.minZ + b.maxZ) / 2, Math.max(b.maxX - b.minX, b.maxZ - b.minZ) / 2 + 2); this.touched(); this.updateStoreyLabel(); this.toast(n > 1 ? `${n}階にしました。窓の外が高くなります` : '1階(地面の高さ)にしました'); };
@@ -110,7 +110,7 @@ class App {
     let resume = false; try { resume = sessionStorage.getItem('oheya-resume') === '1'; sessionStorage.removeItem('oheya-resume'); } catch {}
     if (resume) { loadProject('current').then(p => { if (p) { this.load(p); $('#start').classList.add('hidden'); this.toast('新しい版になりました'); } }).catch(() => {}); return; }
     if (location.hash === '#demo') { this.load(demoProject()); $('#start').classList.add('hidden'); }
-    if (/[#&]p=/.test(location.hash)) this.openFromLink(location.hash); }
+    if (/[#&][ph]=/.test(location.hash)) this.openFromLink(location.hash); }
   // リンクで送られてきた家を開く。今の家は「前の家」として保存しておく(消えない)
   async openFromLink(hash) {
     try { const p = await linkToProject(hash); if (!p) return; history.replaceState(null, '', location.pathname);

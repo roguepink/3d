@@ -14,7 +14,11 @@ export async function projectToLink(project, base = location.origin + location.p
   const packed = await pipe(new TextEncoder().encode(json), new CompressionStream('deflate-raw'));
   return base + '#p=' + b64u(packed);
 }
+// 短いリンク:https://roguepink.github.io/3d/#h=<名前>(長いリンクを LINE に貼ると切れるため。家のデータは h/<名前>.json に置く)
+export function isShortLink(hash) { return /[#&]h=[a-z0-9-]+/.test(hash || ''); }
 export async function linkToProject(hash) {
+  const h = /[#&]h=([a-z0-9-]+)/.exec(hash || '');
+  if (h) { const r = await fetch('h/' + h[1] + '.json', { cache: 'no-cache' }); if (!r.ok) throw new Error('家が見つかりません'); const p = await r.json(); if (!p || !Array.isArray(p.rooms)) throw new Error('家のデータではありません'); p.assets = p.assets || {}; p.items = p.items || []; return p; }
   const m = /[#&]p=([A-Za-z0-9_-]+)/.exec(hash || ''); if (!m) return null;
   const raw = await pipe(unb64u(m[1]), new DecompressionStream('deflate-raw'));
   const p = JSON.parse(new TextDecoder().decode(raw)); if (!p || !Array.isArray(p.rooms)) throw new Error('家のデータではありません');
